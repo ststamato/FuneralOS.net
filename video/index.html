@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ΓΡΑΦΕΙΟ ΤΕΛΕΤΩΝ ΣΤΑΥΡΑΚΑΚΗ — Παρουσίαση</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=EB+Garamond:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --gold:#c9a44a;
+    --gold-soft:#d8be7e;
+    --white:#f4f1ea;
+    --black:#000;
+    --fade:1000ms;            /* μετάβαση 1 sec */
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ height:100%; background:var(--black); overflow:hidden; }
+  body{
+    font-family:"Cormorant Garamond","EB Garamond",Georgia,serif;
+    color:var(--white);
+    cursor:none;
+  }
+
+  /* Στάδιο 16:9, πάντα κεντραρισμένο, χωρίς παραμόρφωση */
+  #stage{
+    position:fixed; inset:0;
+    background:var(--black);
+    display:flex; align-items:center; justify-content:center;
+  }
+
+  .scene{
+    position:absolute; inset:0;
+    opacity:0;
+    transition:opacity var(--fade) ease-in-out;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--black);
+  }
+  .scene.show{ opacity:1; }
+
+  /* --- Εικόνες (cross-fade + αργό Ken Burns) --- */
+  .imglayer{ position:absolute; inset:0; overflow:hidden; }
+  .imglayer img{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    object-fit:cover;
+    opacity:0;
+    transition:opacity 900ms ease-in-out;
+    will-change:transform,opacity;
+  }
+  .imglayer img.on{ opacity:1; animation:ken 9s ease-out forwards; }
+  @keyframes ken{
+    from{ transform:scale(1.08) translate(0,0); }
+    to  { transform:scale(1.0)  translate(0,-1.2%); }
+  }
+  /* Σκούρο vignette ώστε να διαβάζονται τα κείμενα */
+  .scrim{
+    position:absolute; inset:0;
+    background:
+      radial-gradient(120% 80% at 50% 38%, rgba(0,0,0,0) 40%, rgba(0,0,0,.55) 100%),
+      linear-gradient(to top, rgba(0,0,0,.72) 0%, rgba(0,0,0,.12) 34%, rgba(0,0,0,0) 55%);
+  }
+  .placeholder{
+    background:
+      radial-gradient(110% 90% at 50% 30%, #161616 0%, #060606 70%, #000 100%);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .placeholder::after{
+    content:attr(data-label);
+    color:#2c2c2c; font-size:2.2vw; letter-spacing:.35em;
+    text-transform:uppercase; text-align:center; padding:0 8%;
+  }
+
+  /* --- Λεζάντες --- */
+  .caption{
+    position:relative; z-index:3;
+    text-align:center; padding:0 8%;
+    transform:translateY(28vh);    /* χαμηλά, κινηματογραφικά */
+  }
+  .caption.center{ transform:none; }
+  .caption .title{
+    font-size:4.2vw; font-weight:500;
+    letter-spacing:.06em; line-height:1.18;
+    text-shadow:0 2px 24px rgba(0,0,0,.85);
+  }
+  .caption .title.big{ font-size:5.4vw; }
+  .rule{
+    width:0; height:1px; margin:2.2vh auto 0;
+    background:linear-gradient(to right,transparent,var(--gold),transparent);
+    transition:width 1400ms ease-out 250ms;
+  }
+  .scene.show .rule{ width:34%; }
+  .caption .sub{
+    margin-top:2.0vh; font-size:2.1vw; font-weight:400;
+    color:var(--gold-soft); letter-spacing:.05em; line-height:1.4;
+    text-shadow:0 2px 18px rgba(0,0,0,.85);
+  }
+
+  /* --- Μαύρες οθόνες κειμένου --- */
+  .blackline{
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    text-align:center; padding:0 10%;
+  }
+  .blackline span{
+    font-size:4.0vw; font-weight:400; letter-spacing:.08em;
+    color:var(--white); line-height:1.35;
+    opacity:0; transition:opacity 1100ms ease-in-out;
+  }
+  .blackline span.on{ opacity:1; }
+  .blackline .accent{ color:var(--gold); }
+
+  /* --- Λίστα αξιών (Decor Hero) --- */
+  .values{
+    list-style:none; margin:1.6vh auto 0; padding:0;
+    display:flex; flex-direction:column; gap:1.0vh;
+  }
+  .values li{
+    font-size:1.9vw; letter-spacing:.22em; text-transform:uppercase;
+    color:var(--gold-soft); opacity:0; transform:translateY(8px);
+    transition:opacity 700ms ease, transform 700ms ease;
+    text-shadow:0 2px 16px rgba(0,0,0,.9);
+  }
+  .scene.show .values li.on{ opacity:1; transform:none; }
+
+  /* --- Τελικό κάδρο (λογότυπο) --- */
+  .finale{ text-align:center; padding:0 8%; }
+  .finale .logo{
+    width:min(34vw,360px); height:auto; margin:0 auto 3vh;
+    display:block; filter:drop-shadow(0 4px 30px rgba(0,0,0,.8));
+    opacity:0; transform:translateY(10px);
+    transition:opacity 1400ms ease, transform 1400ms ease;
+  }
+  .scene.show .finale .logo{ opacity:1; transform:none; }
+  .finale h1{
+    font-size:3.4vw; font-weight:600; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--white);
+  }
+  .finale .tag{
+    margin-top:1.2vh; font-size:2.2vw; font-style:italic;
+    color:var(--gold-soft); letter-spacing:.04em;
+  }
+  .finale .info{
+    margin-top:3.2vh; font-size:1.8vw; line-height:2.0;
+    color:var(--white); letter-spacing:.03em;
+  }
+  .finale .info .g{ color:var(--gold); }
+
+  /* --- Overlay έναρξης ήχου / fallback αυτόματης αναπαραγωγής --- */
+  #start{
+    position:fixed; inset:0; z-index:50; cursor:pointer;
+    background:radial-gradient(circle at 50% 50%, #0a0a0a 0%, #000 75%);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    color:var(--gold); text-align:center; transition:opacity 700ms ease;
+  }
+  #start .play{
+    width:7vw; height:7vw; min-width:64px; min-height:64px;
+    border:1px solid var(--gold); border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:2.6vw; margin-bottom:2.4vh;
+  }
+  #start .lbl{ font-size:1.7vw; letter-spacing:.3em; text-transform:uppercase; }
+  #start.hidden{ opacity:0; pointer-events:none; }
+
+  /* Διακριτικό κουμπί ήχου */
+  #sound{
+    position:fixed; bottom:18px; right:20px; z-index:40;
+    width:42px; height:42px; border-radius:50%;
+    border:1px solid rgba(201,164,74,.5); background:rgba(0,0,0,.4);
+    color:var(--gold); font-size:18px; cursor:pointer; opacity:.0;
+    transition:opacity .4s ease;
+  }
+  body:hover #sound{ opacity:.6; }
+</style>
+</head>
+<body>
+  <div id="stage"></div>
+
+  <div id="start">
+    <div class="play">▶</div>
+    <div class="lbl">Έναρξη παρουσίασης</div>
+  </div>
+  <button id="sound" title="Ήχος on/off">🔊</button>
+
+  <!-- Cinematic ambient piano / strings, πολύ χαμηλά, σε loop.
+       Τοποθετήστε το αρχείο ως assets/audio.mp3 -->
+  <audio id="audio" loop preload="auto">
+    <source src="assets/audio.mp3" type="audio/mpeg">
+  </audio>
+
+<script>
+/* =====================================================================
+   ΓΡΑΦΕΙΟ ΤΕΛΕΤΩΝ ΣΤΑΥΡΑΚΑΚΗ — Κλειδωμένο storyboard (σύνολο 02:50)
+   Κάθε σκηνή: { dur (s), ... }. Οι εικόνες μπαίνουν στον φάκελο assets/.
+   ===================================================================== */
+const A = "assets/";
+const range = (p,n)=>Array.from({length:n},(_,i)=>`${A}${p}-${i+1}.jpg`);
+
+const SCENES = [
+  // 00:00–00:08  Μαύρη οθόνη
+  { type:"black", dur:8, phrases:[
+      {text:"Υπάρχουν στιγμές που δεν χωρούν λόγια."},
+      {text:"Μόνο φροντίδα.", accent:true}
+  ]},
+  // 00:08–00:18  Hero Vase
+  { type:"image", dur:10, images:[A+"hero-vase.jpg"],
+    title:"", sub:"Διακριτική, ολοκληρωμένη υποστήριξη για κάθε τελετή" },
+  // 00:18–00:30  Στολισμένος ναός
+  { type:"image", dur:12, images:[A+"naos.jpg"],
+    title:"Οργάνωση Κηδειών & Μνημοσύνων" },
+  // 00:30–00:42  Πολιτική Αίθουσα (3 φωτογραφίες)
+  { type:"image", dur:12, images:range("politiki",3),
+    title:"Πολιτικές Κηδείες" },
+  // 00:42–00:52  Service-1
+  { type:"image", dur:10, images:[A+"service-1.jpg"],
+    title:"Μεταφορά σορού σε όλη την Ελλάδα" },
+  // 00:52–01:02  Service-2
+  { type:"image", dur:10, images:[A+"service-2.jpg"],
+    title:"Επαναπατρισμός εξωτερικού" },
+  // 01:02–01:14  Ριτσώνα (πιάνο → αίθουσα)
+  { type:"image", dur:12, images:[A+"ritsona-piano.jpg", A+"ritsona-aithousa.jpg"],
+    title:"Αποτέφρωση" },
+  // 01:14–01:34  Decor 1–12
+  { type:"image", dur:20, images:range("decor",12),
+    title:"Ανθοστολισμοί & Στολισμός Τελετής" },
+  // 01:34–01:48  Coffin 1–9
+  { type:"image", dur:14, images:range("coffin",9),
+    title:"Φέρετρα",
+    sub:"Επιλεγμένες προτάσεις υψηλής αισθητικής και ποιότητας κατασκευής." },
+  // 01:48–02:02  Wreath 1–11
+  { type:"image", dur:14, images:range("wreath",11),
+    title:"Στεφάνια",
+    sub:"Ανθοσυνθέσεις που αποπνέουν σεβασμό και ποιότητα." },
+  // 02:02–02:15  Decor Hero + αξίες
+  { type:"image", dur:13, images:[A+"decor-hero.jpg"],
+    title:"Η λεπτομέρεια κάνει τη διαφορά",
+    values:["Διακριτικότητα","Επαγγελματισμός","Αισθητική συνέπεια","Ανθρώπινη προσέγγιση"] },
+  // 02:15–02:25  Μαύρη οθόνη
+  { type:"black", dur:10, phrases:[{text:"Για εμάς, κάθε τελετή είναι μοναδική."}] },
+  // 02:25–02:32  Μαύρη οθόνη
+  { type:"black", dur:7,  phrases:[{text:"Κάθε λεπτομέρεια έχει σημασία."}] },
+  // 02:32–02:40  Μαύρη οθόνη
+  { type:"black", dur:8,  phrases:[{text:"Κάθε οικογένεια αξίζει φροντίδα."}] },
+  // 02:40–02:50  Τελικό κάδρο / Λογότυπο
+  { type:"finale", dur:10 }
+];
+
+/* ---------- Βοηθητικά ---------- */
+const stage = document.getElementById('stage');
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
+function makeImageScene(s){
+  const sc = document.createElement('div');
+  sc.className='scene';
+
+  const layer = document.createElement('div');
+  layer.className='imglayer';
+  const imgs = s.images.map(src=>{
+    const im = document.createElement('img');
+    im.src = src;
+    im.alt = '';
+    im.onerror = ()=>{
+      const ph=document.createElement('div');
+      ph.className='imglayer placeholder';
+      ph.setAttribute('data-label', s.title||s.sub||'ΣΤΑΥΡΑΚΑΚΗ');
+      im.replaceWith(ph);
+    };
+    return im;
+  });
+  imgs.forEach(im=>layer.appendChild(im));
+
+  const scrim = document.createElement('div'); scrim.className='scrim';
+
+  const cap = document.createElement('div'); cap.className='caption';
+  if(s.title){
+    const t=document.createElement('div'); t.className='title'; t.textContent=s.title; cap.appendChild(t);
+    const r=document.createElement('div'); r.className='rule'; cap.appendChild(r);
+  }
+  if(s.sub){
+    const sub=document.createElement('div'); sub.className='sub'; sub.textContent=s.sub; cap.appendChild(sub);
+  }
+  if(s.values){
+    const ul=document.createElement('ul'); ul.className='values';
+    s.values.forEach(v=>{ const li=document.createElement('li'); li.textContent=v; ul.appendChild(li); });
+    cap.appendChild(ul);
+  }
+
+  sc.append(layer,scrim,cap);
+  sc._imgs = imgs; sc._scene = s;
+  return sc;
+}
+
+function makeBlackScene(s){
+  const sc=document.createElement('div'); sc.className='scene';
+  const box=document.createElement('div'); box.className='blackline';
+  const spans=s.phrases.map(p=>{
+    const sp=document.createElement('span');
+    sp.innerHTML = p.accent ? `<span class="accent">${p.text}</span>` : p.text;
+    box.appendChild(sp); return sp;
+  });
+  sc.appendChild(box); sc._spans=spans; sc._scene=s;
+  return sc;
+}
+
+function makeFinale(){
+  const sc=document.createElement('div'); sc.className='scene';
+  sc.innerHTML = `
+    <div class="finale">
+      <img class="logo" src="assets/logo.png" alt="Λογότυπο Σταυρακάκη"
+           onerror="this.replaceWith(buildLogoSVG())">
+      <h1>Γραφείο Τελετών Σταυρακάκη</h1>
+      <div class="tag">μαζί σας με σεβασμό…</div>
+      <div class="info">
+        <span class="g">📍</span> Μεσογείων 325, Χολαργός<br>
+        <span class="g">☎</span> 210 654 2000 &nbsp;•&nbsp; <span class="g">📱</span> 6987 171717<br>
+        <span class="g">🌐</span> www.stavrakaki.gr
+      </div>
+    </div>`;
+  return sc;
+}
+// Εφεδρικό λογότυπο (SVG) αν λείπει το assets/logo.png
+function buildLogoSVG(){
+  const w=document.createElement('div');
+  w.className='logo';
+  w.innerHTML=`<svg viewBox="0 0 120 120" width="100%" xmlns="http://www.w3.org/2000/svg">
+    <rect x="54" y="14" width="12" height="92" fill="#c9a44a"/>
+    <rect x="30" y="40" width="60" height="12" fill="#c9a44a"/>
+    <circle cx="60" cy="60" r="52" fill="none" stroke="#c9a44a" stroke-width="2" opacity=".5"/>
+  </svg>`;
+  return w;
+}
+
+/* ---------- Engine: σειριακή αναπαραγωγή με cross-fade & loop ---------- */
+async function playScene(s){
+  let sc;
+  if(s.type==='image') sc=makeImageScene(s);
+  else if(s.type==='black') sc=makeBlackScene(s);
+  else sc=makeFinale();
+
+  stage.appendChild(sc);
+  void sc.offsetWidth;          // reflow
+  sc.classList.add('show');     // fade-in (1s)
+
+  const durMs = s.dur*1000;
+
+  if(s.type==='image'){
+    const imgs=sc._imgs;
+    const per = durMs/imgs.length;
+    for(let i=0;i<imgs.length;i++){
+      imgs.forEach((im,j)=>im.classList.toggle('on', j===i));
+      if(i===0 && sc.querySelector('.values')){
+        // εμφάνιση αξιών κλιμακωτά
+        sc.querySelectorAll('.values li').forEach((li,k)=>setTimeout(()=>li.classList.add('on'),500+k*400));
+      }
+      await sleep(per);
+    }
+  } else if(s.type==='black'){
+    const spans=sc._spans;
+    const per=durMs/spans.length;
+    for(let i=0;i<spans.length;i++){
+      spans[i].classList.add('on');
+      await sleep(Math.max(per-900,400));
+      if(i<spans.length-1){ spans[i].classList.remove('on'); await sleep(900); }
+    }
+  } else {
+    await sleep(durMs);
+  }
+
+  sc.classList.remove('show');  // fade-out (1s)
+  await sleep(1000);
+  sc.remove();
+}
+
+let running=false;
+async function run(){
+  if(running) return; running=true;
+  while(true){
+    for(const s of SCENES){ await playScene(s); }
+  }
+}
+
+/* ---------- Ήχος / έναρξη ---------- */
+const audio=document.getElementById('audio');
+const startBtn=document.getElementById('start');
+const soundBtn=document.getElementById('sound');
+audio.volume=0.18;            // πολύ χαμηλά
+
+function begin(withSound){
+  startBtn.classList.add('hidden');
+  if(withSound){ audio.play().catch(()=>{}); soundBtn.textContent='🔊'; }
+  run();
+}
+startBtn.addEventListener('click', ()=>begin(true));
+soundBtn.addEventListener('click', e=>{
+  e.stopPropagation();
+  if(audio.paused){ audio.play().catch(()=>{}); soundBtn.textContent='🔊'; }
+  else { audio.pause(); soundBtn.textContent='🔇'; }
+});
+
+// Αν επιτρέπεται autoplay (π.χ. kiosk/TV), ξεκινά μόνο του χωρίς ήχο μετά από 1.2s.
+window.addEventListener('load', ()=>{
+  setTimeout(()=>{ if(!running){ startBtn.classList.add('hidden'); run(); } }, 1200);
+});
+// Πλήρης οθόνη με διπλό κλικ / Enter
+document.addEventListener('keydown', e=>{ if(e.key==='Enter') document.documentElement.requestFullscreen?.(); });
+</script>
+</body>
+</html>
