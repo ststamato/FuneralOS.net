@@ -1,6 +1,6 @@
 // Supabase Edge Function: ai-assistant
-// V41.2.2 — Hermes AI Agent (Groq + Gemini, δωρεάν) για Τελετές Σταυρακάκη
-// (V41.2.2: Groq πρώτο = 100% δωρεάν χωρίς χρέωση. Gemini/agent/τοπικό ως εφεδρεία)
+// V41.2.3 — Hermes AI Agent (Groq + Gemini, δωρεάν) για Τελετές Σταυρακάκη
+// (V41.2.3: μικρότερο payload προς Groq -> δεν χτυπάει το όριο μεγέθους 413)
 // Cloud AI bridge. Υποστηρίζει:
 // - ημερήσια αναφορά
 // - ελεύθερη ερώτηση από το πεδίο "Ρώτα τον AI Βοηθό"
@@ -654,6 +654,50 @@ async function callGeminiAgent(payload: Payload) {
 
 // ΔΩΡΕΑΝ (χωρίς χρέωση/κάρτα): Groq — OpenAI-compatible API, πολύ γρήγορο.
 // Πρώτη επιλογή αν υπάρχει GROQ_API_KEY. Μία κλήση ανά ερώτηση.
+
+// Επιλέγει τις πιο ΣΧΕΤΙΚΕΣ τελετές (επερχόμενες πρώτα, μετά πρόσφατες) και
+// κρατά μικρό payload, ώστε να μη χτυπάμε το όριο μεγέθους (413) της Groq.
+function relevantCeremonies(payload: Payload, limit: number) {
+  const all = Array.isArray(payload.ceremonies) ? payload.ceremonies.slice() : [];
+  const today = String((payload as any).today || new Date().toISOString().slice(0, 10));
+  const upcoming = all
+    .filter((c) => String(c.date || "") >= today)
+    .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")) || String(a.time || "").localeCompare(String(b.time || "")));
+  const past = all
+    .filter((c) => String(c.date || "") < today)
+    .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+  return upcoming.concat(past).slice(0, Math.max(1, limit)).map((c) => ({
+    date: c.date || "", time: c.time || "", name: c.name || "", place: c.place || "",
+    burialType: c.burialType || "", responsible: c.responsible || "",
+    coffin: c.coffin || "", set: c.set || "", pickup: c.pickup || "", coldRoom: c.coldRoom || "",
+    notes: c.notes ? String(c.notes).slice(0, 150) : "",
+  }));
+}
+
+function buildGroqPrompt(payload: Payload) {
+  const question = String(payload.question || "").trim();
+  const limit = Number(Deno.env.get("GROQ_MAX_CEREMONIES")) || 30;
+  const la = (payload.localAnalysis as any) || {};
+  const data = {
+    today: (payload as any).today || "",
+    tomorrow: (payload as any).tomorrow || "",
+    summary: payload.summary || {},
+    ceremonies: relevantCeremonies(payload, limit),
+    warehouseAlerts: Array.isArray(la.warehouseAlerts) ? la.warehouseAlerts.slice(0, 20) : [],
+    notes: Array.isArray(la.notes) ? la.notes.slice(0, 20) : [],
+    missing: Array.isArray(la.errors) ? la.errors.slice(0, 20) : [],
+  };
+  return `
+Είσαι επιχειρησιακός AI βοηθός για ελληνικό γραφείο τελετών.
+Μίλα ελληνικά, πρακτικά και σύντομα.
+ΚΑΝΟΝΑΣ: Οι σημειώσεις κάθε τελετής έχουν μεγαλύτερη προτεραιότητα από όλα τα άλλα πεδία.
+${question ? `Απάντησε συγκεκριμένα στην ερώτηση: ${question}` : "Βγάλε κρίσιμες ενέργειες, ελλείψεις, σημειώσεις, αποθήκη και προτεραιότητες ημέρας."}
+
+Δεδομένα JSON (επιλεγμένες τελετές):
+${JSON.stringify(data)}
+`.trim();
+}
+
 async function callGroq(payload: Payload) {
   const apiKey = Deno.env.get("GROQ_API_KEY");
   if (!apiKey) return null;
@@ -666,7 +710,7 @@ async function callGroq(payload: Payload) {
       model,
       messages: [
         { role: "system", content: SYSTEM_INSTRUCTION },
-        { role: "user", content: buildPrompt(payload) },
+        { role: "user", content: buildGroqPrompt(payload) },
       ],
       temperature: 0.2,
     }),
