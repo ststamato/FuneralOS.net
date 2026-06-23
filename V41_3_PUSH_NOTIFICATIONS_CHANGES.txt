@@ -1,0 +1,32 @@
+V41.3 — Push Notifications (ειδοποίηση με κλειστή εφαρμογή)
+
+Τι προστέθηκε:
+- sw.js (Service Worker) στη ρίζα: λαμβάνει Web Push και ανοίγει την εφαρμογή
+  στο tap. ΧΩΡΙΣ fetch handler -> δεν επηρεάζει φόρτωση/cache.
+- supabase/functions/push_sender/index.ts: το Edge Function που στέλνει push
+  σε όλες τις εγγεγραμμένες συσκευές όταν αλλάζει κάτι.
+
+Πώς δουλεύει (ο client ήταν ήδη έτοιμος):
+- Σε κάθε αλλαγή, το app.js (addChange -> queueEdgePush -> sendEdgePushBatch)
+  στέλνει { app_id, title, body, changes } στο push_sender.
+- Το push_sender διαβάζει τις συνδρομές από app_state.payload.pushSubs και
+  στέλνει Web Push (VAPID) σε κάθε συσκευή.
+- Το sw.js δείχνει την ειδοποίηση ακόμη κι αν η εφαρμογή είναι κλειστή.
+
+Όρια iOS (της Apple, όχι δικά μας):
+- iOS/iPadOS 16.4+ και υποχρεωτικά "Add to Home Screen" (εγκατεστημένη).
+- Κάθε χρήστης πατά μία φορά "🔔 Push" για άδεια.
+- Χρειάζεται HTTPS (το παρέχει το Cloudflare).
+
+Ενεργοποίηση (μία φορά):
+- supabase secrets set VAPID_PUBLIC_KEY=...
+- supabase secrets set VAPID_PRIVATE_KEY=...
+- supabase secrets set VAPID_SUBJECT=mailto:ststamato@gmail.com
+- supabase functions deploy push_sender
+- Ανέβασμα του sw.js στη ρίζα του Cloudflare (δίπλα στο index.html).
+Οδηγίες: supabase/functions/push_sender/DEPLOY_V41_3_PUSH.md
+
+Χρυσοί κανόνες (διατηρούνται):
+- Καμία αλλαγή σε app.js / index.html / styles.css.
+- Δεν αλλάζει/δεν διαγράφει δεδομένα. Read-only ως προς τα δεδομένα τελετών.
+- Αν λείπουν τα κλειδιά, απλώς δεν έρχονται push — τίποτα δεν σπάει.
