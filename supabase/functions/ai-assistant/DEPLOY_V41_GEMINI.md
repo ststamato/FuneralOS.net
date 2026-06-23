@@ -51,3 +51,13 @@ supabase secrets unset GEMINI_API_KEY
 Τα δεδομένα τελετών είναι ευαίσθητα. Το payload που φεύγει είναι ήδη «συμπιεσμένο»
 (compactPayloadForPrompt). Σε επόμενη έκδοση (V41.1) προτείνεται ψευδωνυμοποίηση
 ονομάτων πριν την αποστολή.
+
+---
+
+## V41.2 — Agent Tools (περιλαμβάνεται στο ίδιο αρχείο)
+
+Δεν χρειάζεται ΤΙΠΟΤΑ διαφορετικό στο deploy. Το ίδιο `supabase functions deploy ai-assistant`
+ενεργοποιεί και τον AI Agent με εργαλεία (search/count/warehouse/notes/missing/draft).
+
+Ο agent μπαίνει αυτόματα μόλις υπάρχει `GEMINI_API_KEY`. Αν για κάποιον λόγο
+αποτύχει ο agent loop, πέφτει σε απλό Gemini, μετά OpenAI, μετά τοπικό — χωρίς σφάλμα.

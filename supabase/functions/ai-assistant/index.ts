@@ -1,17 +1,32 @@
 // Supabase Edge Function: ai-assistant
-// V41.0 — Free Brain Swap για Τελετές Σταυρακάκη
+// V41.2 — Hermes AI Agent (Gemini function-calling, δωρεάν) για Τελετές Σταυρακάκη
 // Cloud AI bridge. Υποστηρίζει:
 // - ημερήσια αναφορά
 // - ελεύθερη ερώτηση από το πεδίο "Ρώτα τον AI Βοηθό"
 // - fallback χωρίς πληρωμένο AI key
 //
-// ΑΛΛΑΓΗ V41.0 (100% backward compatible):
-// - Προστέθηκε ΔΩΡΕΑΝ μοντέλο Google Gemini (gemini-2.0-flash) ως πρώτη επιλογή.
-// - Αν υπάρχει GEMINI_API_KEY -> απαντά το Gemini.
-// - Αλλιώς αν υπάρχει OPENAI_API_KEY -> απαντά το OpenAI (όπως πριν).
-// - Αλλιώς -> τοπική λογική (localFallback), όπως πριν.
-// - Το input payload και η απάντηση { ok, answer } ΜΕΝΟΥΝ ΑΚΡΙΒΩΣ ΙΔΙΑ,
-//   ώστε ο client (app.js) να μη χρειάζεται καμία αλλαγή.
+// V41.0 — Free Brain Swap:
+// - Δωρεάν μοντέλο Google Gemini (gemini-2.0-flash) ως πρώτη επιλογή.
+//
+// V41.2 — Agent Tools (ΝΕΟ, 100% backward compatible):
+// - Ο βοηθός γίνεται AGENT: αντί να του στέλνουμε όλα τα δεδομένα ωμά,
+//   του δίνουμε ΕΡΓΑΛΕΙΑ (read-only) και τα καλεί μόνος του όσες φορές χρειαστεί:
+//     search_ceremonies, count_ceremonies, warehouse_alerts,
+//     list_notes, list_missing, draft_supplier_message.
+// - Πλεονεκτήματα: ακριβέστερες απαντήσεις, λιγότερα tokens, λιγότερα
+//   προσωπικά δεδομένα προς το cloud (στέλνονται μόνο όσα ζητά το εργαλείο).
+//
+// Σειρά απάντησης (καμία αλλαγή στον client):
+//   1) GEMINI_API_KEY -> Agent με εργαλεία (Gemini)
+//   2) GEMINI_API_KEY -> απλό Gemini (αν αποτύχει ο agent loop)
+//   3) OPENAI_API_KEY -> OpenAI (όπως πριν)
+//   4) τοπική λογική (localFallback)
+//
+// ΧΡΥΣΟΙ ΚΑΝΟΝΕΣ (διατηρούνται):
+// - Όλα τα εργαλεία είναι READ-ONLY: διαβάζουν, δεν αλλάζουν/δεν στέλνουν τίποτα.
+// - Το draft_supplier_message ΜΟΝΟ ετοιμάζει κείμενο· δεν στέλνει.
+// - Κανένα νέο Supabase query: τα εργαλεία δουλεύουν πάνω στο payload που ήρθε.
+// - Ίδιο input payload, ίδια απάντηση { ok, answer }. Ο client (app.js) δεν αλλάζει.
 // - Καμία κλήση στο μοντέλο δεν ρίχνει 500: αν αποτύχει, γυρνά τοπική απάντηση.
 
 const corsHeaders = {
@@ -379,6 +394,263 @@ ${JSON.stringify(compactPayloadForPrompt(payload), null, 2)}
 const SYSTEM_INSTRUCTION =
   "Απάντα ως αυστηρός αλλά πρακτικός βοηθός γραφείου τελετών. Μην πλατειάζεις.";
 
+// ============================================================================
+// V41.2 — AGENT TOOLS (read-only). Δουλεύουν πάνω στο payload, χωρίς νέα queries.
+// ============================================================================
+
+function addDays(d0: Date, n: number) {
+  const d = new Date(d0);
+  d.setDate(d.getDate() + n);
+  return d;
+}
+
+function byDateTime(a: Record<string, unknown>, b: Record<string, unknown>) {
+  return String(a.date || "").localeCompare(String(b.date || "")) ||
+    String(a.time || "").localeCompare(String(b.time || ""));
+}
+
+// Φιλτράρισμα λίστας τελετών με βάση ρητό χρονικό διάστημα από το εργαλείο.
+function filterTimeframe(list: Array<Record<string, unknown>>, timeframe: unknown, payload: Payload) {
+  const tf = String(timeframe || "all").trim().toLowerCase();
+  if (!tf || tf === "all" || tf === "ολα" || tf === "ολες") return list.slice();
+  const now = new Date();
+  const today = String((payload as any).today || new Date().toISOString().slice(0, 10));
+  const tomorrow = String((payload as any).tomorrow || dateOnly(addDays(new Date(), 1)));
+
+  if (tf === "today" || tf === "σημερα") return list.filter(c => String(c.date || "") === today);
+  if (tf === "tomorrow" || tf === "αυριο") return list.filter(c => String(c.date || "") === tomorrow);
+  if (tf === "week" || tf === "εβδομαδα") {
+    const monday = getMonday(now); const sunday = new Date(monday); sunday.setDate(monday.getDate() + 7);
+    return list.filter(c => { const d = safeDate(c); return d && d >= monday && d < sunday; });
+  }
+  if (tf === "month" || tf === "μηνας") {
+    const y = now.getFullYear(); const m = now.getMonth();
+    return list.filter(c => { const d = safeDate(c); return d && d.getFullYear() === y && d.getMonth() === m; });
+  }
+  if (tf === "year" || tf === "φετος") {
+    const y = now.getFullYear();
+    return list.filter(c => { const d = safeDate(c); return d && d.getFullYear() === y; });
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(tf)) return list.filter(c => String(c.date || "") === tf);
+  if (/^\d{4}$/.test(tf)) { const y = Number(tf); return list.filter(c => { const d = safeDate(c); return d && d.getFullYear() === y; }); }
+  return list.slice();
+}
+
+function compactCeremony(c: Record<string, unknown>) {
+  return {
+    date: c.date || "", time: c.time || "", name: c.name || "",
+    place: c.place || "", pickup: c.pickup || "", coldRoom: c.coldRoom || "",
+    burialType: c.burialType || "", responsible: c.responsible || "",
+    coffin: c.coffin || "", set: c.set || "",
+    notes: c.notes ? String(c.notes).slice(0, 200) : "",
+  };
+}
+
+const COUNT_GETTERS: Record<string, (c: Record<string, unknown>) => unknown> = {
+  responsible: c => c.responsible, pickup: c => c.pickup, place: c => c.place,
+  coldRoom: c => c.coldRoom, coffin: c => c.coffin, set: c => c.set,
+  decor: c => c.decor, burialType: c => c.burialType,
+};
+
+function toolSearchCeremonies(payload: Payload, args: any) {
+  const all = Array.isArray(payload.ceremonies) ? payload.ceremonies : [];
+  let list = filterTimeframe(all, args?.timeframe, payload);
+  const cat = String(args?.category || "all").toLowerCase();
+  if (cat === "cremation") list = list.filter(c => norm(c.burialType).includes("ΑΠΟΤΕΦ"));
+  if (cat === "burial") list = list.filter(c => !norm(c.burialType).includes("ΑΠΟΤΕΦ"));
+  const kw = normSearch(args?.keywords || "").split(" ").filter((x: string) => x.length >= 2);
+  if (kw.length) list = list.filter(c => fieldContainsAllKeywords(ceremonySearchBlob(c), kw));
+  return { count: list.length, items: list.sort(byDateTime).slice(0, 30).map(compactCeremony) };
+}
+
+function toolCountCeremonies(payload: Payload, args: any) {
+  const all = Array.isArray(payload.ceremonies) ? payload.ceremonies : [];
+  const list = filterTimeframe(all, args?.timeframe, payload);
+  const getter = COUNT_GETTERS[String(args?.groupBy || "responsible")] || COUNT_GETTERS.responsible;
+  const groups = groupCounts(list, getter).filter(x => x.label !== "—").slice(0, 30);
+  return { total: list.length, groupBy: args?.groupBy || "responsible", groups };
+}
+
+function toolWarehouseAlerts(payload: Payload) {
+  const wh = Array.isArray((payload.localAnalysis as any)?.warehouseAlerts) ? (payload.localAnalysis as any).warehouseAlerts : [];
+  return { count: wh.length, alerts: wh.slice(0, 40) };
+}
+
+function toolListNotes(payload: Payload, args: any) {
+  const notes = Array.isArray((payload.localAnalysis as any)?.notes) ? (payload.localAnalysis as any).notes : [];
+  const kw = normSearch(args?.keywords || "").split(" ").filter((x: string) => x.length >= 2);
+  const list = kw.length ? notes.filter((n: any) => fieldContainsAllKeywords([n.ceremony, n.notes].join(" "), kw)) : notes;
+  return { count: list.length, notes: list.slice(0, 40) };
+}
+
+function toolListMissing(payload: Payload) {
+  const errors = Array.isArray((payload.localAnalysis as any)?.errors) ? (payload.localAnalysis as any).errors : [];
+  return { count: errors.length, missing: errors.slice(0, 40) };
+}
+
+// READ-ONLY: ετοιμάζει ΜΟΝΟ κείμενο παραγγελίας. Δεν στέλνει τίποτα.
+function toolDraftSupplierMessage(_payload: Payload, args: any) {
+  const item = String(args?.item || "είδος").trim();
+  const qty = (args?.quantity !== undefined && args?.quantity !== null && args?.quantity !== "") ? ` ${args.quantity} τεμ.` : "";
+  const supplier = String(args?.supplier || "").trim();
+  const draft =
+    `Καλημέρα${supplier ? ` ${supplier}` : ""},\n` +
+    `Θα ήθελα να παραγγείλω${qty} ${item}.\n` +
+    `Ευχαριστώ,\nΤελετές Σταυρακάκη`;
+  return { draft, note: "Πρόχειρο μήνυμα μόνο — ΔΕΝ στάλθηκε. Αντιγράψτε και στείλτε χειροκίνητα." };
+}
+
+function runTool(name: string, args: any, payload: Payload) {
+  switch (name) {
+    case "search_ceremonies": return toolSearchCeremonies(payload, args);
+    case "count_ceremonies": return toolCountCeremonies(payload, args);
+    case "warehouse_alerts": return toolWarehouseAlerts(payload);
+    case "list_notes": return toolListNotes(payload, args);
+    case "list_missing": return toolListMissing(payload);
+    case "draft_supplier_message": return toolDraftSupplierMessage(payload, args);
+    default: return { error: `Άγνωστο εργαλείο: ${name}` };
+  }
+}
+
+// Δηλώσεις εργαλείων για το Gemini function-calling (OpenAPI-style schema).
+const TOOL_DECLARATIONS = [
+  {
+    name: "search_ceremonies",
+    description: "Βρίσκει τελετές με βάση λέξεις-κλειδιά (όνομα, νοσοκομείο, τόπος, σημείωση κ.λπ.), χρονικό διάστημα και είδος (ταφή/αποτέφρωση). Επιστρέφει τη λίστα και το πλήθος.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        keywords: { type: "STRING", description: "Λέξεις-κλειδιά αναζήτησης, π.χ. όνομα ή νοσοκομείο. Κενό για όλες." },
+        timeframe: { type: "STRING", description: "Χρονικό διάστημα: today, tomorrow, week, month, year, all, ή ημερομηνία YYYY-MM-DD, ή έτος YYYY." },
+        category: { type: "STRING", description: "all, cremation (αποτέφρωση) ή burial (ταφή)." },
+      },
+    },
+  },
+  {
+    name: "count_ceremonies",
+    description: "Μετράει/ομαδοποιεί τελετές ανά πεδίο (υπεύθυνος, τόπος παραλαβής, τόπος, ψυκτικός θάλαμος, φέρετρο, ΣΕΤ, στολισμός, τύπος ταφής), προαιρετικά για συγκεκριμένο χρονικό διάστημα.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        groupBy: { type: "STRING", description: "Ένα από: responsible, pickup, place, coldRoom, coffin, set, decor, burialType." },
+        timeframe: { type: "STRING", description: "today, tomorrow, week, month, year, all, YYYY-MM-DD ή YYYY." },
+      },
+      required: ["groupBy"],
+    },
+  },
+  {
+    name: "warehouse_alerts",
+    description: "Επιστρέφει τις ειδοποιήσεις χαμηλού αποθέματος της αποθήκης.",
+    parameters: { type: "OBJECT", properties: {} },
+  },
+  {
+    name: "list_notes",
+    description: "Επιστρέφει τις σημαντικές σημειώσεις τελετών (έχουν τη μέγιστη προτεραιότητα), προαιρετικά φιλτραρισμένες με λέξεις-κλειδιά.",
+    parameters: {
+      type: "OBJECT",
+      properties: { keywords: { type: "STRING", description: "Προαιρετικές λέξεις-κλειδιά." } },
+    },
+  },
+  {
+    name: "list_missing",
+    description: "Επιστρέφει τις τελετές που έχουν ελλείψεις/κενά υποχρεωτικά πεδία.",
+    parameters: { type: "OBJECT", properties: {} },
+  },
+  {
+    name: "draft_supplier_message",
+    description: "Ετοιμάζει ΠΡΟΧΕΙΡΟ κείμενο μηνύματος παραγγελίας προς προμηθευτή. ΔΕΝ στέλνει τίποτα — μόνο κείμενο για αντιγραφή.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        item: { type: "STRING", description: "Το είδος προς παραγγελία." },
+        quantity: { type: "INTEGER", description: "Ποσότητα τεμαχίων (προαιρετικό)." },
+        supplier: { type: "STRING", description: "Όνομα προμηθευτή (προαιρετικό)." },
+      },
+      required: ["item"],
+    },
+  },
+];
+
+const SYSTEM_INSTRUCTION_AGENT = [
+  "Είσαι ο Ερμής, επιχειρησιακός AI agent για ελληνικό γραφείο τελετών (Τελετές Σταυρακάκη).",
+  "Μιλάς ελληνικά, πρακτικά και σύντομα. Δεν πλατειάζεις.",
+  "ΚΑΝΟΝΑΣ ΠΡΟΤΕΡΑΙΟΤΗΤΑΣ: οι σημειώσεις κάθε τελετής υπερισχύουν όλων των άλλων πεδίων.",
+  "Χρησιμοποίησε ΠΑΝΤΑ τα εργαλεία για να βρεις πραγματικά στοιχεία· μην εφευρίσκεις δεδομένα.",
+  "Μπορείς να καλέσεις πολλά εργαλεία στη σειρά για να συνδυάσεις πληροφορίες.",
+  "Είσαι READ-ONLY: δεν αλλάζεις, δεν διαγράφεις και δεν στέλνεις τίποτα. Το draft_supplier_message ετοιμάζει μόνο κείμενο για να το στείλει ο χρήστης χειροκίνητα.",
+  "Όταν έχεις αρκετά στοιχεία, δώσε καθαρή τελική απάντηση με προτεραιότητες και, αν χρειάζεται, τι να προσέξει ο χρήστης.",
+].join("\n");
+
+function buildAgentPrompt(payload: Payload) {
+  const question = String(payload.question || "").trim();
+  const summary = payload.summary || {};
+  const total = Array.isArray(payload.ceremonies) ? payload.ceremonies.length : 0;
+  const context = [
+    `Σύνοψη γραφείου: σήμερα ${summary.todayCount ?? "-"} τελετές, αύριο ${summary.tomorrowCount ?? "-"}, εβδομάδα ${summary.weekCount ?? "-"}.`,
+    `Διαθέσιμες τελετές στο σύστημα: ${total}.`,
+    "Έχεις εργαλεία για να ψάξεις/μετρήσεις τελετές, σημειώσεις, ελλείψεις και αποθήκη.",
+  ].join("\n");
+  const task = question
+    ? `Ερώτηση χρήστη: ${question}`
+    : "Δώσε πρωινή σύνοψη: κρίσιμες σημειώσεις, ελλείψεις, αποθήκη και προτεραιότητες ημέρας.";
+  return `${context}\n\n${task}`;
+}
+
+const AGENT_MAX_STEPS = 6;
+
+// V41.2 — Agent loop με Gemini function-calling.
+async function callGeminiAgent(payload: Payload) {
+  const apiKey = Deno.env.get("GEMINI_API_KEY");
+  if (!apiKey) return null;
+
+  const model = Deno.env.get("GEMINI_MODEL") || "gemini-2.0-flash";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  const contents: any[] = [{ role: "user", parts: [{ text: buildAgentPrompt(payload) }] }];
+
+  for (let step = 0; step < AGENT_MAX_STEPS; step++) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: SYSTEM_INSTRUCTION_AGENT }] },
+        contents,
+        tools: [{ function_declarations: TOOL_DECLARATIONS }],
+        tool_config: { function_calling_config: { mode: "AUTO" } },
+        generationConfig: { temperature: 0.2 },
+      }),
+    });
+
+    if (!res.ok) throw new Error(`Gemini agent error ${res.status}`);
+    const data = await res.json();
+    const parts: any[] = data?.candidates?.[0]?.content?.parts || [];
+    const calls = parts.filter((p) => p && p.functionCall);
+
+    if (!calls.length) {
+      const text = parts.map((p) => p?.text || "").join("").trim();
+      return text || null;
+    }
+
+    // Καταγραφή της απάντησης του μοντέλου (τα function calls)
+    contents.push({ role: "model", parts });
+
+    // Εκτέλεση εργαλείων (read-only) και επιστροφή αποτελεσμάτων
+    const responseParts = calls.map((p) => {
+      let result: unknown;
+      try {
+        result = runTool(p.functionCall.name, p.functionCall.args || {}, payload);
+      } catch (e) {
+        result = { error: String((e as any)?.message || e) };
+      }
+      return { functionResponse: { name: p.functionCall.name, response: { result } } };
+    });
+    contents.push({ role: "user", parts: responseParts });
+  }
+
+  // Ξεπεράστηκε το όριο βημάτων -> αφήνουμε το επόμενο μονοπάτι (απλό Gemini) να απαντήσει.
+  return null;
+}
+
 // ΔΩΡΕΑΝ: Google Gemini (gemini-2.0-flash). Πρώτη επιλογή αν υπάρχει key.
 async function callGemini(payload: Payload) {
   const apiKey = Deno.env.get("GEMINI_API_KEY");
@@ -429,10 +701,11 @@ async function callOpenAI(payload: Payload) {
   return data?.choices?.[0]?.message?.content || null;
 }
 
-// Δοκιμάζει με σειρά: Gemini -> OpenAI. Καμία αποτυχία δεν "σκάει":
-// αν όλα αποτύχουν, επιστρέφει null και απαντά ο τοπικός localFallback.
+// Δοκιμάζει με σειρά: Gemini Agent (εργαλεία) -> απλό Gemini -> OpenAI.
+// Καμία αποτυχία δεν "σκάει": αν όλα αποτύχουν, επιστρέφει null και απαντά
+// ο τοπικός localFallback.
 async function callCloudAI(payload: Payload) {
-  for (const provider of [callGemini, callOpenAI]) {
+  for (const provider of [callGeminiAgent, callGemini, callOpenAI]) {
     try {
       const answer = await provider(payload);
       if (answer) return answer;
