@@ -1,5 +1,7 @@
 /* =========================================================
-   Τελετές Σταυρακάκη — V42.1 Office Organizer Pro: ΠΡΟΜΗΘΕΥΤΕΣ
+   Τελετές Σταυρακάκη — V42.2 Office Organizer Pro: ΠΡΟΜΗΘΕΥΤΕΣ
+   (V42.2: ΑΣΦΑΛΗΣ συγχρονισμός — ΕΝΩΝΕΙ τοπικά+cloud, ΠΟΤΕ δεν σβήνει.
+    Διορθώνει το V42.1 που «έκρυβε» τους προμηθευτές.)
    ---------------------------------------------------------
    100% ΠΡΟΣΘΕΤΙΚΟ — δεν αγγίζει καθόλου το app.js.
    Βελτιώσεις σε σχέση με V42:
@@ -30,9 +32,10 @@
       var d = JSON.parse(localStorage.getItem(STORE_KEY) || "{}");
       if (!d || typeof d !== "object") d = {};
       if (!Array.isArray(d.suppliers)) d.suppliers = [];
+      if (!Array.isArray(d.deleted)) d.deleted = [];
       if (typeof d.ts !== "number") d.ts = 0;
       return d;
-    } catch (e) { return { suppliers: [], ts: 0 }; }
+    } catch (e) { return { suppliers: [], deleted: [], ts: 0 }; }
   }
   function persistLocal(d) { try { localStorage.setItem(STORE_KEY, JSON.stringify(d)); } catch (e) {} }
   function saveAll(d) {
@@ -109,15 +112,37 @@
       }).catch(function () {});
     } catch (e) {}
   }
+  // ΑΣΦΑΛΗΣ ΕΝΩΣΗ (union): ποτέ δεν σβήνει προμηθευτή — κρατά όλους από cloud + τοπικά.
+  // Οι διαγραφές περνούν ως "tombstones" (deleted ids) ώστε να μην ξαναεμφανίζονται.
+  function mergeAll(local, cloud) {
+    var delIds = {};
+    (local.deleted || []).forEach(function (id) { delIds[id] = 1; });
+    (cloud.deleted || []).forEach(function (id) { delIds[id] = 1; });
+    var byId = {};
+    (cloud.suppliers || []).forEach(function (s) { if (s && s.id) byId[s.id] = s; });
+    (local.suppliers || []).forEach(function (s) {
+      if (!s || !s.id) return;
+      var c = byId[s.id];
+      if (!c) { byId[s.id] = s; return; }
+      var lt = Number(s._ts || 0), ct = Number(c._ts || 0);
+      if (lt !== ct) byId[s.id] = (lt > ct) ? s : c;
+      else byId[s.id] = ((s.products || []).length >= (c.products || []).length) ? s : c;
+    });
+    var suppliers = Object.keys(byId).filter(function (id) { return !delIds[id]; }).map(function (id) { return byId[id]; });
+    return { suppliers: suppliers, deleted: Object.keys(delIds), ts: Math.max(Number(local.ts || 0), Number(cloud.ts || 0)) };
+  }
+
   function syncFromCloud(thenRender) {
     cloudLoad(function (cloud) {
-      if (cloud && Array.isArray(cloud.suppliers)) {
-        var local = loadAll();
-        if ((cloud.ts || 0) > (local.ts || 0)) {
-          persistLocal(cloud);
-          updateBadge();
-          if (thenRender && isOpen()) render();
-        }
+      var local = loadAll();
+      if (cloud && (Array.isArray(cloud.suppliers) || Array.isArray(cloud.deleted))) {
+        var merged = mergeAll(local, cloud);
+        persistLocal(merged);
+        cloudSave(merged); // ανέβασε το ενοποιημένο ώστε να συγκλίνουν οι συσκευές
+        updateBadge();
+        if (thenRender && isOpen()) render();
+      } else if (local.suppliers && local.suppliers.length) {
+        cloudSave(local); // δεν υπάρχει cloud ακόμη -> κράτα αντίγραφο το τοπικό
       }
     });
   }
@@ -328,8 +353,11 @@
     body.querySelectorAll("[data-del]").forEach(function (b) {
       b.onclick = function () {
         if (!confirm("Διαγραφή προμηθευτή;")) return;
+        var id = b.getAttribute("data-del");
         var db2 = loadAll();
-        db2.suppliers = db2.suppliers.filter(function (x) { return x.id !== b.getAttribute("data-del"); });
+        db2.suppliers = db2.suppliers.filter(function (x) { return x.id !== id; });
+        if (!Array.isArray(db2.deleted)) db2.deleted = [];
+        if (db2.deleted.indexOf(id) === -1) db2.deleted.push(id);
         saveAll(db2); render();
       };
     });
@@ -358,6 +386,7 @@
       rec.email = (document.getElementById("sup42-email").value || "").trim();
       rec.notes = (document.getElementById("sup42-notes").value || "").trim();
       if (!Array.isArray(rec.products)) rec.products = [];
+      rec._ts = Date.now();
       saveAll(db2);
       editingId = rec.id; screen = "products"; render();
     };
@@ -451,6 +480,7 @@
         products.push({ name: nm, source: "custom", manualStock: cur, target: tgt });
       });
       rec.products = products;
+      rec._ts = Date.now();
       saveAll(db2);
       alert("Αποθηκεύτηκαν τα προϊόντα. ✅");
       screen = "orders"; render();
@@ -576,7 +606,7 @@
         if (!confirm("Σήμανση ως παραγγέλθηκε σήμερα;")) return;
         var db2 = loadAll();
         var rec = db2.suppliers.filter(function (x) { return x.id === sid; })[0];
-        if (rec) { rec.lastOrder = { date: todayStr(), items: items }; saveAll(db2); render(); }
+        if (rec) { rec.lastOrder = { date: todayStr(), items: items }; rec._ts = Date.now(); saveAll(db2); render(); }
       };
     });
   }
