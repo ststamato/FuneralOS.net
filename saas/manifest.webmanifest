@@ -1,0 +1,10 @@
+{
+  "name": "FuneralOS",
+  "short_name": "FuneralOS",
+  "start_url": "./app.html",
+  "display": "standalone",
+  "background_color": "#0f1523",
+  "theme_color": "#0f1523",
+  "lang": "el",
+  "description": "Η κάρτα του γραφείου κηδειών"
+}

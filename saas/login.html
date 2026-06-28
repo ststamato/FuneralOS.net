@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FuneralOS — Σύνδεση</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --ink: #0f1523; --ink2: #1e2a42; --gold: #c8a96e; --gold-light: #e8d5b0;
+      --cream: #f5f0e8; --white: #ffffff; --muted: #6b7a99;
+      --border: rgba(255,255,255,.1); --red: #ef4444; --green: #22c55e;
+      --radius: 12px;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--ink); color: var(--white);
+      min-height: 100dvh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; padding: 24px;
+    }
+    .card {
+      width: 100%; max-width: 420px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--border);
+      border-radius: 20px; padding: 40px 32px;
+    }
+    .logo {
+      text-align: center; margin-bottom: 28px;
+      font-size: 22px; font-weight: 900; letter-spacing: -0.5px;
+    }
+    .logo span { color: var(--gold); }
+    .tabs {
+      display: flex; gap: 4px; background: rgba(255,255,255,.06);
+      border-radius: 10px; padding: 4px; margin-bottom: 28px;
+    }
+    .tab {
+      flex: 1; padding: 9px; border-radius: 8px; border: none;
+      font-size: 14px; font-weight: 600; cursor: pointer; transition: all .15s;
+      background: transparent; color: var(--muted);
+    }
+    .tab.active { background: var(--gold); color: var(--ink); }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+    input {
+      width: 100%; padding: 12px 14px;
+      background: rgba(255,255,255,.06); border: 1px solid var(--border);
+      border-radius: var(--radius); color: var(--white); font-size: 15px;
+      outline: none; transition: border-color .15s;
+    }
+    input::placeholder { color: rgba(255,255,255,.25); }
+    input:focus { border-color: var(--gold); }
+    .btn-submit {
+      width: 100%; padding: 14px; background: var(--gold);
+      color: var(--ink); border: none; border-radius: var(--radius);
+      font-size: 15px; font-weight: 800; cursor: pointer;
+      transition: background .15s, transform .15s; margin-top: 8px;
+    }
+    .btn-submit:hover { background: var(--gold-light); transform: translateY(-1px); }
+    .btn-submit:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+    .msg {
+      padding: 12px 14px; border-radius: var(--radius);
+      font-size: 13px; font-weight: 600; margin-bottom: 16px;
+      display: none;
+    }
+    .msg.error { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.3); color: #fca5a5; display: block; }
+    .msg.success { background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.3); color: #86efac; display: block; }
+    .divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+    .back-link { text-align: center; margin-top: 20px; }
+    .back-link a { font-size: 13px; color: var(--muted); text-decoration: none; }
+    .back-link a:hover { color: var(--gold); }
+    .panel { display: none; }
+    .panel.active { display: block; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">Funeral<span>OS</span></div>
+
+  <div class="tabs">
+    <button class="tab active" id="tabLogin" onclick="switchTab('login')">Σύνδεση</button>
+    <button class="tab" id="tabRegister" onclick="switchTab('register')">Εγγραφή</button>
+  </div>
+
+  <!-- LOGIN -->
+  <div class="panel active" id="panelLogin">
+    <div class="msg" id="loginMsg"></div>
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" id="loginEmail" placeholder="name@example.com" autocomplete="email" />
+    </div>
+    <div class="form-group">
+      <label>Κωδικός</label>
+      <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" />
+    </div>
+    <button class="btn-submit" id="loginBtn" onclick="doLogin()">Σύνδεση</button>
+  </div>
+
+  <!-- REGISTER -->
+  <div class="panel" id="panelRegister">
+    <div class="msg" id="registerMsg"></div>
+    <div class="form-group">
+      <label>Όνομα γραφείου</label>
+      <input type="text" id="regOffice" placeholder="π.χ. Γραφείο Τελετών Παπαδόπουλος" />
+    </div>
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" id="regEmail" placeholder="name@example.com" autocomplete="email" />
+    </div>
+    <div class="form-group">
+      <label>Κωδικός (τουλάχιστον 6 χαρακτήρες)</label>
+      <input type="password" id="regPassword" placeholder="••••••••" autocomplete="new-password" />
+    </div>
+    <button class="btn-submit" id="registerBtn" onclick="doRegister()">Δημιουργία λογαριασμού</button>
+  </div>
+
+  <div class="back-link">
+    <a href="index.html">← Επιστροφή στην αρχική</a>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = "https://jciaozbyvdiqfxwlgdql.supabase.co";
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpjaWFvemJ5dmRpcWZ4d2xnZHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxMTE5NjQsImV4cCI6MjA4MDY4Nzk2NH0.eEBYVU1VTU3CZvaSA9fh-LLEbqRPRY9ZpK7P-17kWaA";
+
+  const { createClient } = window.supabase;
+  const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // Read ?tab= from URL
+  const urlTab = new URLSearchParams(location.search).get('tab');
+  if (urlTab === 'register') switchTab('register');
+
+  // If already logged in, go to app
+  sb.auth.getSession().then(({ data: { session } }) => {
+    if (session) window.location.href = './app.html';
+  });
+
+  function switchTab(tab) {
+    document.getElementById('tabLogin').classList.toggle('active', tab === 'login');
+    document.getElementById('tabRegister').classList.toggle('active', tab === 'register');
+    document.getElementById('panelLogin').classList.toggle('active', tab === 'login');
+    document.getElementById('panelRegister').classList.toggle('active', tab === 'register');
+    clearMsg('loginMsg');
+    clearMsg('registerMsg');
+  }
+
+  function showMsg(id, text, type) {
+    const el = document.getElementById(id);
+    el.textContent = text;
+    el.className = 'msg ' + type;
+  }
+  function clearMsg(id) {
+    const el = document.getElementById(id);
+    el.className = 'msg';
+    el.textContent = '';
+  }
+
+  async function doLogin() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    if (!email || !password) { showMsg('loginMsg', 'Συμπλήρωσε email και κωδικό.', 'error'); return; }
+
+    const btn = document.getElementById('loginBtn');
+    btn.disabled = true; btn.textContent = 'Σύνδεση...';
+
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) {
+      showMsg('loginMsg', translateError(error.message), 'error');
+      btn.disabled = false; btn.textContent = 'Σύνδεση';
+    } else {
+      window.location.href = './app.html';
+    }
+  }
+
+  async function doRegister() {
+    const office = document.getElementById('regOffice').value.trim();
+    const email = document.getElementById('regEmail').value.trim();
+    const password = document.getElementById('regPassword').value;
+
+    if (!office) { showMsg('registerMsg', 'Γράψε το όνομα του γραφείου σου.', 'error'); return; }
+    if (!email) { showMsg('registerMsg', 'Συμπλήρωσε email.', 'error'); return; }
+    if (password.length < 6) { showMsg('registerMsg', 'Ο κωδικός χρειάζεται τουλάχιστον 6 χαρακτήρες.', 'error'); return; }
+
+    const btn = document.getElementById('registerBtn');
+    btn.disabled = true; btn.textContent = 'Δημιουργία...';
+
+    const { error } = await sb.auth.signUp({
+      email, password,
+      options: { data: { office_name: office, plan: 'free' } }
+    });
+
+    if (error) {
+      showMsg('registerMsg', translateError(error.message), 'error');
+      btn.disabled = false; btn.textContent = 'Δημιουργία λογαριασμού';
+    } else {
+      showMsg('registerMsg', '✓ Έγινε! Έλεγξε το email σου για επιβεβαίωση και μετά συνδέσου.', 'success');
+      btn.disabled = false; btn.textContent = 'Δημιουργία λογαριασμού';
+    }
+  }
+
+  function translateError(msg) {
+    if (!msg) return 'Κάτι πήγε στραβά.';
+    if (msg.includes('Invalid login')) return 'Λάθος email ή κωδικός.';
+    if (msg.includes('Email not confirmed')) return 'Επιβεβαίωσε πρώτα το email σου.';
+    if (msg.includes('already registered')) return 'Αυτό το email είναι ήδη καταχωρημένο.';
+    if (msg.includes('Password should')) return 'Ο κωδικός χρειάζεται τουλάχιστον 6 χαρακτήρες.';
+    if (msg.includes('Unable to validate')) return 'Μη έγκυρο email.';
+    return msg;
+  }
+
+  // Enter key support
+  document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Enter') return;
+    if (document.getElementById('panelLogin').classList.contains('active')) doLogin();
+    else doRegister();
+  });
+</script>
+</body>
+</html>

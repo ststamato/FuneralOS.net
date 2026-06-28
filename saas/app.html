@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+  <meta charset="UTF-8" />
+  <title>FuneralOS</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#111827" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- AUTH LOADING OVERLAY -->
+  <style>
+    #authOverlay {
+      position: fixed; inset: 0; z-index: 999999;
+      background: #0f1523;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 16px;
+    }
+    #authOverlay .ao-logo {
+      font-size: 24px; font-weight: 900; color: #fff; letter-spacing: -0.5px;
+    }
+    #authOverlay .ao-logo span { color: #c8a96e; }
+    #authOverlay .ao-spin {
+      width: 32px; height: 32px;
+      border: 3px solid rgba(200,169,110,.2);
+      border-top-color: #c8a96e;
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Upgrade modal */
+    #upgradeModal {
+      position: fixed; inset: 0; z-index: 99998;
+      background: rgba(0,0,0,.7);
+      display: none; align-items: center; justify-content: center; padding: 20px;
+    }
+    #upgradeModal.open { display: flex; }
+    .upgrade-box {
+      background: #1e2a42; border: 1px solid rgba(200,169,110,.3);
+      border-radius: 16px; padding: 36px 28px; max-width: 400px; width: 100%;
+      text-align: center;
+    }
+    .upgrade-box .up-icon { font-size: 40px; margin-bottom: 12px; }
+    .upgrade-box h2 { font-size: 20px; font-weight: 800; color: #fff; margin-bottom: 10px; }
+    .upgrade-box p { font-size: 14px; color: #6b7a99; margin-bottom: 24px; line-height: 1.6; }
+    .upgrade-box .up-btn {
+      display: block; width: 100%; padding: 14px;
+      background: #c8a96e; color: #0f1523;
+      border: none; border-radius: 10px; font-size: 15px; font-weight: 800;
+      cursor: pointer; text-decoration: none; margin-bottom: 10px;
+    }
+    .upgrade-box .up-btn:hover { background: #e8d5b0; }
+    .upgrade-box .up-close {
+      background: transparent; border: none; color: #6b7a99;
+      font-size: 13px; cursor: pointer; padding: 8px;
+    }
+    .upgrade-box .up-close:hover { color: #fff; }
+
+    /* User info chip in top bar */
+    .user-chip {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px;
+    }
+    .plan-badge {
+      padding: 2px 8px; border-radius: 100px;
+      font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+    }
+    .plan-badge.free { background: rgba(255,255,255,.1); color: rgba(255,255,255,.6); }
+    .plan-badge.pro { background: rgba(200,169,110,.2); color: #c8a96e; }
+    .logout-btn {
+      background: transparent; border: 1px solid rgba(255,255,255,.15);
+      color: rgba(255,255,255,.6); padding: 4px 10px; border-radius: 6px;
+      font-size: 11px; cursor: pointer; transition: all .15s;
+    }
+    .logout-btn:hover { border-color: rgba(255,255,255,.4); color: #fff; }
+  </style>
+</head>
+<body>
+
+<!-- Auth loading overlay (shown until auth check completes) -->
+<div id="authOverlay">
+  <div class="ao-logo">Funeral<span>OS</span></div>
+  <div class="ao-spin"></div>
+</div>
+
+<!-- Upgrade modal -->
+<div id="upgradeModal">
+  <div class="upgrade-box">
+    <div class="up-icon">🔒</div>
+    <h2 id="upgradeTitle">Αναβάθμιση σε Pro</h2>
+    <p id="upgradeText">Ξεπέρασες το όριο του δωρεάν πλάνου (10 τελετές/μήνα).<br>Αναβάθμισε σε Pro για απεριόριστες τελετές.</p>
+    <a href="https://buy.stripe.com/PLACEHOLDER" target="_blank" class="up-btn" id="upgradeBtn">Αναβάθμιση σε Pro — €39/μήνα →</a>
+    <button class="up-close" onclick="closeUpgradeModal()">Κλείσιμο</button>
+  </div>
+</div>
+
+<div id="app">
+  <header class="top-bar">
+    <div class="brand-pill" id="brandPill">FuneralOS</div>
+    <div class="top-links">
+      <span>Τελετές</span>
+      <span>Αποθήκη</span>
+      <span>Στατιστικά</span>
+      <span>Ιστορικό</span>
+      <span>Ρυθμίσεις</span>
+      <span>Hermes</span>
+    </div>
+    <div class="user-chip">
+      <span class="plan-badge free" id="planBadge">FREE</span>
+      <button class="logout-btn" id="logoutBtn">Έξοδος</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-button active" data-tab="ceremonies">Τελετές</button>
+    <button class="tab-button" data-tab="warehouse">Αποθήκη</button>
+    <button class="tab-button" data-tab="stats">Στατιστικά</button>
+    <button class="tab-button" data-tab="history">Ιστορικό</button>
+    <button class="tab-button" data-tab="settings">Ρυθμίσεις</button>
+    <button class="tab-button" data-tab="hermes">Hermes</button>
+    <button class="new-ceremony" id="newCeremonyBtn">+ Νέα τελετή</button>
+  </nav>
+
+  <section class="home-command-center" id="homeCommandCenter" aria-label="Πίνακας γραφείου">
+    <button type="button" id="aiAssistantBtn" class="ai-assistant-btn hero-ai-btn">🤖 AI Βοηθός</button>
+
+    <div class="hermes-mini-brief" id="hermesMiniBrief">
+      <div class="mini-left">
+        <span>☕ Σήμερα</span>
+        <strong id="miniPriorityText">Έλεγχος ημέρας...</strong>
+      </div>
+      <div class="mini-metrics">
+        <b title="Σήμερα">⚱️ <span id="miniTodayCount">0</span></b>
+        <b title="Αύριο">🕘 <span id="miniTomorrowCount">0</span></b>
+        <b title="Θέλουν ματιά">🔥 <span id="miniIssuesCount">0</span></b>
+        <b class="mini-score" title="Ετοιμότητα" id="miniReadinessScore">100%</b>
+      </div>
+    </div>
+
+    <div class="home-dashboard-grid" id="homeDashboardGrid">
+      <div class="dash-card">
+        <span>ΣΗΜΕΡΑ</span>
+        <strong id="dashTodayCount">0</strong>
+        <small id="dashTodayMeta">τελετές</small>
+      </div>
+      <div class="dash-card">
+        <span>ΑΥΡΙΟ</span>
+        <strong id="dashTomorrowCount">0</strong>
+        <small id="dashTomorrowMeta">τελετές</small>
+      </div>
+      <div class="dash-card">
+        <span>ΑΠΟΤΕΦΡΩΣΕΙΣ</span>
+        <strong id="dashCremationsCount">0</strong>
+        <small>σήμερα</small>
+      </div>
+      <div class="dash-card danger-soft">
+        <span>ΕΚΚΡΕΜΟΤΗΤΕΣ</span>
+        <strong id="dashIssuesCount">0</strong>
+        <small>AI έλεγχος</small>
+      </div>
+    </div>
+
+    <button type="button" class="new-ceremony-hero" id="newCeremonyHeroBtn">+ Νέα Τελετή</button>
+  </section>
+
+  <main>
+    <section id="ceremoniesTab" class="tab active">
+      <div id="ceremoniesList"></div>
+    </section>
+
+    <section id="warehouseTab" class="tab">
+      <h2>Αποθήκη</h2>
+      <div class="warehouse-section">
+        <h3>Φέρετρα</h3>
+        <div class="warehouse-controls"><button id="addCoffinBtn">+ Νέο φέρετρο</button></div>
+        <table class="warehouse-table">
+          <thead><tr><th>Φέρετρο</th><th>Ποσότητα</th><th></th></tr></thead>
+          <tbody id="warehouseBody"></tbody>
+        </table>
+      </div>
+      <div class="warehouse-section">
+        <h3>ΣΕΤ</h3>
+        <div class="warehouse-controls"><button id="addSetBtn">+ Νέο σετ</button></div>
+        <table class="warehouse-table">
+          <thead><tr><th>ΣΕΤ</th><th>Ποσότητα</th><th></th></tr></thead>
+          <tbody id="setsBody"></tbody>
+        </table>
+        <p class="warehouse-hint">Ειδοποίηση παραγγελίας: κάτω από 5 τεμ. (μόνο ΓΚΡΙ & ΛΕΥΚΟ)</p>
+      </div>
+      <div class="warehouse-section options-warehouse">
+        <h3>Αποθήκη Επιλογών</h3>
+        <p class="warehouse-hint">Ξεχωριστή αποθήκη για όλα τα dropdowns.</p>
+        <div class="option-grid">
+          <section class="option-box">
+            <div class="option-head"><h4>Υπεύθυνος τελετής</h4><button type="button" class="add-option-btn" data-list="responsiblePeople">+ Προσθήκη</button></div>
+            <table class="warehouse-table compact-table"><tbody id="responsiblePeopleBody"></tbody></table>
+          </section>
+          <section class="option-box">
+            <div class="option-head"><h4>2ο άτομο βοήθειας</h4><button type="button" class="add-option-btn" data-list="secondPeople">+ Προσθήκη</button></div>
+            <table class="warehouse-table compact-table"><tbody id="secondPeopleBody"></tbody></table>
+          </section>
+          <section class="option-box">
+            <div class="option-head"><h4>2ο άτομο παραλαβής</h4><button type="button" class="add-option-btn" data-list="pickupSecondPeople">+ Προσθήκη</button></div>
+            <table class="warehouse-table compact-table"><tbody id="pickupSecondPeopleBody"></tbody></table>
+          </section>
+          <section class="option-box">
+            <div class="option-head"><h4>Βαλίτσα</h4><button type="button" class="add-option-btn" data-list="suitcasePeople">+ Προσθήκη</button></div>
+            <table class="warehouse-table compact-table"><tbody id="suitcasePeopleBody"></tbody></table>
+          </section>
+          <section class="option-box">
+            <div class="option-head"><h4>Στολισμός</h4><button type="button" class="add-option-btn" data-list="decorators">+ Προσθήκη</button></div>
+            <table class="warehouse-table compact-table"><tbody id="decoratorsBody"></tbody></table>
+          </section>
+          <section class="option-box">
+            <div class="option-head"><h4>Φραγκοφόροι</h4><button type="button" class="add-option-btn" data-list="pallbearersOptions">+ Προσθήκη</button></div>
+            <table class="warehouse-table compact-table"><tbody id="pallbearersOptionsBody"></tbody></table>
+          </section>
+          <section class="option-box">
+            <div class="option-head"><h4>Καφές</h4><button type="button" class="add-option-btn" data-list="coffeeOptions">+ Προσθήκη</button></div>
+            <table class="warehouse-table compact-table"><tbody id="coffeeOptionsBody"></tbody></table>
+          </section>
+          <section class="option-box">
+            <div class="option-head"><h4>Ζώνες τριετίας</h4><button type="button" class="add-option-btn" data-list="graveZones">+ Προσθήκη</button></div>
+            <table class="warehouse-table compact-table"><tbody id="graveZonesBody"></tbody></table>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <section id="statsTab" class="tab">
+      <h2>Στατιστικά</h2>
+      <div id="statsContent">
+        <p>Σύνολο τελετών: <span id="totalCeremonies">0</span></p>
+        <p>Τελετές αυτή την εβδομάδα: <span id="weekCeremonies">0</span></p>
+        <h3 style="font-size:14px;margin-top:12px;">Ανά μήνα</h3>
+        <div id="monthlyStats"></div>
+        <h3 style="font-size:14px;margin-top:14px;">Στατιστικά φερέτρων</h3>
+        <div id="coffinStats"></div>
+        <h3 style="font-size:14px;margin-top:14px;">Στατιστικά στολισμού</h3>
+        <div id="decorStats"></div>
+      </div>
+    </section>
+
+    <section id="historyTab" class="tab">
+      <h2>Ιστορικό τελετών</h2>
+      <div id="historyControls"></div>
+      <div id="historyList"></div>
+    </section>
+
+    <section id="settingsTab" class="tab">
+      <h2>Ρυθμίσεις</h2>
+      <div class="settings-panel">
+        <div class="settings-head">
+          <div>
+            <h3>Πεδία καρτέλας τελετής</h3>
+            <p class="warehouse-hint">Προσθέτεις δικά σου πεδία στην επεξεργασία τελετής.</p>
+          </div>
+          <button type="button" id="addCustomFieldBtn" class="add-option-btn">+ Νέο πεδίο</button>
+        </div>
+        <div class="settings-note">Τα βασικά πεδία μένουν άθικτα. Εδώ προσθέτουμε έξτρα πεδία.</div>
+        <table class="warehouse-table compact-table">
+          <thead><tr><th>Πεδίο</th><th>Τύπος</th><th>Εμφάνιση</th><th></th></tr></thead>
+          <tbody id="customFieldsBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="hermesTab" class="tab">
+      <div class="hermes-panel">
+        <div class="hermes-hero">
+          <div>
+            <p class="hermes-kicker">FUNERAL OFFICE OS</p>
+            <h2>Hermes Center</h2>
+            <p class="hermes-subtitle">Παρατηρεί, θυμάται και προτείνει. Δεν αλλάζει τίποτα χωρίς εσένα.</p>
+          </div>
+          <div class="hermes-status-pill" id="hermesStatusPill">Έλεγχος...</div>
+        </div>
+        <div class="hermes-grid">
+          <div class="hermes-card"><span>ΣΗΜΕΡΑ</span><strong id="hermesTodayCount">0</strong><small>τελετές</small></div>
+          <div class="hermes-card"><span>ΑΥΡΙΟ</span><strong id="hermesTomorrowCount">0</strong><small>τελετές</small></div>
+          <div class="hermes-card warning"><span>ΕΚΚΡΕΜΟΤΗΤΕΣ</span><strong id="hermesIssuesCount">0</strong><small>θέλουν ματιά</small></div>
+          <div class="hermes-card action-card"><span>ΕΝΕΡΓΕΙΕΣ</span><strong id="hermesActionCount">0</strong><small>προτεραιότητες</small></div>
+          <div class="hermes-card"><span>ΜΝΗΜΗ</span><strong id="hermesMemoryCount">0</strong><small>μοτίβα</small></div>
+        </div>
+        <div class="hermes-section completion-center">
+          <h3>🎯 Τι λείπει για το 100%</h3>
+          <div id="hermesCompletionList" class="hermes-list"></div>
+        </div>
+        <div class="hermes-section quick-fix-center">
+          <h3>🚀 Διορθώσεις 30''</h3>
+          <div id="hermesQuickFixList" class="hermes-quick-list"></div>
+        </div>
+        <div class="hermes-section action-center">
+          <h3>🔥 Action Center</h3>
+          <div id="hermesActionList" class="hermes-list"></div>
+        </div>
+        <div class="hermes-section">
+          <h3>Τι χρειάζεται προσοχή</h3>
+          <div id="hermesAlertsList" class="hermes-list"></div>
+        </div>
+        <div class="hermes-section">
+          <h3>Τι παρατηρεί ο Hermes</h3>
+          <div id="hermesNotesList" class="hermes-list"></div>
+        </div>
+        <div class="hermes-section">
+          <h3>Μνήμη γραφείου</h3>
+          <div id="hermesDnaList" class="hermes-list"></div>
+        </div>
+        <div class="hermes-section">
+          <h3>Τελευταίες κινήσεις γραφείου</h3>
+          <div id="hermesEventsList" class="hermes-list"></div>
+        </div>
+        <div class="hermes-section">
+          <h3>Αρχή λειτουργίας</h3>
+          <p class="hermes-rule">Ο Hermes παρατηρεί, θυμάται και προτείνει. Δεν διαγράφει, δεν στέλνει και δεν αλλάζει τίποτα χωρίς επιβεβαίωση.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- MODALS (identical to original) -->
+  <div id="ceremonyModal" class="modal hidden">
+    <div class="modal-content">
+      <h2 id="modalTitle">Νέα τελετή</h2>
+      <form id="ceremonyForm">
+        <div class="form-grid-2">
+          <label>Ημερομηνία<input type="date" id="ceremonyDate" /></label>
+          <label>Ώρα<input type="time" id="ceremonyTime" /></label>
+        </div>
+        <label>Όνομα θανόντα<input type="text" id="deceasedName" /></label>
+        <label>Τοποθεσία τελετής<input type="text" id="ceremonyPlace" placeholder="π.χ. Ι.Ν. Αγ. Νικολάου" /></label>
+        <label>Τρόπος<select id="burialType"><option value="Ταφή">Ταφή</option><option value="Αποτεφρωση">Αποτεφρωση</option></select></label>
+        <div id="cremationBox" class="hint-box hidden">
+          <div class="form-grid-2">
+            <label>Συνοδοί στην ΑΙΘΟΥΣΑ<input type="number" id="cremationEscortCount" min="0" value="0" /></label>
+            <label>Διάβασμα σε ΕΝΟΡΙΑ<input type="text" id="cremationParishNote" placeholder="π.χ. Αγ. Νικόλαος 11:00" /></label>
+          </div>
+          <p class="mini-muted">Με "Αποτεφρωση" δεν ζητάμε τάφο/ζώνη/τριετία.</p>
+        </div>
+        <label>Υπεύθυνος τελετής<select id="responsiblePerson"></select></label>
+        <label>2ο άτομο (βοήθεια)<select id="secondPerson"></select></label>
+        <label>Βαλίτσα<select id="suitcase"></select></label>
+        <label>Φέρετρο<select id="ceremonyCoffin"></select></label>
+        <label>ΣΕΤ<select id="ceremonySet"></select></label>
+        <label>Στεφάνια / Λουλούδια<input type="text" id="ceremonyFlowers" placeholder="π.χ. 2 στεφάνια" /></label>
+        <label>Αγγελτήριο
+          <select id="ceremonyAnnouncementStatus">
+            <option value="Δεν χρειάζεται">Δεν χρειάζεται</option>
+            <option value="Εκκρεμεί">Εκκρεμεί</option>
+            <option value="Ολοκληρώθηκε">Ολοκληρώθηκε</option>
+          </select>
+        </label>
+        <label>Στολισμός<select id="ceremonyDecor"><option value="">-</option></select></label>
+        <label>Λεπτομέρεια στολισμού<input type="text" id="ceremonyDecorNote" placeholder="π.χ. απλό" /></label>
+        <label>Φραγκοφόροι<select id="ceremonyPallbearers"><option value="">-</option></select></label>
+        <label>Καφές<select id="ceremonyCoffee"><option value="">-</option><option value="Ναι">Ναι</option><option value="Όχι">Όχι</option></select></label>
+        <label>Καφές - Τοποθεσία<input type="text" id="ceremonyCoffeePlace" placeholder="π.χ. Αίθουσα" /></label>
+        <label>Παραλαβή<input type="text" id="ceremonyPickup" placeholder="π.χ. Νοσοκομείο / Οικία" /></label>
+        <label>2ο άτομο παραλαβής<select id="pickupSecondPerson"></select></label>
+        <label>Ημερομηνία παραλαβής<input type="date" id="pickupDate" /></label>
+        <label>Ψυκτικός θάλαμος<input type="text" id="ceremonyColdRoom" placeholder="π.χ. Ναι / Όχι / Πού" /></label>
+        <div id="graveBox">
+          <label>Τόπος ταφής</label>
+          <div class="grave-row">
+            <label class="grave-option"><input type="radio" name="graveType" id="graveTypeFamily" value="Οικογενειακός" />Οικογενειακός</label>
+            <label class="grave-option"><input type="radio" name="graveType" id="graveTypeTriennial" value="Τριετία" checked />Τριετία</label>
+          </div>
+          <div class="grave-fields">
+            <input type="text" id="ceremonyGraveNumber" placeholder="Αριθμός τάφου (οικογενειακός)" />
+            <select id="ceremonyGraveZone"><option value="">Ζώνη (τριετία)</option></select>
+          </div>
+        </div>
+        <div id="customFieldsFormBox" class="custom-fields-form-box"></div>
+        <label>Σημειώσεις<textarea id="ceremonyNotes" rows="2" placeholder="Οτιδήποτε σημαντικό..."></textarea></label>
+        <div class="modal-actions">
+          <button type="button" id="cancelModalBtn">Άκυρο</button>
+          <button type="submit" id="saveCeremonyBtn">Αποθήκευση</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="warehouseModal" class="modal hidden">
+    <div class="modal-content">
+      <h2 id="warehouseModalTitle">Νέο φέρετρο</h2>
+      <form id="warehouseForm">
+        <label>Όνομα<input type="text" id="warehouseName" required /></label>
+        <div class="form-grid-2"><label>Ποσότητα<input type="number" id="warehouseQty" min="0" value="0" /></label></div>
+        <div class="modal-actions">
+          <button type="button" id="cancelWarehouseBtn">Άκυρο</button>
+          <button type="submit" id="saveWarehouseBtn">Αποθήκευση</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="setModal" class="modal hidden">
+    <div class="modal-content">
+      <h2 id="setModalTitle">Νέο σετ</h2>
+      <form id="setForm">
+        <label>ΣΕΤ<input type="text" id="setName" required /></label>
+        <div class="form-grid-2"><label>Ποσότητα<input type="number" id="setQty" min="0" value="0" /></label></div>
+        <div class="modal-actions">
+          <button type="button" id="cancelSetBtn">Άκυρο</button>
+          <button type="submit" id="saveSetBtn">Αποθήκευση</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="secondHelperModal" class="modal hidden">
+    <div class="modal-content">
+      <h2 id="secondHelperModalTitle">Νέο άτομο βοήθειας</h2>
+      <form id="secondHelperForm">
+        <label>Όνομα<input type="text" id="secondHelperName" required /></label>
+        <div class="modal-actions">
+          <button type="button" id="cancelSecondHelperBtn">Άκυρο</button>
+          <button type="submit" id="saveSecondHelperBtn">Αποθήκευση</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="customFieldModal" class="modal hidden">
+    <div class="modal-content">
+      <h2 id="customFieldModalTitle">Νέο πεδίο</h2>
+      <form id="customFieldForm">
+        <label>Όνομα πεδίου<input type="text" id="customFieldLabel" placeholder="π.χ. Οικονομική εκκρεμότητα" required /></label>
+        <div class="form-grid-2">
+          <label>Τύπος πεδίου
+            <select id="customFieldType">
+              <option value="text">Κείμενο</option>
+              <option value="textarea">Μεγάλο κείμενο</option>
+              <option value="select">Λίστα επιλογών</option>
+              <option value="yesno">Ναι / Όχι</option>
+              <option value="date">Ημερομηνία</option>
+              <option value="time">Ώρα</option>
+              <option value="number">Αριθμός</option>
+            </select>
+          </label>
+          <label>Placeholder<input type="text" id="customFieldPlaceholder" placeholder="προαιρετικό" /></label>
+        </div>
+        <label>Επιλογές λίστας<textarea id="customFieldOptions" rows="3" placeholder="Μία επιλογή ανά γραμμή."></textarea></label>
+        <div class="custom-field-checks">
+          <label class="grave-option"><input type="checkbox" id="customFieldRequired" /> Υποχρεωτικό</label>
+          <label class="grave-option"><input type="checkbox" id="customFieldShowCard" checked /> Εμφάνιση στην κάρτα</label>
+          <label class="grave-option"><input type="checkbox" id="customFieldShowShare" checked /> Εμφάνιση σε WhatsApp/Share</label>
+        </div>
+        <div class="modal-actions">
+          <button type="button" id="cancelCustomFieldBtn">Άκυρο</button>
+          <button type="submit" id="saveCustomFieldBtn">Αποθήκευση</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="aiAssistantModal" class="modal hidden">
+    <div class="modal-content ai-modal-content">
+      <div class="ai-modal-head">
+        <div>
+          <h2>AI Βοηθός</h2>
+          <p>Τοπικός έλεγχος + Cloud AI γέφυρα</p>
+        </div>
+        <button type="button" id="aiCloseBtn" class="ai-x-btn">×</button>
+      </div>
+      <div class="ai-actions">
+        <button type="button" id="aiBriefingBtn">Ημερήσιο Briefing</button>
+        <button type="button" id="aiNotesBtn">Σημειώσεις</button>
+        <button type="button" id="aiErrorsBtn">Ελλείψεις</button>
+        <button type="button" id="aiWarehouseBtn">Αποθήκη</button>
+        <button type="button" id="aiFullBtn">Πλήρης Έλεγχος</button>
+        <button type="button" id="aiCloudBtn" class="ai-cloud-btn">Cloud AI</button>
+      </div>
+      <div class="ai-question-box">
+        <label for="aiQuestionInput">Ρώτα τον AI Βοηθό</label>
+        <div class="ai-question-row">
+          <textarea id="aiQuestionInput" rows="2" placeholder="π.χ. Τι πρέπει να προσέξω αύριο;"></textarea>
+          <button type="button" id="aiAskBtn">Ρώτα</button>
+        </div>
+      </div>
+      <div id="aiAssistantOutput" class="ai-output">
+        <div class="ai-empty">Πάτησε έναν έλεγχο για να ξεκινήσει ο βοηθός.</div>
+      </div>
+      <div class="ai-modal-actions">
+        <button type="button" id="aiCopyBtn">Αντιγραφή αναφοράς</button>
+        <button type="button" id="aiRefreshBtn">Ανανέωση</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="bottom-bar">
+    FuneralOS · Cloud sync (Supabase) + τοπικό backup
+  </footer>
+</div>
+
+<!-- SUPABASE CLIENT (must load before freemium.js) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!-- FREEMIUM AUTH GUARD -->
+<script src="freemium.js"></script>
+
+<!-- APP -->
+<script src="app.js"></script>
+<script src="suppliers.js"></script>
+
+</body>
+</html>
