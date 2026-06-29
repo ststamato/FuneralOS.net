@@ -817,10 +817,22 @@ function closeUpdatesModal() {
 }
 
 // ---------------- Cloud load/save ----------------
+async function getCloudSession() {
+  try {
+    if (window.__sb) {
+      const { data: { session } } = await window.__sb.auth.getSession();
+      if (session?.user?.id) return { rowId: session.user.id, token: session.access_token };
+    }
+  } catch {}
+  return null;
+}
+
 async function cloudLoadData() {
   const base = `${SUPABASE_URL}/rest/v1`;
-  const res = await fetch(`${base}/app_state?id=eq.main&select=payload`, {
-    headers: supabaseHeaders()
+  const session = await getCloudSession();
+  if (!session) throw new Error("No authenticated user for cloud load");
+  const res = await fetch(`${base}/app_state?id=eq.${session.rowId}&select=payload`, {
+    headers: { ...supabaseHeaders(), Authorization: `Bearer ${session.token}` }
   });
   if (!res.ok) throw new Error("Failed to load app_state from cloud");
   const rows = await res.json();
@@ -842,12 +854,14 @@ async function cloudLoadData() {
 
 async function cloudSaveAll() {
   const base = `${SUPABASE_URL}/rest/v1`;
+  const session = await getCloudSession();
+  if (!session) { console.error("No authenticated user for cloud save"); return; }
   const payload = { ceremonies, warehouse, setsWarehouse, secondHelpers, optionWarehouse, changeLog, pushSubs, aiSeenNotes, aiSeenAlerts, aiChatHistory, customFields };
   try {
     await fetch(`${base}/app_state`, {
       method: "POST",
-      headers: supabaseHeaders({ Prefer: "resolution=merge-duplicates" }),
-      body: JSON.stringify([{ id: "main", payload }])
+      headers: { ...supabaseHeaders({ Prefer: "resolution=merge-duplicates" }), Authorization: `Bearer ${session.token}` },
+      body: JSON.stringify([{ id: session.rowId, payload }])
     });
   } catch (e) {
     console.error("Cloud save failed", e);
