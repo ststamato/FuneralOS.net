@@ -44,6 +44,18 @@
       window.__authPlan = isOwner ? "pro" : (user.user_metadata?.plan || "free");
       window.__authOfficeName = user.user_metadata?.office_name || user.email || "Γραφείο";
 
+      // Clear localStorage if a different user logs in on the same device
+      const storedId = localStorage.getItem("__funeralos_uid");
+      if (storedId && storedId !== user.id) {
+        ["staurakaki_ceremonies_v8","staurakaki_warehouse_v8","staurakaki_sets_v8",
+         "staurakaki_changes_v8","staurakaki_option_warehouse_v2","staurakaki_custom_fields_v36",
+         "staurakaki_ai_seen_notes_v1","staurakaki_ai_seen_alerts_v1",
+         "staurakaki_ai_chat_history_v1","staurakaki_second_helpers_v1",
+         "staurakaki_push_sub_v1","staurakaki_backup_v8"
+        ].forEach(k => localStorage.removeItem(k));
+      }
+      localStorage.setItem("__funeralos_uid", user.id);
+
       applyUserUI(user);
       document.getElementById("authOverlay").style.display = "none";
       installFeatureGates();
