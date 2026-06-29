@@ -42,6 +42,9 @@
     .lang-app a:hover { color: #fff; background: rgba(255,255,255,.06); }
     .lang-app span { color: #c8a96e; background: rgba(200,169,110,.1); }
     .lang-app-sep { color: rgba(255,255,255,.15); padding: 0 !important; }
+    /* Hide Greek-only features in EN app */
+    #v38SearchTrigger { display: none !important; }
+    #sup42-openBtn { display: none !important; }
   </style>
 </head>
 <body>
@@ -142,6 +145,12 @@
           <tbody id="setsBody"></tbody>
         </table>
         <p class="warehouse-hint">Order alert: below 5 units (GREY & WHITE only)</p>
+      </div>
+      <div class="warehouse-section" id="suppliersSection">
+        <h3>Suppliers</h3>
+        <p class="warehouse-hint">Add your suppliers and the materials they provide.</p>
+        <div class="warehouse-controls"><button id="addSupplierBtn">+ Add supplier</button></div>
+        <div id="suppliersList"></div>
       </div>
       <div class="warehouse-section options-warehouse">
         <h3>Options Inventory</h3>
@@ -468,7 +477,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="freemium.js"></script>
 <script src="../app.js"></script>
-<script src="../suppliers.js"></script>
+<script src="suppliers.js"></script>
 
 </body>
 </html>
