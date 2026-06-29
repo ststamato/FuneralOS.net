@@ -1416,6 +1416,7 @@ function openCeremonyModal(id = null) {
     });
     if (!c.coffin && warehouse[0]?.name) selectCoffin.value = warehouse[0].name;
   }
+  setVal("ceremonySheet", c.sheet || "");
 
   const setSel = $("ceremonySet");
   if (setSel) {
@@ -1493,6 +1494,7 @@ function saveCeremony(e) {
     suitcase: val("suitcase") || "-",
 
     coffin: val("ceremonyCoffin") || "",
+    sheet: val("ceremonySheet").trim(),
     set: normalizeSetName(val("ceremonySet") || ""),
     flowers: val("ceremonyFlowers").trim(),
     announcementStatus: val("ceremonyAnnouncementStatus") || "Δεν χρειάζεται",
@@ -4436,6 +4438,7 @@ function openCeremonyModal(id = null) {
       selectCoffin.appendChild(opt);
     });
   }
+  setVal("ceremonySheet", c.sheet || "");
 
   const setSel = $("ceremonySet");
   if (setSel) {
@@ -4784,6 +4787,7 @@ function openCeremonyModal(id = null) {
       selectCoffin.appendChild(opt);
     });
   }
+  setVal("ceremonySheet", c.sheet || "");
   const setSel = $("ceremonySet");
   if (setSel) {
     setSel.innerHTML = "";
@@ -4830,7 +4834,7 @@ function saveCeremony(e) {
     cremationParishNote: val("cremationParishNote").trim(),
     responsible: val("responsiblePerson") || "-", secondPerson: val("secondPerson") || "Κανένας",
     pickupSecondPerson: val("pickupSecondPerson") || "", suitcase: val("suitcase") || "-",
-    coffin: val("ceremonyCoffin") || "", set: normalizeSetName(val("ceremonySet") || ""),
+    coffin: val("ceremonyCoffin") || "", sheet: val("ceremonySheet").trim(), set: normalizeSetName(val("ceremonySet") || ""),
     flowers: val("ceremonyFlowers").trim(), announcementStatus: val("ceremonyAnnouncementStatus") || "Δεν χρειάζεται", decor: val("ceremonyDecor") || "", decorNote: val("ceremonyDecorNote").trim(),
     pallbearers: val("ceremonyPallbearers") || "", coffee: val("ceremonyCoffee") || "", coffeePlace: val("ceremonyCoffeePlace").trim(),
     pickup: val("ceremonyPickup").trim(), pickupDate: val("pickupDate") || "", coldRoom: val("ceremonyColdRoom").trim(),

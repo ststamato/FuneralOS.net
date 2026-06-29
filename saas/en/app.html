@@ -205,6 +205,15 @@
 
     <section id="settingsTab" class="tab">
       <h2>Settings</h2>
+      <div class="settings-panel" id="optionalFieldsPanel" style="display:none;">
+        <div class="settings-head">
+          <div>
+            <h3>Optional ceremony fields <span style="background:#c8a96e;color:#0f1523;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-left:4px;vertical-align:middle;">PRO</span></h3>
+            <p class="warehouse-hint">Toggle which extra fields appear in the ceremony form.</p>
+          </div>
+        </div>
+        <div id="optFieldsToggleList" class="opt-fields-toggle-list"></div>
+      </div>
       <div class="settings-panel">
         <div class="settings-head">
           <div>
@@ -282,44 +291,55 @@
             <option value="Αποτεφρωση">Cremation</option>
           </select>
         </label>
-        <div id="cremationBox" class="hint-box hidden">
-          <div class="form-grid-2">
-            <label>Attendees at crematorium<input type="number" id="cremationEscortCount" min="0" value="0" /></label>
-            <label>Church service before<input type="text" id="cremationParishNote" placeholder="e.g. St Nicholas 11:00" /></label>
+        <div class="opt-field" data-opt="cremation">
+          <div id="cremationBox" class="hint-box hidden">
+            <div class="form-grid-2">
+              <label>Attendees at crematorium<input type="number" id="cremationEscortCount" min="0" value="0" /></label>
+              <label>Church service before<input type="text" id="cremationParishNote" placeholder="e.g. St Nicholas 11:00" /></label>
+            </div>
+            <p class="mini-muted">Cremation: no grave / zone / plot needed.</p>
           </div>
-          <p class="mini-muted">Cremation: no grave / zone / plot needed.</p>
         </div>
         <label>Ceremony coordinator<select id="responsiblePerson"></select></label>
-        <label>2nd assistant<select id="secondPerson"></select></label>
-        <label>Luggage<select id="suitcase"></select></label>
+        <div class="opt-field" data-opt="secondPerson"><label>2nd assistant<select id="secondPerson"></select></label></div>
+        <div class="opt-field" data-opt="suitcase"><label>Luggage<select id="suitcase"></select></label></div>
         <label>Coffin<select id="ceremonyCoffin"></select></label>
-        <label>Burial set<select id="ceremonySet"></select></label>
-        <label>Flowers / Wreaths<input type="text" id="ceremonyFlowers" placeholder="e.g. 2 wreaths, 1 bouquet" /></label>
-        <label>Obituary
-          <select id="ceremonyAnnouncementStatus">
-            <option value="Δεν χρειάζεται">Not needed</option>
-            <option value="Εκκρεμεί">Pending</option>
-            <option value="Ολοκληρώθηκε">Completed</option>
-          </select>
-        </label>
-        <label>Decoration<select id="ceremonyDecor"><option value="">-</option></select></label>
-        <label>Decoration notes<input type="text" id="ceremonyDecorNote" placeholder="e.g. simple / additional..." /></label>
-        <label>Pallbearers<select id="ceremonyPallbearers"><option value="">-</option></select></label>
-        <label>Wake / Reception<select id="ceremonyCoffee"><option value="">-</option><option value="Ναι">Yes</option><option value="Όχι">No</option></select></label>
-        <label>Reception location<input type="text" id="ceremonyCoffeePlace" placeholder="e.g. Hall / Café near church" /></label>
+        <label>Shroud<input type="text" id="ceremonySheet" placeholder="e.g. white cotton" /></label>
+        <div class="opt-field" data-opt="set"><label>Burial set<select id="ceremonySet"></select></label></div>
+        <div class="opt-field" data-opt="flowers"><label>Flowers / Wreaths<input type="text" id="ceremonyFlowers" placeholder="e.g. 2 wreaths, 1 bouquet" /></label></div>
+        <div class="opt-field" data-opt="announcement">
+          <label>Obituary
+            <select id="ceremonyAnnouncementStatus">
+              <option value="Δεν χρειάζεται">Not needed</option>
+              <option value="Εκκρεμεί">Pending</option>
+              <option value="Ολοκληρώθηκε">Completed</option>
+            </select>
+          </label>
+        </div>
+        <div class="opt-field" data-opt="decor">
+          <label>Decoration<select id="ceremonyDecor"><option value="">-</option></select></label>
+          <label>Decoration notes<input type="text" id="ceremonyDecorNote" placeholder="e.g. simple / additional..." /></label>
+        </div>
+        <div class="opt-field" data-opt="pallbearers"><label>Pallbearers<select id="ceremonyPallbearers"><option value="">-</option></select></label></div>
+        <div class="opt-field" data-opt="coffee">
+          <label>Wake / Reception<select id="ceremonyCoffee"><option value="">-</option><option value="Ναι">Yes</option><option value="Όχι">No</option></select></label>
+          <label>Reception location<input type="text" id="ceremonyCoffeePlace" placeholder="e.g. Hall / Café near church" /></label>
+        </div>
         <label>Pickup from<input type="text" id="ceremonyPickup" placeholder="e.g. Hospital / Home / Care home" /></label>
-        <label>2nd pickup person<select id="pickupSecondPerson"></select></label>
+        <div class="opt-field" data-opt="pickupSecond"><label>2nd pickup person<select id="pickupSecondPerson"></select></label></div>
         <label>Pickup date<input type="date" id="pickupDate" /></label>
-        <label>Cold storage<input type="text" id="ceremonyColdRoom" placeholder="e.g. Yes / No / Where" /></label>
-        <div id="graveBox">
-          <label>Grave type</label>
-          <div class="grave-row">
-            <label class="grave-option"><input type="radio" name="graveType" id="graveTypeFamily" value="Οικογενειακός" />Family plot</label>
-            <label class="grave-option"><input type="radio" name="graveType" id="graveTypeTriennial" value="Τριετία" checked />3-year plot</label>
-          </div>
-          <div class="grave-fields">
-            <input type="text" id="ceremonyGraveNumber" placeholder="Grave number (family plot)" />
-            <select id="ceremonyGraveZone"><option value="">Zone (3-year plot)</option></select>
+        <div class="opt-field" data-opt="coldRoom"><label>Cold storage<input type="text" id="ceremonyColdRoom" placeholder="e.g. Yes / No / Where" /></label></div>
+        <div class="opt-field" data-opt="grave">
+          <div id="graveBox">
+            <label>Grave type</label>
+            <div class="grave-row">
+              <label class="grave-option"><input type="radio" name="graveType" id="graveTypeFamily" value="Οικογενειακός" />Family plot</label>
+              <label class="grave-option"><input type="radio" name="graveType" id="graveTypeTriennial" value="Τριετία" checked />3-year plot</label>
+            </div>
+            <div class="grave-fields">
+              <input type="text" id="ceremonyGraveNumber" placeholder="Grave number (family plot)" />
+              <select id="ceremonyGraveZone"><option value="">Zone (3-year plot)</option></select>
+            </div>
           </div>
         </div>
         <div id="customFieldsFormBox" class="custom-fields-form-box"></div>
