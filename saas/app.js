@@ -72,6 +72,9 @@ const esc = (s) =>
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 
+// Returns `en` string when running in English app, `gr` otherwise.
+function t(gr, en) { return window.__appLang === "en" ? en : gr; }
+
 // ---------------- Dropdown επιλογές ----------------
 const RESPONSIBLE_OPTIONS = ["-", "Τζίμης", "Σταύρος", "Βασίλης", "Χάρης", "Άλλος"];
 const DEFAULT_SECOND_HELPERS = ["Κανένας", "Βασίλης", "Χάρης", "Άλλος"];
@@ -87,6 +90,17 @@ const DEFAULT_OPTIONS = {
   pallbearersOptions: ["-", "4άδα", "6άδα", "8άδα", "10άδα", "12άδα", "Χωρίς φραγκοφόρους", "Άλλο"],
   coffeeOptions: ["-", "Ναι", "Όχι", "Άλλο"],
   graveZones: ["", "Α", "Β", "Γ"]
+};
+
+const DEFAULT_OPTIONS_EN = {
+  responsiblePeople: ["-", "Other"],
+  secondPeople: ["None", "Other"],
+  pickupSecondPeople: ["", "Other"],
+  suitcasePeople: ["-", "Other"],
+  decorators: ["-", "None", "Other"],
+  pallbearersOptions: ["-", "4 pallbearers", "6 pallbearers", "8 pallbearers", "10 pallbearers", "12 pallbearers", "No pallbearers", "Other"],
+  coffeeOptions: ["-", "Yes", "No", "Other"],
+  graveZones: ["", "A", "B", "C"]
 };
 
 const OPTION_LISTS = [
@@ -915,7 +929,10 @@ function ensureOptionWarehouse() {
 
   const migratedSecondHelpers = normalizeSecondHelpersList(secondHelpers || []);
 
-  const migration = {
+  const isEN = window.__appLang === "en";
+  const baseDefaults = isEN ? DEFAULT_OPTIONS_EN : DEFAULT_OPTIONS;
+
+  const migration = isEN ? baseDefaults : {
     responsiblePeople: RESPONSIBLE_OPTIONS,
     secondPeople: migratedSecondHelpers.length ? migratedSecondHelpers : DEFAULT_OPTIONS.secondPeople,
     pickupSecondPeople: migratedSecondHelpers.length ? ["", ...migratedSecondHelpers.filter(x => normalizeTextKey(x) !== normalizeTextKey("Κανένας"))] : DEFAULT_OPTIONS.pickupSecondPeople,
@@ -926,12 +943,12 @@ function ensureOptionWarehouse() {
     graveZones: DEFAULT_OPTIONS.graveZones
   };
 
-  for (const key of Object.keys(DEFAULT_OPTIONS)) {
+  for (const key of Object.keys(baseDefaults)) {
     const current = Array.isArray(optionWarehouse[key]) ? optionWarehouse[key] : [];
-    optionWarehouse[key] = dedupeTextArray([...(migration[key] || []), ...DEFAULT_OPTIONS[key], ...current]);
+    optionWarehouse[key] = dedupeTextArray([...(migration[key] || []), ...baseDefaults[key], ...current]);
   }
 
-  secondHelpers = normalizeSecondHelpersList(optionWarehouse.secondPeople || DEFAULT_OPTIONS.secondPeople);
+  secondHelpers = normalizeSecondHelpersList(optionWarehouse.secondPeople || baseDefaults.secondPeople);
 }
 
 function getOptions(key) {
@@ -981,7 +998,7 @@ function deleteOption(key, idx) {
   ensureOptionWarehouse();
   const label = optionLabelForPrompt(key);
   const oldValue = optionWarehouse[key][idx] ?? "";
-  if (!confirm(`Διαγραφή επιλογής "${oldValue || "κενή επιλογή"}" από ${label};`)) return;
+  if (!confirm(t(`Διαγραφή επιλογής "${oldValue || "κενή επιλογή"}" από ${label};`, `Delete option "${oldValue || "empty"}" from ${label}?`))) return;
   optionWarehouse[key].splice(idx, 1);
   clearCeremonyOptionReferences(key, oldValue);
   if (key === "secondPeople") secondHelpers = normalizeSecondHelpersList(optionWarehouse[key]);
@@ -1110,30 +1127,32 @@ async function loadData() {
     customValues: c.customValues && typeof c.customValues === "object" ? c.customValues : {}
   }));
 
-  if (!Array.isArray(warehouse) || warehouse.length === 0) {
-    warehouse = COFFINS.map((name) => ({ name, qty: 0 }));
-  } else {
-    const existing = new Set(warehouse.map(w => String(w.name || "").trim()));
-    for (const name of COFFINS) {
-      if (!existing.has(name)) warehouse.push({ name, qty: 0 });
+  if (window.__appLang !== "en") {
+    if (!Array.isArray(warehouse) || warehouse.length === 0) {
+      warehouse = COFFINS.map((name) => ({ name, qty: 0 }));
+    } else {
+      const existing = new Set(warehouse.map(w => String(w.name || "").trim()));
+      for (const name of COFFINS) {
+        if (!existing.has(name)) warehouse.push({ name, qty: 0 });
+      }
     }
+  } else if (!Array.isArray(warehouse)) {
+    warehouse = [];
   }
 
   setsWarehouse = normalizeSetsWarehouseList(setsWarehouse);
 
-  // Αν πρώτη φορά δεν υπάρχει καθόλου αποθήκη ΣΕΤ, βάζουμε default.
-  // Αν ο χρήστης διέγραψε κάτι, δεν το ξαναφέρνουμε.
   const hasLocalSets = localStorage.getItem(SETS_KEY) !== null;
-  if (!hasLocalSets && setsWarehouse.length === 0) {
+  if (!hasLocalSets && setsWarehouse.length === 0 && window.__appLang !== "en") {
     setsWarehouse = DEFAULT_SETS.map((name) => ({ name, qty: 0 }));
   }
 
   secondHelpers = normalizeSecondHelpersList(secondHelpers);
   const hasLocalHelpers = localStorage.getItem(SECOND_HELPERS_KEY) !== null;
-  if (!hasLocalHelpers && secondHelpers.length === 0) {
+  if (!hasLocalHelpers && secondHelpers.length === 0 && window.__appLang !== "en") {
     secondHelpers = DEFAULT_SECOND_HELPERS.slice();
   }
-  if (!secondHelpers.some(x => normalizeTextKey(x) === normalizeTextKey("Κανένας"))) {
+  if (window.__appLang !== "en" && !secondHelpers.some(x => normalizeTextKey(x) === normalizeTextKey("Κανένας"))) {
     secondHelpers.unshift("Κανένας");
   }
 
@@ -1386,7 +1405,7 @@ function openCeremonyModal(id = null) {
   if (!modal) return alert("Λείπει το ceremonyModal από το index.html");
 
   const titleEl = $("modalTitle");
-  if (titleEl) titleEl.textContent = id ? "Επεξεργασία τελετής" : "Νέα τελετή";
+  if (titleEl) titleEl.textContent = id ? t("Επεξεργασία τελετής", "Edit ceremony") : t("Νέα τελετή", "New ceremony");
 
   const c = id ? (ceremonies.find(x => x.id === id) || {}) : {};
 
@@ -1638,7 +1657,7 @@ function renderWarehouse() {
 
     const nameTd = document.createElement("td");
     nameTd.className = "drag-name";
-    nameTd.title = "Κράτα πατημένο και σύρε για αλλαγή σειράς";
+    nameTd.title = t("Κράτα πατημένο και σύρε για αλλαγή σειράς", "Hold and drag to reorder");
     nameTd.innerHTML = `<span class="drag-handle">☰</span><span>${esc(item.name)}</span>`;
 
     const qtyTd = document.createElement("td");
@@ -1672,14 +1691,14 @@ function renderWarehouse() {
 
     const editBtn = document.createElement("button");
     editBtn.className = "edit";
-    editBtn.textContent = "Επεξεργασία";
+    editBtn.textContent = t("Επεξεργασία", "Edit");
     editBtn.onclick = () => openWarehouseModal(idx);
 
     const delBtn = document.createElement("button");
     delBtn.className = "delete";
     delBtn.textContent = "✕";
     delBtn.onclick = () => {
-      if (confirm("Διαγραφή φέρετρου;")) {
+      if (confirm(t("Διαγραφή φέρετρου;", "Delete coffin?"))) {
         const removed = warehouse[idx];
         warehouse.splice(idx, 1);
         addChange("warehouse_delete", `Διαγραφή φέρετρου: ${removed?.name || ""}`);
@@ -1793,14 +1812,14 @@ function renderSets() {
 
     const editBtn = document.createElement("button");
     editBtn.className = "edit";
-    editBtn.textContent = "Επεξεργασία";
+    editBtn.textContent = t("Επεξεργασία", "Edit");
     editBtn.onclick = () => openSetModal(idx);
 
     const delBtn = document.createElement("button");
     delBtn.className = "delete";
     delBtn.textContent = "✕";
     delBtn.onclick = () => {
-      if (confirm("Διαγραφή ΣΕΤ;")) {
+      if (confirm(t("Διαγραφή ΣΕΤ;", "Delete burial set?"))) {
         const removed = setsWarehouse[idx];
         setsWarehouse.splice(idx, 1);
 
@@ -1872,14 +1891,14 @@ function renderSecondHelpers() {
 
     const editBtn = document.createElement("button");
     editBtn.className = "edit";
-    editBtn.textContent = "Επεξεργασία";
+    editBtn.textContent = t("Επεξεργασία", "Edit");
     editBtn.onclick = () => openSecondHelperModal(idx);
 
     const delBtn = document.createElement("button");
     delBtn.className = "delete";
     delBtn.textContent = "✕";
     delBtn.onclick = () => {
-      if (confirm("Διαγραφή ατόμου βοήθειας;")) {
+      if (confirm(t("Διαγραφή ατόμου βοήθειας;", "Delete assistant?"))) {
         const removed = secondHelpers[idx];
         secondHelpers.splice(idx, 1);
 
@@ -1937,7 +1956,7 @@ function renderOptionWarehouse() {
       const editBtn = document.createElement("button");
       editBtn.type = "button";
       editBtn.className = "edit";
-      editBtn.textContent = "Επεξεργασία";
+      editBtn.textContent = t("Επεξεργασία", "Edit");
       editBtn.onclick = () => editOption(key, idx);
 
       const delBtn = document.createElement("button");
@@ -1968,11 +1987,11 @@ function openWarehouseModal(index = null) {
   if (!modal || !title || !nameInput || !qtyInput) return;
 
   if (index === null) {
-    title.textContent = "Νέο φέρετρο";
+    title.textContent = t("Νέο φέρετρο", "New coffin");
     nameInput.value = "";
     qtyInput.value = 0;
   } else {
-    title.textContent = "Επεξεργασία φέρετρου";
+    title.textContent = t("Επεξεργασία φέρετρου", "Edit coffin");
     const item = warehouse[index];
     nameInput.value = item.name || "";
     qtyInput.value = item.qty ?? 0;
@@ -2018,11 +2037,11 @@ function openSetModal(index = null) {
   if (!modal || !title || !nameInput || !qtyInput) return;
 
   if (index === null) {
-    title.textContent = "Νέο σετ";
+    title.textContent = t("Νέο σετ", "New burial set");
     nameInput.value = "";
     qtyInput.value = 0;
   } else {
-    title.textContent = "Επεξεργασία σετ";
+    title.textContent = t("Επεξεργασία σετ", "Edit burial set");
     const item = setsWarehouse[index];
     nameInput.value = item.name || "";
     qtyInput.value = item.qty ?? 0;
@@ -2082,10 +2101,10 @@ function openSecondHelperModal(index = null) {
   if (!modal || !title || !nameInput) return;
 
   if (index === null) {
-    title.textContent = "Νέο άτομο βοήθειας";
+    title.textContent = t("Νέο άτομο βοήθειας", "New assistant");
     nameInput.value = "";
   } else {
-    title.textContent = "Επεξεργασία ατόμου βοήθειας";
+    title.textContent = t("Επεξεργασία ατόμου βοήθειας", "Edit assistant");
     nameInput.value = secondHelpers[index] || "";
   }
   modal.classList.remove("hidden");
@@ -2189,7 +2208,7 @@ function renderCeremonies() {
   const visible = [...undated, ...datedVisible];
 
   if (!visible.length) {
-    container.innerHTML = "<p>Δεν υπάρχουν προγραμματισμένες τελετές για αυτή την περίοδο.</p>";
+    container.innerHTML = `<p>${t("Δεν υπάρχουν προγραμματισμένες τελετές για αυτή την περίοδο.", "No scheduled ceremonies for this period.")}</p>`;
     updateStats();
     return;
   }
@@ -2322,7 +2341,7 @@ function renderCeremonyCard(c, now) {
 
   const editBtn = document.createElement("button");
   editBtn.className = "edit";
-  editBtn.textContent = "Επεξεργασία";
+  editBtn.textContent = t("Επεξεργασία", "Edit");
   editBtn.dataset.action = "edit";
 
   const waBtn = document.createElement("button");
@@ -2355,7 +2374,7 @@ function renderCeremonyCard(c, now) {
 
   const delBtn = document.createElement("button");
   delBtn.className = "delete";
-  delBtn.textContent = "Διαγραφή";
+  delBtn.textContent = t("Διαγραφή", "Delete");
   delBtn.dataset.action = "delete";
 
   buttons.append(editBtn, waBtn, shareBtn, delBtn);
@@ -2425,7 +2444,7 @@ function renderHistory() {
   container.innerHTML = "";
 
   if (!ceremonies.length) {
-    container.innerHTML = '<p style="font-size:13px;color:#6b7280;">Δεν υπάρχουν καταχωρημένες τελετές.</p>';
+    container.innerHTML = `<p style="font-size:13px;color:#6b7280;">${t("Δεν υπάρχουν καταχωρημένες τελετές.", "No ceremonies recorded yet.")}</p>`;
     return;
   }
 
@@ -3431,13 +3450,13 @@ function hermesFirstPriorityText(rows) {
   const bad = (rows || []).filter(r => r.missing && r.missing.length).sort((a,b)=>a.score-b.score)[0];
 
   if (!bad){
-    return `🟢 Ήρεμη μέρα · ${minutes} λεπτά δουλειάς`;
+    return t(`🟢 Ήρεμη μέρα · ${minutes} λεπτά δουλειάς`, `🟢 Quiet day · ${minutes} min workload`);
   }
 
-  const name = bad.ceremony?.name || "Τελετή";
-  const miss = bad.missing[0]?.label || "εκκρεμότητα";
+  const name = bad.ceremony?.name || t("Τελετή", "Ceremony");
+  const miss = bad.missing[0]?.label || t("εκκρεμότητα", "pending");
 
-  return `🔥 ${name} · ${miss} · ${minutes} λεπτά δουλειάς`;
+  return `🔥 ${name} · ${miss} · ${t(`${minutes} λεπτά δουλειάς`, `${minutes} min`)}` ;
 }
 
 function hermesRenderCompletionList() {
@@ -3513,8 +3532,8 @@ function updateHomeDashboard() {
   setText("dashTomorrowCount", String(tomorrowList.length));
   setText("dashCremationsCount", String(cremationsToday));
   setText("dashIssuesCount", String(issues));
-  setText("dashTodayMeta", todayList.length === 1 ? "τελετή" : "τελετές");
-  setText("dashTomorrowMeta", tomorrowList.length === 1 ? "τελετή" : "τελετές");
+  setText("dashTodayMeta", todayList.length === 1 ? t("τελετή", "ceremony") : t("τελετές", "ceremonies"));
+  setText("dashTomorrowMeta", tomorrowList.length === 1 ? t("τελετή", "ceremony") : t("τελετές", "ceremonies"));
 
   updateHermesMiniBrief();
 
@@ -4464,7 +4483,7 @@ function openCeremonyModal(id = null) {
   if (!modal) return alert("Λείπει το ceremonyModal από το index.html");
 
   const titleEl = $("modalTitle");
-  if (titleEl) titleEl.textContent = id ? "Επεξεργασία τελετής" : "Νέα τελετή";
+  if (titleEl) titleEl.textContent = id ? t("Επεξεργασία τελετής", "Edit ceremony") : t("Νέα τελετή", "New ceremony");
 
   const c = id ? (ceremonies.find(x => x.id === id) || {}) : {};
 
@@ -4806,7 +4825,7 @@ function renderCustomFieldsSettings() {
       <td><div class="warehouse-actions compact-actions">
         <button type="button" onclick="moveCustomField(${idx}, ${idx - 1})">↑</button>
         <button type="button" onclick="moveCustomField(${idx}, ${idx + 1})">↓</button>
-        <button type="button" class="edit" onclick="openCustomFieldModal(${idx})">Επεξεργασία</button>
+        <button type="button" class="edit" onclick="openCustomFieldModal(${idx})">${t("Επεξεργασία", "Edit")}</button>
         <button type="button" onclick="toggleCustomField(${idx})">${f.enabled === false ? "Ενεργό" : "Κρύψε"}</button>
         <button type="button" class="delete" onclick="deleteCustomField(${idx})">×</button>
       </div></td>
@@ -4821,7 +4840,7 @@ function openCeremonyModal(id = null) {
   const modal = $("ceremonyModal");
   if (!modal) return alert("Λείπει το ceremonyModal από το index.html");
   const titleEl = $("modalTitle");
-  if (titleEl) titleEl.textContent = id ? "Επεξεργασία τελετής" : "Νέα τελετή";
+  if (titleEl) titleEl.textContent = id ? t("Επεξεργασία τελετής", "Edit ceremony") : t("Νέα τελετή", "New ceremony");
   const c = id ? (ceremonies.find(x => x.id === id) || {}) : {};
 
   setVal("ceremonyDate", c.date || "");
@@ -4967,7 +4986,7 @@ function renderCeremonyCard(c, now) {
   customFields.filter(f => f.enabled !== false && f.showCard !== false).forEach(f => makeRow(f.label, customFieldValueDisplay(customFieldValue(c, f), f)));
   makeRow("Σημειώσεις", c.notes);
   const buttons = document.createElement("div"); buttons.className = "card-buttons";
-  const editBtn = document.createElement("button"); editBtn.className = "edit"; editBtn.textContent = "Επεξεργασία"; editBtn.dataset.action = "edit";
+  const editBtn = document.createElement("button"); editBtn.className = "edit"; editBtn.textContent = t("Επεξεργασία", "Edit"); editBtn.dataset.action = "edit";
   const waBtn = document.createElement("button"); waBtn.type = "button"; waBtn.dataset.action = "wa"; waBtn.title = "WhatsApp"; waBtn.style.cssText = "width:36px;height:36px;border-radius:999px;border:none;display:inline-flex;align-items:center;justify-content:center;background:#25d366;cursor:pointer;color:#fff;font-weight:900;"; waBtn.textContent = "WA";
   const shareBtn = document.createElement("button"); shareBtn.type = "button"; shareBtn.textContent = "Share"; shareBtn.dataset.action = "share"; shareBtn.style.cssText = "border-radius:999px;border:none;padding:6px 14px;font-size:13px;cursor:pointer;background:#e5e7eb;";
   const bridgeWreathsBtn = document.createElement("button"); bridgeWreathsBtn.type = "button"; bridgeWreathsBtn.textContent = "Στεφάνια"; bridgeWreathsBtn.dataset.action = "bridge-wreaths"; bridgeWreathsBtn.title = "Άνοιγμα εφαρμογής Στεφάνια με τα στοιχεία της υπόθεσης"; bridgeWreathsBtn.style.cssText = "border-radius:999px;border:none;padding:6px 12px;font-size:13px;cursor:pointer;background:#fef3c7;color:#92400e;font-weight:800;";
@@ -4975,7 +4994,7 @@ function renderCeremonyCard(c, now) {
   const bridgeAnnouncementsBtn = document.createElement("button"); bridgeAnnouncementsBtn.type = "button"; bridgeAnnouncementsBtn.textContent = "Αγγελτήριο"; bridgeAnnouncementsBtn.dataset.action = "bridge-announcements"; bridgeAnnouncementsBtn.title = "Άνοιγμα εφαρμογής Αγγελτήριο με τα στοιχεία της υπόθεσης"; bridgeAnnouncementsBtn.style.cssText = "border-radius:999px;border:none;padding:6px 12px;font-size:13px;cursor:pointer;background:#ecfeff;color:#155e75;font-weight:800;";
   const bridgeOrdersBtn = document.createElement("button"); bridgeOrdersBtn.type = "button"; bridgeOrdersBtn.textContent = "Orders"; bridgeOrdersBtn.dataset.action = "bridge-orders"; bridgeOrdersBtn.title = "Άνοιγμα εφαρμογής Orders με τα στοιχεία της υπόθεσης"; bridgeOrdersBtn.style.cssText = "border-radius:999px;border:none;padding:6px 12px;font-size:13px;cursor:pointer;background:#f0fdf4;color:#166534;font-weight:800;";
   const bridgeCopyBtn = document.createElement("button"); bridgeCopyBtn.type = "button"; bridgeCopyBtn.textContent = "Case"; bridgeCopyBtn.dataset.action = "bridge-copy"; bridgeCopyBtn.title = "Αντιγραφή στοιχείων υπόθεσης"; bridgeCopyBtn.style.cssText = "border-radius:999px;border:none;padding:6px 12px;font-size:13px;cursor:pointer;background:#ede9fe;color:#5b21b6;font-weight:800;";
-  const delBtn = document.createElement("button"); delBtn.className = "delete"; delBtn.textContent = "Διαγραφή"; delBtn.dataset.action = "delete";
+  const delBtn = document.createElement("button"); delBtn.className = "delete"; delBtn.textContent = t("Διαγραφή", "Delete"); delBtn.dataset.action = "delete";
   buttons.append(editBtn, waBtn, shareBtn, bridgeWreathsBtn, bridgeMemorialsBtn, bridgeAnnouncementsBtn, bridgeOrdersBtn, bridgeCopyBtn, delBtn);
   if (cardAiWarning.className) card.append(header, place, caseBadge, cardAiWarning, rows, buttons); else card.append(header, place, caseBadge, rows, buttons);
   return card;
