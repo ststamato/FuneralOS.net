@@ -2,6 +2,18 @@
   publish = "saas"
 
 [[redirects]]
+  from = "/"
+  to = "/en/"
+  status = 302
+  force = true
+
+[[redirects]]
+  from = "/login.html"
+  to = "/en/login.html"
+  status = 302
+  force = true
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200

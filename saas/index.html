@@ -45,6 +45,11 @@
     }
     .nav-logo span { color: var(--gold); }
     .nav-links { display: flex; gap: 12px; align-items: center; }
+    .lang-switcher { display: flex; align-items: center; gap: 2px; border: 1px solid rgba(255,255,255,.1); border-radius: 6px; overflow: hidden; }
+    .nav-lang { font-size: 12px; font-weight: 600; color: var(--muted); text-decoration: none; padding: 5px 10px; }
+    .nav-lang:hover { color: var(--white); background: rgba(255,255,255,.06); }
+    .nav-lang.active { color: var(--gold); background: rgba(200,169,110,.1); }
+    .lang-sep { color: rgba(255,255,255,.15); font-size: 11px; }
     .btn {
       display: inline-flex; align-items: center; justify-content: center;
       padding: 10px 22px; border-radius: 8px; font-size: 14px; font-weight: 600;
@@ -237,6 +242,11 @@
 <nav>
   <a href="#" class="nav-logo">e<span>Funeral</span></a>
   <div class="nav-links">
+    <div class="lang-switcher">
+      <a href="en/index.html" class="nav-lang">🇬🇧 EN</a>
+      <span class="lang-sep">|</span>
+      <span class="nav-lang active">🇬🇷 GR</span>
+    </div>
     <a href="login.html?tab=login" class="btn btn-ghost">Σύνδεση</a>
     <a href="login.html?tab=register" class="btn btn-primary">Ξεκίνα δωρεάν</a>
   </div>

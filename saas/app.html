@@ -77,6 +77,11 @@
       font-size: 11px; cursor: pointer; transition: all .15s;
     }
     .logout-btn:hover { border-color: rgba(255,255,255,.4); color: #fff; }
+    .lang-app { display: flex; align-items: center; border: 1px solid rgba(255,255,255,.1); border-radius: 6px; overflow: hidden; }
+    .lang-app a, .lang-app span { font-size: 11px; font-weight: 600; padding: 4px 8px; text-decoration: none; color: rgba(255,255,255,.4); }
+    .lang-app a:hover { color: #fff; background: rgba(255,255,255,.06); }
+    .lang-app span { color: #c8a96e; background: rgba(200,169,110,.1); }
+    .lang-app-sep { color: rgba(255,255,255,.15); padding: 0 !important; }
   </style>
 </head>
 <body>
@@ -110,6 +115,11 @@
       <span>Hermes</span>
     </div>
     <div class="user-chip">
+      <div class="lang-app">
+        <a href="en/app.html">🇬🇧 EN</a>
+        <span class="lang-app-sep">|</span>
+        <span>🇬🇷 GR</span>
+      </div>
       <span class="plan-badge free" id="planBadge">FREE</span>
       <button class="logout-btn" id="logoutBtn">Έξοδος</button>
     </div>

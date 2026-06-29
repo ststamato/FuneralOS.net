@@ -37,6 +37,11 @@
     .plan-badge.pro { background: rgba(200,169,110,.2); color: #c8a96e; }
     .logout-btn { background: transparent; border: 1px solid rgba(255,255,255,.15); color: rgba(255,255,255,.6); padding: 4px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; transition: all .15s; }
     .logout-btn:hover { border-color: rgba(255,255,255,.4); color: #fff; }
+    .lang-app { display: flex; align-items: center; border: 1px solid rgba(255,255,255,.1); border-radius: 6px; overflow: hidden; }
+    .lang-app a, .lang-app span { font-size: 11px; font-weight: 600; padding: 4px 8px; text-decoration: none; color: rgba(255,255,255,.4); }
+    .lang-app a:hover { color: #fff; background: rgba(255,255,255,.06); }
+    .lang-app span { color: #c8a96e; background: rgba(200,169,110,.1); }
+    .lang-app-sep { color: rgba(255,255,255,.15); padding: 0 !important; }
   </style>
 </head>
 <body>
@@ -68,6 +73,11 @@
       <span>Hermes</span>
     </div>
     <div class="user-chip">
+      <div class="lang-app">
+        <span>🇬🇧 EN</span>
+        <span class="lang-app-sep">|</span>
+        <a href="../app.html">🇬🇷 GR</a>
+      </div>
       <span class="plan-badge free" id="planBadge">FREE</span>
       <button class="logout-btn" id="logoutBtn">Sign out</button>
     </div>
