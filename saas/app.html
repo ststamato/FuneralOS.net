@@ -244,14 +244,7 @@
     <section id="statsTab" class="tab">
       <h2>Στατιστικά</h2>
       <div id="statsContent">
-        <p>Σύνολο τελετών: <span id="totalCeremonies">0</span></p>
-        <p>Τελετές αυτή την εβδομάδα: <span id="weekCeremonies">0</span></p>
-        <h3 style="font-size:14px;margin-top:12px;">Ανά μήνα</h3>
-        <div id="monthlyStats"></div>
-        <h3 style="font-size:14px;margin-top:14px;">Στατιστικά φερέτρων</h3>
-        <div id="coffinStats"></div>
-        <h3 style="font-size:14px;margin-top:14px;">Στατιστικά στολισμού</h3>
-        <div id="decorStats"></div>
+        <div id="statsMore"></div>
       </div>
     </section>
 
@@ -263,6 +256,15 @@
 
     <section id="settingsTab" class="tab">
       <h2>Ρυθμίσεις</h2>
+      <div class="settings-panel" id="optionalFieldsPanel" style="display:none;">
+        <div class="settings-head">
+          <div>
+            <h3>Προαιρετικά πεδία τελετής <span style="background:#c8a96e;color:#0f1523;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-left:4px;vertical-align:middle;">PRO</span></h3>
+            <p class="warehouse-hint">Επίλεξε ποια επιπλέον πεδία εμφανίζονται στη φόρμα τελετής.</p>
+          </div>
+        </div>
+        <div id="optFieldsToggleList" class="opt-fields-toggle-list"></div>
+      </div>
       <div class="settings-panel">
         <div class="settings-head">
           <div>
@@ -344,44 +346,54 @@
         <label>Όνομα θανόντα<input type="text" id="deceasedName" /></label>
         <label>Τοποθεσία τελετής<input type="text" id="ceremonyPlace" placeholder="π.χ. Ι.Ν. Αγ. Νικολάου" /></label>
         <label>Τρόπος<select id="burialType"><option value="Ταφή">Ταφή</option><option value="Αποτεφρωση">Αποτεφρωση</option></select></label>
-        <div id="cremationBox" class="hint-box hidden">
-          <div class="form-grid-2">
-            <label>Συνοδοί στην ΑΙΘΟΥΣΑ<input type="number" id="cremationEscortCount" min="0" value="0" /></label>
-            <label>Διάβασμα σε ΕΝΟΡΙΑ<input type="text" id="cremationParishNote" placeholder="π.χ. Αγ. Νικόλαος 11:00" /></label>
+        <div class="opt-field" data-opt="cremation">
+          <div id="cremationBox" class="hint-box hidden">
+            <div class="form-grid-2">
+              <label>Συνοδοί στην ΑΙΘΟΥΣΑ<input type="number" id="cremationEscortCount" min="0" value="0" /></label>
+              <label>Διάβασμα σε ΕΝΟΡΙΑ<input type="text" id="cremationParishNote" placeholder="π.χ. Αγ. Νικόλαος 11:00" /></label>
+            </div>
+            <p class="mini-muted">Με "Αποτεφρωση" δεν ζητάμε τάφο/ζώνη/τριετία.</p>
           </div>
-          <p class="mini-muted">Με "Αποτεφρωση" δεν ζητάμε τάφο/ζώνη/τριετία.</p>
         </div>
         <label>Υπεύθυνος τελετής<select id="responsiblePerson"></select></label>
-        <label>2ο άτομο (βοήθεια)<select id="secondPerson"></select></label>
-        <label>Βαλίτσα<select id="suitcase"></select></label>
+        <div class="opt-field" data-opt="secondPerson"><label>2ο άτομο (βοήθεια)<select id="secondPerson"></select></label></div>
+        <div class="opt-field" data-opt="suitcase"><label>Βαλίτσα<select id="suitcase"></select></label></div>
         <label>Φέρετρο<select id="ceremonyCoffin"></select></label>
-        <label>ΣΕΤ<select id="ceremonySet"></select></label>
-        <label>Στεφάνια / Λουλούδια<input type="text" id="ceremonyFlowers" placeholder="π.χ. 2 στεφάνια" /></label>
-        <label>Αγγελτήριο
-          <select id="ceremonyAnnouncementStatus">
-            <option value="Δεν χρειάζεται">Δεν χρειάζεται</option>
-            <option value="Εκκρεμεί">Εκκρεμεί</option>
-            <option value="Ολοκληρώθηκε">Ολοκληρώθηκε</option>
-          </select>
-        </label>
-        <label>Στολισμός<select id="ceremonyDecor"><option value="">-</option></select></label>
-        <label>Λεπτομέρεια στολισμού<input type="text" id="ceremonyDecorNote" placeholder="π.χ. απλό" /></label>
-        <label>Φραγκοφόροι<select id="ceremonyPallbearers"><option value="">-</option></select></label>
-        <label>Καφές<select id="ceremonyCoffee"><option value="">-</option><option value="Ναι">Ναι</option><option value="Όχι">Όχι</option></select></label>
-        <label>Καφές - Τοποθεσία<input type="text" id="ceremonyCoffeePlace" placeholder="π.χ. Αίθουσα" /></label>
+        <div class="opt-field" data-opt="set"><label>ΣΕΤ<select id="ceremonySet"></select></label></div>
+        <div class="opt-field" data-opt="flowers"><label>Στεφάνια / Λουλούδια<input type="text" id="ceremonyFlowers" placeholder="π.χ. 2 στεφάνια" /></label></div>
+        <div class="opt-field" data-opt="announcement">
+          <label>Αγγελτήριο
+            <select id="ceremonyAnnouncementStatus">
+              <option value="Δεν χρειάζεται">Δεν χρειάζεται</option>
+              <option value="Εκκρεμεί">Εκκρεμεί</option>
+              <option value="Ολοκληρώθηκε">Ολοκληρώθηκε</option>
+            </select>
+          </label>
+        </div>
+        <div class="opt-field" data-opt="decor">
+          <label>Στολισμός<select id="ceremonyDecor"><option value="">-</option></select></label>
+          <label>Λεπτομέρεια στολισμού<input type="text" id="ceremonyDecorNote" placeholder="π.χ. απλό" /></label>
+        </div>
+        <div class="opt-field" data-opt="pallbearers"><label>Φραγκοφόροι<select id="ceremonyPallbearers"><option value="">-</option></select></label></div>
+        <div class="opt-field" data-opt="coffee">
+          <label>Καφές<select id="ceremonyCoffee"><option value="">-</option><option value="Ναι">Ναι</option><option value="Όχι">Όχι</option></select></label>
+          <label>Καφές - Τοποθεσία<input type="text" id="ceremonyCoffeePlace" placeholder="π.χ. Αίθουσα" /></label>
+        </div>
         <label>Παραλαβή<input type="text" id="ceremonyPickup" placeholder="π.χ. Νοσοκομείο / Οικία" /></label>
-        <label>2ο άτομο παραλαβής<select id="pickupSecondPerson"></select></label>
+        <div class="opt-field" data-opt="pickupSecond"><label>2ο άτομο παραλαβής<select id="pickupSecondPerson"></select></label></div>
         <label>Ημερομηνία παραλαβής<input type="date" id="pickupDate" /></label>
-        <label>Ψυκτικός θάλαμος<input type="text" id="ceremonyColdRoom" placeholder="π.χ. Ναι / Όχι / Πού" /></label>
-        <div id="graveBox">
-          <label>Τόπος ταφής</label>
-          <div class="grave-row">
-            <label class="grave-option"><input type="radio" name="graveType" id="graveTypeFamily" value="Οικογενειακός" />Οικογενειακός</label>
-            <label class="grave-option"><input type="radio" name="graveType" id="graveTypeTriennial" value="Τριετία" checked />Τριετία</label>
-          </div>
-          <div class="grave-fields">
-            <input type="text" id="ceremonyGraveNumber" placeholder="Αριθμός τάφου (οικογενειακός)" />
-            <select id="ceremonyGraveZone"><option value="">Ζώνη (τριετία)</option></select>
+        <div class="opt-field" data-opt="coldRoom"><label>Ψυκτικός θάλαμος<input type="text" id="ceremonyColdRoom" placeholder="π.χ. Ναι / Όχι / Πού" /></label></div>
+        <div class="opt-field" data-opt="grave">
+          <div id="graveBox">
+            <label>Τόπος ταφής</label>
+            <div class="grave-row">
+              <label class="grave-option"><input type="radio" name="graveType" id="graveTypeFamily" value="Οικογενειακός" />Οικογενειακός</label>
+              <label class="grave-option"><input type="radio" name="graveType" id="graveTypeTriennial" value="Τριετία" checked />Τριετία</label>
+            </div>
+            <div class="grave-fields">
+              <input type="text" id="ceremonyGraveNumber" placeholder="Αριθμός τάφου (οικογενειακός)" />
+              <select id="ceremonyGraveZone"><option value="">Ζώνη (τριετία)</option></select>
+            </div>
           </div>
         </div>
         <div id="customFieldsFormBox" class="custom-fields-form-box"></div>
@@ -514,6 +526,7 @@
 <script src="freemium.js"></script>
 
 <!-- APP -->
+<script>window.__appLang = "gr";</script>
 <script src="app.js"></script>
 <script src="suppliers.js"></script>
 

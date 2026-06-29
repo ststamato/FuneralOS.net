@@ -96,27 +96,115 @@
     }
   }
 
+  // ── Optional fields system ──────────────────────────────────────────────────
+  var OPT_FIELD_LABELS = {
+    cremation: "Αποτέφρωση (λεπτομέρειες)",
+    secondPerson: "2ο άτομο βοήθειας",
+    suitcase: "Βαλίτσα",
+    set: "ΣΕΤ",
+    flowers: "Στεφάνια / Λουλούδια",
+    announcement: "Αγγελτήριο",
+    decor: "Στολισμός",
+    pallbearers: "Φραγκοφόροι",
+    coffee: "Καφές",
+    pickupSecond: "2ο άτομο παραλαβής",
+    coldRoom: "Ψυκτικός θάλαμος",
+    grave: "Τόπος ταφής"
+  };
+
+  var LS_OPT_KEY = "funeralos_gr_opt_fields_v1";
+
+  function getOptFieldState() {
+    try {
+      var raw = localStorage.getItem(LS_OPT_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    var defaults = {};
+    Object.keys(OPT_FIELD_LABELS).forEach(function (k) { defaults[k] = true; });
+    return defaults;
+  }
+
+  function saveOptFieldState(state) {
+    try { localStorage.setItem(LS_OPT_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  function applyOptFieldVisibility() {
+    var state = getOptFieldState();
+    document.querySelectorAll(".opt-field[data-opt]").forEach(function (el) {
+      var key = el.getAttribute("data-opt");
+      el.style.display = (state[key] === false) ? "none" : "";
+    });
+  }
+
+  function renderOptFieldsToggles() {
+    var container = document.getElementById("optFieldsToggleList");
+    if (!container) return;
+    var state = getOptFieldState();
+    container.innerHTML = "";
+    container.style.cssText = "display:flex;flex-direction:column;gap:8px;padding:4px 0;";
+    Object.keys(OPT_FIELD_LABELS).forEach(function (key) {
+      var enabled = state[key] !== false;
+      var row = document.createElement("div");
+      row.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);";
+      var label = document.createElement("span");
+      label.textContent = OPT_FIELD_LABELS[key];
+      label.style.cssText = "font-size:13px;color:#c8daf0;";
+      var toggle = document.createElement("label");
+      toggle.style.cssText = "position:relative;display:inline-block;width:36px;height:20px;cursor:pointer;";
+      var input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = enabled;
+      input.style.cssText = "opacity:0;width:0;height:0;";
+      var slider = document.createElement("span");
+      slider.style.cssText = "position:absolute;inset:0;background:" + (enabled ? "#c8a96e" : "#2a3350") + ";border-radius:20px;transition:.2s;";
+      var knob = document.createElement("span");
+      knob.style.cssText = "position:absolute;top:3px;left:" + (enabled ? "19px" : "3px") + ";width:14px;height:14px;background:#fff;border-radius:50%;transition:.2s;";
+      slider.appendChild(knob);
+      toggle.appendChild(input);
+      toggle.appendChild(slider);
+      input.addEventListener("change", function () {
+        var s = getOptFieldState();
+        s[key] = input.checked;
+        saveOptFieldState(s);
+        slider.style.background = input.checked ? "#c8a96e" : "#2a3350";
+        knob.style.left = input.checked ? "19px" : "3px";
+        applyOptFieldVisibility();
+      });
+      row.appendChild(label);
+      row.appendChild(toggle);
+      container.appendChild(row);
+    });
+  }
+
+  // Re-apply visibility whenever ceremony modal opens
+  document.addEventListener("click", function (e) {
+    if (e.target.closest("#addCeremonyBtn") || e.target.closest("#newCeremonyBtn") ||
+        e.target.closest("#newCeremonyHeroBtn") || e.target.closest("[data-editid]")) {
+      setTimeout(function () {
+        if (window.__authPlan === "pro") applyOptFieldVisibility();
+      }, 50);
+    }
+  });
+
   // ── Feature Gates (installed after auth confirmed) ──────────────────────────
   function installFeatureGates() {
-    if (window.__authPlan === "pro") return; // Pro has no limits
+    // Always wire up markLockedFeatures (handles both free and pro)
+    document.addEventListener("DOMContentLoaded", markLockedFeatures);
 
-    // Gate 1: Ceremony limit on form submit (capture phase = runs before app.js handler)
+    if (window.__authPlan === "pro") return;
+
+    // Gate 1: Ceremony limit
     const ceremonyForm = document.getElementById("ceremonyForm");
     if (ceremonyForm) {
       ceremonyForm.addEventListener("submit", function (e) {
-        // Only block NEW ceremonies (editingId === null in app.js global scope)
         if (typeof editingId !== "undefined" && editingId !== null) return;
-
         const now = new Date();
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
-        // ceremonies is the global array from app.js
         const list = (typeof ceremonies !== "undefined" ? ceremonies : []);
         const monthCount = list.filter(function (c) {
           if (!c.date) return false;
           return new Date(c.date) >= monthStart;
         }).length;
-
         if (monthCount >= FREE_CEREMONY_LIMIT) {
           e.preventDefault();
           e.stopImmediatePropagation();
@@ -125,7 +213,7 @@
             "Έχεις φτάσει τις " + FREE_CEREMONY_LIMIT + " τελετές αυτό τον μήνα για το δωρεάν πλάνο.\nΑναβάθμισε σε Pro για απεριόριστες τελετές."
           );
         }
-      }, true); // capture = true → runs before app.js listener
+      }, true);
     }
 
     // Gate 2: Hermes tab lock
@@ -155,18 +243,24 @@
         );
       }
     }, true);
-
-    // Visual indicator on locked features (after app is fully loaded)
-    document.addEventListener("DOMContentLoaded", function () {
-      markLockedFeatures();
-    });
   }
 
   function markLockedFeatures() {
-    if (window.__authPlan === "pro") return;
+    if (window.__authPlan === "pro") {
+      const panel = document.getElementById("optionalFieldsPanel");
+      if (panel) {
+        panel.style.display = "";
+        renderOptFieldsToggles();
+      }
+      return;
+    }
 
-    // Add PRO lock badge on Hermes tab button
     setTimeout(function () {
+      // Hide all optional ceremony form fields
+      document.querySelectorAll(".opt-field").forEach(function (el) {
+        el.style.display = "none";
+      });
+
       const hermesTab = document.querySelector('[data-tab="hermes"]');
       if (hermesTab && !hermesTab.querySelector(".pro-lock")) {
         const lock = document.createElement("span");
@@ -176,7 +270,6 @@
         hermesTab.appendChild(lock);
       }
 
-      // Add upgrade nudge in hero area
       const heroGrid = document.getElementById("homeDashboardGrid");
       if (heroGrid && !document.getElementById("upgradeNudge")) {
         const nudge = document.createElement("div");

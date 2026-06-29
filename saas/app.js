@@ -1133,34 +1133,13 @@ async function loadData() {
     customValues: c.customValues && typeof c.customValues === "object" ? c.customValues : {}
   }));
 
-  if (window.__appLang !== "en") {
-    if (!Array.isArray(warehouse) || warehouse.length === 0) {
-      warehouse = COFFINS.map((name) => ({ name, qty: 0 }));
-    } else {
-      const existing = new Set(warehouse.map(w => String(w.name || "").trim()));
-      for (const name of COFFINS) {
-        if (!existing.has(name)) warehouse.push({ name, qty: 0 });
-      }
-    }
-  } else if (!Array.isArray(warehouse)) {
+  if (!Array.isArray(warehouse)) {
     warehouse = [];
   }
 
   setsWarehouse = normalizeSetsWarehouseList(setsWarehouse);
 
-  const hasLocalSets = localStorage.getItem(SETS_KEY) !== null;
-  if (!hasLocalSets && setsWarehouse.length === 0 && window.__appLang !== "en") {
-    setsWarehouse = DEFAULT_SETS.map((name) => ({ name, qty: 0 }));
-  }
-
   secondHelpers = normalizeSecondHelpersList(secondHelpers);
-  const hasLocalHelpers = localStorage.getItem(SECOND_HELPERS_KEY) !== null;
-  if (!hasLocalHelpers && secondHelpers.length === 0 && window.__appLang !== "en") {
-    secondHelpers = DEFAULT_SECOND_HELPERS.slice();
-  }
-  if (window.__appLang !== "en" && !secondHelpers.some(x => normalizeTextKey(x) === normalizeTextKey("Κανένας"))) {
-    secondHelpers.unshift("Κανένας");
-  }
 
   ensureOptionWarehouse();
 
@@ -2532,218 +2511,11 @@ function ensureStatsMoreContainer() {
 }
 
 function updateStats() {
-  if (window.__appLang === "en") { updateStatsEN(); return; }
-
-  const totalEl = $("totalCeremonies");
-  const weekEl = $("weekCeremonies");
-  if (!totalEl || !weekEl) return;
-
-  totalEl.textContent = String(ceremonies.length);
-
-  const now = new Date();
-  const monday = getMondayOfWeek(now);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 7);
-
-  const weekCount = ceremonies.filter((c) => {
-    if (!c.date) return false;
-    const d = new Date(c.date);
-    return d >= monday && d < sunday;
-  }).length;
-  weekEl.textContent = String(weekCount);
-
-  const monthlyContainer = $("monthlyStats");
-  if (monthlyContainer) {
-    monthlyContainer.innerHTML = "";
-    const counts = {};
-    ceremonies.forEach((c) => {
-      if (!c.date) return;
-      const key = c.date.slice(0, 7);
-      counts[key] = (counts[key] || 0) + 1;
-    });
-
-    const keys = Object.keys(counts);
-    if (!keys.length) {
-      monthlyContainer.innerHTML = '<p style="font-size:13px;color:#6b7280;">Δεν υπάρχουν ακόμα στοιχεία ανά μήνα.</p>';
-    } else {
-      keys.sort().reverse();
-      const ul = document.createElement("ul");
-      ul.style.margin = "0";
-      ul.style.paddingLeft = "18px";
-      ul.style.fontSize = "13px";
-      keys.forEach((k) => {
-        const li = document.createElement("li");
-        li.textContent = `${k}: ${counts[k]} τελετές`;
-        ul.appendChild(li);
-      });
-      monthlyContainer.appendChild(ul);
-    }
-  }
-
-  const coffinStats = $("coffinStats");
-  if (coffinStats) {
-    coffinStats.innerHTML = "";
-    const map = {};
-    ceremonies.forEach((c) => {
-      const k = (c.coffin || "").trim();
-      if (!k) return;
-      map[k] = (map[k] || 0) + 1;
-    });
-    const entries = Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 25);
-    if (!entries.length) {
-      coffinStats.innerHTML = '<p style="font-size:13px;color:#6b7280;">Δεν υπάρχουν ακόμα δεδομένα φερέτρων.</p>';
-    } else {
-      const ul = document.createElement("ul");
-      ul.style.margin = "0";
-      ul.style.paddingLeft = "18px";
-      ul.style.fontSize = "13px";
-      entries.forEach(([name, count]) => {
-        const li = document.createElement("li");
-        li.textContent = `${name}: ${count}`;
-        ul.appendChild(li);
-      });
-      coffinStats.appendChild(ul);
-    }
-  }
-
-  const decorStats = $("decorStats");
-  if (decorStats) {
-    decorStats.innerHTML = "";
-    const map = {};
-    ceremonies.forEach((c) => {
-      const k = (c.decor || "").trim();
-      if (!k) return;
-      map[k] = (map[k] || 0) + 1;
-    });
-    const entries = Object.entries(map).sort((a, b) => b[1] - a[1]);
-    if (!entries.length) {
-      decorStats.innerHTML = '<p style="font-size:13px;color:#6b7280;">Δεν υπάρχουν ακόμα δεδομένα στολισμού.</p>';
-    } else {
-      const ul = document.createElement("ul");
-      ul.style.margin = "0";
-      ul.style.paddingLeft = "18px";
-      ul.style.fontSize = "13px";
-      entries.forEach(([name, count]) => {
-        const li = document.createElement("li");
-        li.textContent = `${name}: ${count}`;
-        ul.appendChild(li);
-      });
-      decorStats.appendChild(ul);
-    }
-  }
-
-  const more = ensureStatsMoreContainer();
-  if (!more) return;
-
-  const addNormalizedCount = (map, rawValue) => {
-    const raw = String(rawValue || "").trim().replace(/\s+/g, " ");
-    if (!raw) return;
-    const normalized = normalizeTextKey(raw);
-    if (!map.has(normalized)) map.set(normalized, { label: raw, count: 0 });
-    map.get(normalized).count += 1;
-  };
-
-  const topN = (map, n = 8) =>
-    Array.from(map.values())
-      .filter(item => String(item.label || "").trim() !== "" && String(item.label || "").trim() !== "-")
-      .sort((a, b) => b.count - a.count)
-      .slice(0, n);
-
-  const listHtml = (arr) => arr.length
-    ? arr.map((item) => `<div style="display:flex;justify-content:space-between;gap:10px;"><div>${esc(item.label)}</div><b>${item.count}</b></div>`).join("")
-    : `<div style="color:#6b7280;">—</div>`;
-
-  let burials = 0, cremations = 0;
-  let coffeeYes = 0, coffeeNo = 0;
-
-  const topCeremonyPlace = new Map();
-  const topSets = new Map();
-  const topResponsible = new Map();
-  const topSecond = new Map();
-  const topPickupSecond = new Map();
-  const topSuitcase = new Map();
-  const pallbearersMap = new Map();
-  const weekdayMap = new Map();
-
-  const days = ["Κυριακή","Δευτέρα","Τρίτη","Τετάρτη","Πέμπτη","Παρασκευή","Σάββατο"];
-
-  ceremonies.forEach((c) => {
-    const method = String(c.burialType || "Ταφή").trim();
-    if (method === "Αποτεφρωση") cremations++;
-    else burials++;
-
-    addNormalizedCount(topCeremonyPlace, c.place);
-    addNormalizedCount(topSets, c.set);
-    addNormalizedCount(topResponsible, c.responsible);
-    addNormalizedCount(topSecond, c.secondPerson);
-    addNormalizedCount(topPickupSecond, c.pickupSecondPerson);
-    addNormalizedCount(topSuitcase, c.suitcase);
-    addNormalizedCount(pallbearersMap, c.pallbearers);
-
-    if (String(c.coffee || "").toLowerCase().includes("ναι")) coffeeYes++;
-    else if (String(c.coffee || "").toLowerCase().includes("όχι") || String(c.coffee || "").toLowerCase().includes("oxi")) coffeeNo++;
-
-    if (c.date) {
-      const d = new Date(c.date);
-      if (!Number.isNaN(d.getTime())) addNormalizedCount(weekdayMap, days[d.getDay()]);
-    }
-  });
-
-  more.innerHTML = `
-    <div style="background:#fbf7f0;border:1px solid #e5e7eb;border-radius:16px;padding:12px;margin:10px 0;">
-      <div style="font-weight:900;margin-bottom:8px;">Ταφή vs Αποτεφρωση</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;">
-        <div style="background:#e3d7c5;border-radius:999px;padding:6px 10px;font-size:13px;"><b>${burials}</b> Ταφές</div>
-        <div style="background:#e3d7c5;border-radius:999px;padding:6px 10px;font-size:13px;"><b>${cremations}</b> Αποτεφρώσεις</div>
-      </div>
-    </div>
-
-    <div style="background:#fbf7f0;border:1px solid #e5e7eb;border-radius:16px;padding:12px;margin:10px 0;">
-      <div style="font-weight:900;margin-bottom:8px;">Καφές</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;">
-        <div style="background:#e3d7c5;border-radius:999px;padding:6px 10px;font-size:13px;"><b>${coffeeYes}</b> Ναι</div>
-        <div style="background:#e3d7c5;border-radius:999px;padding:6px 10px;font-size:13px;"><b>${coffeeNo}</b> Όχι</div>
-      </div>
-    </div>
-
-    <div style="background:#fbf7f0;border:1px solid #e5e7eb;border-radius:16px;padding:12px;margin:10px 0;">
-      <div style="font-weight:900;margin-bottom:8px;">Top Τοποθεσίες τελετής</div>
-      <div style="font-size:13px;">${listHtml(topN(topCeremonyPlace, 10))}</div>
-    </div>
-
-    <div style="background:#fbf7f0;border:1px solid #e5e7eb;border-radius:16px;padding:12px;margin:10px 0;">
-      <div style="font-weight:900;margin-bottom:8px;">ΣΕΤ (χρήση)</div>
-      <div style="font-size:13px;">${listHtml(topN(topSets, 8))}</div>
-    </div>
-
-    <div style="background:#fbf7f0;border:1px solid #e5e7eb;border-radius:16px;padding:12px;margin:10px 0;">
-      <div style="font-weight:900;margin-bottom:8px;">Άτομα (Top)</div>
-      <div style="font-size:13px;">
-        <div style="margin-bottom:8px;"><b>Υπεύθυνος:</b>${listHtml(topN(topResponsible, 6))}</div>
-        <div style="margin-bottom:8px;"><b>2ο άτομο:</b>${listHtml(topN(topSecond, 6))}</div>
-        <div style="margin-bottom:8px;"><b>2ο άτομο παραλαβής:</b>${listHtml(topN(topPickupSecond, 6))}</div>
-        <div><b>Βαλίτσα:</b>${listHtml(topN(topSuitcase, 6))}</div>
-      </div>
-    </div>
-
-    <div style="background:#fbf7f0;border:1px solid #e5e7eb;border-radius:16px;padding:12px;margin:10px 0;">
-      <div style="font-weight:900;margin-bottom:8px;">Φραγκοφόροι</div>
-      <div style="font-size:13px;">${listHtml(topN(pallbearersMap, 8))}</div>
-    </div>
-
-    <div style="background:#fbf7f0;border:1px solid #e5e7eb;border-radius:16px;padding:12px;margin:10px 0;">
-      <div style="font-weight:900;margin-bottom:8px;">Κατανομή ανά ημέρα</div>
-      <div style="font-size:13px;">${listHtml(topN(weekdayMap, 7))}</div>
-    </div>
-  `;
-}
-
-// ── EN-only Statistics ────────────────────────────────────────────────────────
-function updateStatsEN() {
-  const more = $("statsMore");
+  const more = $("statsMore") || ensureStatsMoreContainer();
   if (!more) return;
 
   const isPro = window.__authPlan === "pro";
+  const noData = t("Δεν υπάρχουν ακόμα δεδομένα.", "No data yet");
 
   const addCount = (map, rawValue) => {
     const raw = String(rawValue || "").trim().replace(/\s+/g, " ");
@@ -2761,7 +2533,7 @@ function updateStatsEN() {
 
   const rowsHtml = (arr) => arr.length
     ? arr.map(x => `<div style="display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px solid rgba(0,0,0,.04);"><span>${esc(x.label)}</span><b>${x.count}</b></div>`).join("")
-    : `<div style="color:#9ca3af;font-size:12px;">No data yet</div>`;
+    : `<div style="color:#9ca3af;font-size:12px;">${noData}</div>`;
 
   const card = (title, bodyHtml, accent = "#c8a96e") =>
     `<div style="background:#1e2a42;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px 16px;margin:0 0 12px;">` +
@@ -2770,31 +2542,24 @@ function updateStatsEN() {
 
   const pillRow = (items) =>
     `<div style="display:flex;flex-wrap:wrap;gap:8px;">${items.map(([label, count]) =>
-      `<div style="background:rgba(200,169,110,.15);border:1px solid rgba(200,169,110,.2);border-radius:999px;padding:5px 12px;font-size:13px;"><b>${count}</b> ${esc(label)}</div>`
+      `<div style="background:rgba(200,169,110,.15);border:1px solid rgba(200,169,110,.2);border-radius:999px;padding:5px 12px;font-size:13px;"><b>${count}</b> ${esc(String(label))}</div>`
     ).join("")}</div>`;
 
-  // ── Tally loops ──────────────────────────────────────────────────────────────
+  const DAYS = t(
+    ["Κυριακή","Δευτέρα","Τρίτη","Τετάρτη","Πέμπτη","Παρασκευή","Σάββατο"],
+    ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]
+  );
+
   const now = new Date();
   const monday = getMondayOfWeek(now);
   const sunday = new Date(monday); sunday.setDate(monday.getDate() + 7);
   const thisMonthKey = now.toISOString().slice(0, 7);
 
-  let total = 0, thisWeek = 0, thisMonth = 0;
-  let burials = 0, cremations = 0;
+  let total = 0, thisWeek = 0, thisMonth = 0, burials = 0, cremations = 0;
   const monthlyCounts = {};
-  const placeMap = new Map();
-  const coffinMap = new Map();
-  const coordMap = new Map();
-  const dayMap = new Map();
-  const DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-
-  // Pro-only maps
-  const setMap = new Map();
-  const assistantMap = new Map();
-  const pallbearersMap = new Map();
-  const decorMap = new Map();
-  const luggageMap = new Map();
-  const pickupMap = new Map();
+  const placeMap = new Map(), coffinMap = new Map(), coordMap = new Map(), dayMap = new Map();
+  const setMap = new Map(), assistantMap = new Map(), pallbearersMap = new Map();
+  const decorMap = new Map(), luggageMap = new Map(), pickupMap = new Map();
   let coffeeYes = 0, coffeeNo = 0, coffeeOther = 0;
 
   ceremonies.forEach((c) => {
@@ -2825,7 +2590,6 @@ function updateStatsEN() {
       addCount(decorMap, c.decor);
       addCount(luggageMap, c.suitcase);
       addCount(pickupMap, c.pickupSecondPerson);
-
       const cv = String(c.coffee || "").toLowerCase();
       if (cv.includes("yes") || cv.includes("ναι")) coffeeYes++;
       else if (cv.includes("no") || cv.includes("όχι") || cv.includes("oxi")) coffeeNo++;
@@ -2833,7 +2597,7 @@ function updateStatsEN() {
     }
   });
 
-  // ── Custom fields stats ──────────────────────────────────────────────────────
+  // Custom fields stats
   const customStats = [];
   if (Array.isArray(customFields) && customFields.length) {
     customFields.forEach((f) => {
@@ -2850,66 +2614,57 @@ function updateStatsEN() {
           const mn = Math.min(...nums), mx = Math.max(...nums);
           customStats.push(card(`📊 ${esc(f.label)}`,
             `<div style="display:flex;gap:16px;flex-wrap:wrap;">` +
-            `<span>Avg <b>${avg}</b></span><span>Min <b>${mn}</b></span><span>Max <b>${mx}</b></span><span>Filled <b>${nums.length}/${total}</b></span></div>`));
+            `<span>${t("Μ.Ο.","Avg")} <b>${avg}</b></span><span>${t("Ελ.","Min")} <b>${mn}</b></span><span>${t("Μεγ.","Max")} <b>${mx}</b></span>` +
+            `<span>${t("Συμπλ.","Filled")} <b>${nums.length}/${total}</b></span></div>`));
         }
       } else if (f.type === "text") {
         const filled = ceremonies.filter(c => String((c.customValues || {})[key] || "").trim()).length;
         if (filled) customStats.push(card(`📊 ${esc(f.label)}`,
-          `<span>Filled in <b>${filled}</b> of <b>${total}</b> ceremonies</span>`));
+          t(`<span>Συμπληρώθηκε σε <b>${filled}</b> από <b>${total}</b> τελετές</span>`,
+            `<span>Filled in <b>${filled}</b> of <b>${total}</b> ceremonies</span>`)));
       }
     });
   }
 
-  // ── Monthly list ─────────────────────────────────────────────────────────────
+  // Monthly list
   const monthKeys = Object.keys(monthlyCounts).sort().reverse();
   const monthHtml = monthKeys.length
     ? monthKeys.map(k => `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.05);"><span>${k}</span><b>${monthlyCounts[k]}</b></div>`).join("")
-    : `<div style="color:#9ca3af;font-size:12px;">No data yet</div>`;
+    : `<div style="color:#9ca3af;font-size:12px;">${noData}</div>`;
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  // Render
   let html = "";
 
-  // Overview
-  html += card("Overview",
-    pillRow([["total", total], ["this week", thisWeek], ["this month", thisMonth]]),
+  html += card(t("Επισκόπηση","Overview"),
+    pillRow([[t("Σύνολο","total"), total], [t("Εβδομάδα","this week"), thisWeek], [t("Μήνας","this month"), thisMonth]]),
     "#c8daf0");
 
-  // Burial type
-  html += card("Burial type",
-    pillRow([["Burial", burials], ["Cremation", cremations]]));
+  html += card(t("Τύπος","Burial type"),
+    pillRow([[t("Ταφή","Burial"), burials], [t("Αποτεφρωση","Cremation"), cremations]]));
 
-  // By month
-  html += card("By month", monthHtml);
+  html += card(t("Ανά μήνα","By month"), monthHtml);
+  html += card(t("Φέρετρα","Coffin usage"), rowsHtml(topN(coffinMap, 15)));
+  html += card(t("Τοποθεσίες","Top ceremony locations"), rowsHtml(topN(placeMap, 10)));
+  html += card(t("Υπεύθυνος","Ceremony coordinator"), rowsHtml(topN(coordMap, 8)));
 
-  // Coffin
-  html += card("Coffin usage", rowsHtml(topN(coffinMap, 15)));
-
-  // Location
-  html += card("Top ceremony locations", rowsHtml(topN(placeMap, 10)));
-
-  // Coordinator
-  html += card("Ceremony coordinator", rowsHtml(topN(coordMap, 8)));
-
-  // Day of week
   const orderedDays = DAYS.map(d => ({ label: d, count: (dayMap.get(normalizeTextKey(d)) || { count: 0 }).count })).filter(x => x.count > 0);
-  html += card("Day of week",
+  html += card(t("Ημέρα","Day of week"),
     orderedDays.length
       ? orderedDays.map(x => `<div style="display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px solid rgba(0,0,0,.04);"><span>${esc(x.label)}</span><b>${x.count}</b></div>`).join("")
-      : `<div style="color:#9ca3af;font-size:12px;">No data yet</div>`);
+      : `<div style="color:#9ca3af;font-size:12px;">${noData}</div>`);
 
   if (isPro) {
-    html += card("Burial set usage", rowsHtml(topN(setMap, 10)));
-    html += card("2nd assistant", rowsHtml(topN(assistantMap, 8)));
-    html += card("2nd pickup person", rowsHtml(topN(pickupMap, 8)));
-    html += card("Luggage", rowsHtml(topN(luggageMap, 8)));
-    html += card("Decoration", rowsHtml(topN(decorMap, 10)));
-    html += card("Pallbearers", rowsHtml(topN(pallbearersMap, 8)));
-    html += card("Wake / Reception",
-      pillRow([["Yes", coffeeYes], ["No", coffeeNo], ["Other", coffeeOther]]));
+    html += card(t("ΣΕΤ","Burial set usage"), rowsHtml(topN(setMap, 10)));
+    html += card(t("2ο άτομο","2nd assistant"), rowsHtml(topN(assistantMap, 8)));
+    html += card(t("2ο παραλαβής","2nd pickup person"), rowsHtml(topN(pickupMap, 8)));
+    html += card(t("Βαλίτσα","Luggage"), rowsHtml(topN(luggageMap, 8)));
+    html += card(t("Στολισμός","Decoration"), rowsHtml(topN(decorMap, 10)));
+    html += card(t("Φραγκοφόροι","Pallbearers"), rowsHtml(topN(pallbearersMap, 8)));
+    html += card(t("Καφές","Wake / Reception"),
+      pillRow([[t("Ναι","Yes"), coffeeYes], [t("Όχι","No"), coffeeNo], [t("Άλλο","Other"), coffeeOther]]));
   }
 
   html += customStats.join("");
-
   more.innerHTML = html;
 }
 
