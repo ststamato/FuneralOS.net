@@ -74,6 +74,7 @@
       applyUserUI(user);
       document.getElementById("authOverlay").style.display = "none";
       installFeatureGates();
+      loadReferralProfile(user.id);
 
     } catch (err) {
       console.error("Auth error:", err);
@@ -341,6 +342,72 @@
     const modal = document.getElementById("upgradeModal");
     if (modal && e.target === modal) window.closeUpgradeModal();
   });
+
+  // ── Referral System ───────────────────────────────────────────────────────────
+  async function loadReferralProfile(userId) {
+    try {
+      const [profileRes, referralsRes] = await Promise.all([
+        sb.from("profiles").select("referral_code, referral_credits").eq("id", userId).single(),
+        sb.from("referrals").select("id", { count: "exact" }).eq("referrer_id", userId).eq("status", "rewarded")
+      ]);
+      const code = profileRes.data?.referral_code || "";
+      const credits = profileRes.data?.referral_credits || 0;
+      const count = referralsRes.count || 0;
+
+      window.__referralCode = code;
+      window.__referralCredits = credits;
+
+      const link = code ? "https://funeralos.net/?ref=" + code : "";
+      const codeEl = document.getElementById("referralCodeDisplay");
+      const linkEl = document.getElementById("referralLinkDisplay");
+      const countEl = document.getElementById("referralCountDisplay");
+      const credEl = document.getElementById("referralCreditsDisplay");
+      if (codeEl) codeEl.textContent = code || "---";
+      if (linkEl) linkEl.textContent = link || "-";
+      if (countEl) countEl.textContent = count;
+      if (credEl) credEl.textContent = credits;
+
+      if (credits > 0) {
+        const badge = document.getElementById("planBadge");
+        if (badge) {
+          const existing = badge.parentElement.querySelector(".referral-credit-pill");
+          if (!existing) {
+            const pill = document.createElement("span");
+            pill.className = "referral-credit-pill";
+            pill.title = credits + " δωρεάν μήνες από συστάσεις";
+            pill.style.cssText = "margin-left:6px;font-size:9px;font-weight:700;background:#2a9d5c;color:#fff;padding:2px 6px;border-radius:4px;letter-spacing:.4px;cursor:default;";
+            pill.textContent = "+" + credits + "μ";
+            badge.after(pill);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Referral load error:", e);
+    }
+  }
+
+  window.copyReferralCode = function () {
+    const code = window.__referralCode || "";
+    if (!code) return;
+    navigator.clipboard.writeText(code).then(function () {
+      const el = document.getElementById("referralCodeDisplay");
+      const prev = el ? el.textContent : code;
+      if (el) el.textContent = "✓ Αντιγράφηκε!";
+      setTimeout(function () { if (el) el.textContent = prev; }, 1500);
+    });
+  };
+
+  window.copyReferralLink = function () {
+    const code = window.__referralCode || "";
+    if (!code) return;
+    const link = "https://funeralos.net/?ref=" + code;
+    navigator.clipboard.writeText(link).then(function () {
+      const el = document.getElementById("referralLinkDisplay");
+      const prev = el ? el.textContent : link;
+      if (el) el.textContent = "✓ Αντιγράφηκε!";
+      setTimeout(function () { if (el) el.textContent = prev; }, 1500);
+    });
+  };
 
   // ── Kick off ─────────────────────────────────────────────────────────────────
   initAuth();

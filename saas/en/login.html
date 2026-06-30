@@ -96,6 +96,10 @@
       <label>Password (at least 6 characters)</label>
       <input type="password" id="regPassword" placeholder="••••••••" autocomplete="new-password" />
     </div>
+    <div class="form-group">
+      <label style="font-size:12px;color:#8899aa;">Referral code <span style="font-weight:400;">(optional)</span></label>
+      <input type="text" id="regReferral" placeholder="e.g. FOS-A1B2C3" autocomplete="off" style="text-transform:uppercase;" />
+    </div>
     <button class="btn-submit" id="registerBtn" onclick="doRegister()">Create account</button>
   </div>
 
@@ -113,8 +117,18 @@
   const { createClient } = window.supabase;
   const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  const urlTab = new URLSearchParams(location.search).get('tab');
+  const urlParams = new URLSearchParams(location.search);
+  const urlTab = urlParams.get('tab');
   if (urlTab === 'register') switchTab('register');
+  const urlRef = urlParams.get('ref');
+  if (urlRef) localStorage.setItem('funeralos_ref', urlRef.toUpperCase());
+  const storedRef = localStorage.getItem('funeralos_ref');
+  if (storedRef) {
+    document.addEventListener('DOMContentLoaded', function() {
+      const refField = document.getElementById('regReferral');
+      if (refField && !refField.value) { refField.value = storedRef; switchTab('register'); }
+    });
+  }
 
   sb.auth.getSession().then(({ data: { session } }) => {
     if (session) window.location.href = './app.html';
@@ -160,10 +174,12 @@
     const btn = document.getElementById('registerBtn');
     btn.disabled = true; btn.textContent = 'Creating account...';
 
+    const referralCode = (document.getElementById('regReferral').value || '').trim().toUpperCase() || undefined;
     const { error } = await sb.auth.signUp({
       email, password,
-      options: { data: { office_name: office, plan: 'free' } }
+      options: { data: { office_name: office, plan: 'free', referred_by: referralCode } }
     });
+    if (!error && referralCode) localStorage.removeItem('funeralos_ref');
 
     if (error) {
       showMsg('registerMsg', translateError(error.message), 'error');

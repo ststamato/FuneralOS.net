@@ -112,6 +112,10 @@
       <label>Κωδικός (τουλάχιστον 6 χαρακτήρες)</label>
       <input type="password" id="regPassword" placeholder="••••••••" autocomplete="new-password" />
     </div>
+    <div class="form-group">
+      <label style="font-size:12px;color:#8899aa;">Κωδικός σύστασης <span style="font-weight:400;">(προαιρετικό)</span></label>
+      <input type="text" id="regReferral" placeholder="π.χ. FOS-A1B2C3" autocomplete="off" style="text-transform:uppercase;" />
+    </div>
     <button class="btn-submit" id="registerBtn" onclick="doRegister()">Δημιουργία λογαριασμού</button>
   </div>
 
@@ -128,9 +132,19 @@
   const { createClient } = window.supabase;
   const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // Read ?tab= from URL
-  const urlTab = new URLSearchParams(location.search).get('tab');
+  // Capture referral code from URL or localStorage
+  const urlParams = new URLSearchParams(location.search);
+  const urlTab = urlParams.get('tab');
   if (urlTab === 'register') switchTab('register');
+  const urlRef = urlParams.get('ref');
+  if (urlRef) localStorage.setItem('funeralos_ref', urlRef.toUpperCase());
+  const storedRef = localStorage.getItem('funeralos_ref');
+  if (storedRef) {
+    document.addEventListener('DOMContentLoaded', function() {
+      const refField = document.getElementById('regReferral');
+      if (refField && !refField.value) { refField.value = storedRef; switchTab('register'); }
+    });
+  }
 
   // If already logged in, go to app
   sb.auth.getSession().then(({ data: { session } }) => {
@@ -186,10 +200,12 @@
     const btn = document.getElementById('registerBtn');
     btn.disabled = true; btn.textContent = 'Δημιουργία...';
 
+    const referralCode = (document.getElementById('regReferral').value || '').trim().toUpperCase() || undefined;
     const { error } = await sb.auth.signUp({
       email, password,
-      options: { data: { office_name: office, plan: 'free' } }
+      options: { data: { office_name: office, plan: 'free', referred_by: referralCode } }
     });
+    if (!error && referralCode) localStorage.removeItem('funeralos_ref');
 
     if (error) {
       showMsg('registerMsg', translateError(error.message), 'error');
