@@ -188,6 +188,20 @@
         </div>
         <div id="optFieldsToggleList" class="opt-fields-toggle-list"></div>
       </div>
+      <!-- Admin plan switcher — hidden for non-owners -->
+      <div class="settings-panel" id="ownerPlanSwitcher" style="display:none;">
+        <div class="settings-head">
+          <div>
+            <h3>⚙️ Admin — Plan testing</h3>
+            <p class="warehouse-hint">Only visible to you. Switches plan to preview how the app looks for each tier. Resets automatically when you close the browser.</p>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:12px;">
+          <button data-plan="free" onclick="ownerSwitchPlan('free')" style="flex:1;padding:10px;border-radius:8px;border:1px solid rgba(200,169,110,.3);cursor:pointer;font-weight:400;font-size:13px;background:rgba(200,169,110,.1);color:#c8a96e;">FREE</button>
+          <button data-plan="pro" onclick="ownerSwitchPlan('pro')" style="flex:1;padding:10px;border-radius:8px;border:1px solid rgba(200,169,110,.3);cursor:pointer;font-weight:400;font-size:13px;background:rgba(200,169,110,.1);color:#c8a96e;">PRO</button>
+          <button data-plan="business" onclick="ownerSwitchPlan('business')" style="flex:1;padding:10px;border-radius:8px;border:1px solid rgba(200,169,110,.3);cursor:pointer;font-weight:400;font-size:13px;background:rgba(200,169,110,.1);color:#c8a96e;">BUSINESS</button>
+        </div>
+      </div>
       <!-- Referral panel -->
       <div class="settings-panel" id="referralPanel">
         <div class="settings-head">

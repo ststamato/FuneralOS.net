@@ -57,6 +57,22 @@
       const OWNER_EMAILS = ["ststamato@gmail.com"];
       const isOwner = OWNER_EMAILS.includes(user.email);
       window.__authPlan = isOwner ? "business" : (user.user_metadata?.plan || "free");
+      // Owner: apply plan override from sessionStorage (for testing)
+      if (isOwner) {
+        const override = sessionStorage.getItem("__fos_plan_override");
+        if (override) window.__authPlan = override;
+        // Show admin switcher panel
+        const switcher = document.getElementById("ownerPlanSwitcher");
+        if (switcher) {
+          switcher.style.display = "";
+          const btns = switcher.querySelectorAll("[data-plan]");
+          btns.forEach(function(b) {
+            b.style.fontWeight = b.dataset.plan === window.__authPlan ? "900" : "400";
+            b.style.background = b.dataset.plan === window.__authPlan ? "#c8a96e" : "rgba(200,169,110,.1)";
+            b.style.color = b.dataset.plan === window.__authPlan ? "#0f1523" : "#c8a96e";
+          });
+        }
+      }
       window.__authOfficeName = user.user_metadata?.office_name || user.email || "Γραφείο";
 
       // Clear localStorage if a different user logs in on the same device
@@ -440,6 +456,16 @@
       if (el) el.textContent = "✓ Αντιγράφηκε!";
       setTimeout(function () { if (el) el.textContent = prev; }, 1500);
     });
+  };
+
+  // ── Admin plan switcher (owner only) ─────────────────────────────────────────
+  window.ownerSwitchPlan = function (plan) {
+    if (plan === "business") {
+      sessionStorage.removeItem("__fos_plan_override");
+    } else {
+      sessionStorage.setItem("__fos_plan_override", plan);
+    }
+    location.reload();
   };
 
   // ── Kick off ─────────────────────────────────────────────────────────────────
