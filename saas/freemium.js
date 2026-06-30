@@ -71,10 +71,11 @@
       }
       localStorage.setItem("__funeralos_uid", user.id);
 
+      // Load referral credits FIRST — may upgrade __authPlan before UI/gates
+      await loadReferralProfile(user.id);
       applyUserUI(user);
       document.getElementById("authOverlay").style.display = "none";
       installFeatureGates();
-      loadReferralProfile(user.id);
 
     } catch (err) {
       console.error("Auth error:", err);
@@ -305,6 +306,21 @@
         }
       }, 600);
     }
+
+    // Referral bonus banner — show when plan was upgraded via credits
+    if (window.__referralPlanActive && window.__referralPlanUntil) {
+      setTimeout(function () {
+        const heroGrid = document.getElementById("homeDashboardGrid");
+        if (heroGrid && !document.getElementById("referralBonusBanner")) {
+          const untilStr = new Date(window.__referralPlanUntil).toLocaleDateString("el-GR", { day: "2-digit", month: "long", year: "numeric" });
+          const banner = document.createElement("div");
+          banner.id = "referralBonusBanner";
+          banner.style.cssText = "margin-top:12px;padding:12px 16px;background:rgba(42,157,92,.12);border:1px solid rgba(42,157,92,.35);border-radius:10px;font-size:13px;color:#2a9d5c;display:flex;align-items:center;gap:10px;";
+          banner.innerHTML = '<span style="font-size:18px;">🎁</span><span><strong>Δωρεάν αναβάθμιση από σύσταση!</strong> Το πλάνο σου έχει αναβαθμιστεί δωρεάν έως <strong>' + untilStr + '</strong> χάρη στις συστάσεις σου.</span>';
+          heroGrid.after(banner);
+        }
+      }, 650);
+    }
   }
 
   function updateMonthCount() {
@@ -350,36 +366,50 @@
   async function loadReferralProfile(userId) {
     try {
       const [profileRes, referralsRes] = await Promise.all([
-        sb.from("profiles").select("referral_code, referral_credits").eq("id", userId).single(),
+        sb.from("profiles").select("referral_code, referral_credits, referral_plan_until").eq("id", userId).single(),
         sb.from("referrals").select("id", { count: "exact" }).eq("referrer_id", userId).eq("status", "rewarded")
       ]);
-      const code = profileRes.data?.referral_code || "";
-      const credits = profileRes.data?.referral_credits || 0;
-      const count = referralsRes.count || 0;
+      const code       = profileRes.data?.referral_code     || "";
+      const credits    = profileRes.data?.referral_credits  || 0;
+      const planUntil  = profileRes.data?.referral_plan_until || null;
+      const count      = referralsRes.count || 0;
 
-      window.__referralCode = code;
-      window.__referralCredits = credits;
+      window.__referralCode      = code;
+      window.__referralCredits   = credits;
+      window.__referralPlanUntil = planUntil;
+      window.__referralPlanActive = false;
 
+      // Auto-upgrade plan when credit period is still active
+      if (planUntil && new Date(planUntil) > new Date() && window.__authPlan !== "business") {
+        window.__authPlan = window.__authPlan === "pro" ? "business" : "pro";
+        window.__referralPlanActive = true;
+      }
+
+      // Populate referral info panel elements (if present in DOM)
       const link = code ? "https://funeralos.net/?ref=" + code : "";
-      const codeEl = document.getElementById("referralCodeDisplay");
-      const linkEl = document.getElementById("referralLinkDisplay");
+      const codeEl  = document.getElementById("referralCodeDisplay");
+      const linkEl  = document.getElementById("referralLinkDisplay");
       const countEl = document.getElementById("referralCountDisplay");
-      const credEl = document.getElementById("referralCreditsDisplay");
-      if (codeEl) codeEl.textContent = code || "---";
-      if (linkEl) linkEl.textContent = link || "-";
+      const credEl  = document.getElementById("referralCreditsDisplay");
+      if (codeEl)  codeEl.textContent  = code || "---";
+      if (linkEl)  linkEl.textContent  = link || "-";
       if (countEl) countEl.textContent = count;
-      if (credEl) credEl.textContent = credits;
+      if (credEl)  credEl.textContent  = credits;
 
+      // Show credit pill next to plan badge
       if (credits > 0) {
         const badge = document.getElementById("planBadge");
         if (badge) {
           const existing = badge.parentElement.querySelector(".referral-credit-pill");
           if (!existing) {
+            const untilStr = planUntil
+              ? new Date(planUntil).toLocaleDateString("el-GR", { day: "2-digit", month: "2-digit", year: "numeric" })
+              : "";
             const pill = document.createElement("span");
             pill.className = "referral-credit-pill";
-            pill.title = credits + " δωρεάν μήνες από συστάσεις";
+            pill.title = credits + " δωρεάν " + (credits === 1 ? "μήνας" : "μήνες") + " από συστάσεις" + (untilStr ? " · Ισχύει έως " + untilStr : "");
             pill.style.cssText = "margin-left:6px;font-size:9px;font-weight:700;background:#2a9d5c;color:#fff;padding:2px 6px;border-radius:4px;letter-spacing:.4px;cursor:default;";
-            pill.textContent = "+" + credits + "μ";
+            pill.textContent = "🎁 +" + credits + "μ";
             badge.after(pill);
           }
         }

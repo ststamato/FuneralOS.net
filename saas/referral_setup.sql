@@ -8,6 +8,7 @@ create table if not exists public.profiles (
   id uuid references auth.users on delete cascade primary key,
   referral_code text unique not null,
   referral_credits integer not null default 0,
+  referral_plan_until timestamptz,          -- when the referral-granted plan expires
   referred_by text,
   created_at timestamptz not null default now()
 );
@@ -105,9 +106,13 @@ begin
       set    status = 'rewarded', rewarded_at = now()
       where  referred_user_id = new.id and status = 'pending';
 
-      -- Give referrer 1 free month credit
+      -- Give referrer 1 free month credit + extend plan expiry
       update public.profiles
-      set    referral_credits = referral_credits + 1
+      set    referral_credits    = referral_credits + 1,
+             referral_plan_until = greatest(
+               coalesce(referral_plan_until, now()),
+               now()
+             ) + interval '1 month'
       where  referral_code = v_referred_by;
     end if;
   end if;
