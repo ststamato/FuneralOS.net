@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+Allow: /en/
+Allow: /gr/
+Allow: /it/
+Allow: /es/
+
+Disallow: /app.html
+Disallow: /en/app.html
+Disallow: /login.html
+Disallow: /en/login.html
+Disallow: /reset.html
+Disallow: /en/reset.html
+Disallow: /success.html
+Disallow: /en/success.html
+
+Sitemap: https://funeralos.net/sitemap.xml
