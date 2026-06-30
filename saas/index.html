@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FuneralOS — Η κάρτα του γραφείου κηδειών</title>
-  <meta name="description" content="Διαχείριση τελετών, αποθήκης και AI βοηθού για γραφεία κηδειών. Ξεκίνα δωρεάν σήμερα." />
+  <title>FuneralOS — Το λειτουργικό σύστημα του γραφείου τελετών</title>
+  <meta name="description" content="Διαχείριση τελετών, αποθήκης, προμηθευτών, υπενθυμίσεων και AI βοηθού για γραφεία τελετών." />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -45,11 +45,6 @@
     }
     .nav-logo span { color: var(--gold); }
     .nav-links { display: flex; gap: 12px; align-items: center; }
-    .lang-switcher { display: flex; align-items: center; gap: 2px; border: 1px solid rgba(255,255,255,.1); border-radius: 6px; overflow: hidden; }
-    .nav-lang { font-size: 12px; font-weight: 600; color: var(--muted); text-decoration: none; padding: 5px 10px; }
-    .nav-lang:hover { color: var(--white); background: rgba(255,255,255,.06); }
-    .nav-lang.active { color: var(--gold); background: rgba(200,169,110,.1); }
-    .lang-sep { color: rgba(255,255,255,.15); font-size: 11px; }
     .btn {
       display: inline-flex; align-items: center; justify-content: center;
       padding: 10px 22px; border-radius: 8px; font-size: 14px; font-weight: 600;
@@ -234,7 +229,20 @@
       .hero-trust { gap: 16px; }
       footer { flex-direction: column; text-align: center; }
     }
+  
+
+    /* v1.1 commercial upgrades */
+    .price-note { font-size:12px; color:var(--muted); margin-top:10px; }
+    .price-card.team { border-color: rgba(200,169,110,.35); }
+    .mini-band { max-width:1080px; margin:0 auto 24px; display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; }
+    .mini-band .mini { background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:18px; }
+    .mini strong{display:block;color:var(--gold);margin-bottom:6px}.mini span{color:var(--muted);font-size:14px}
+    .demo-box { margin:26px auto 0; max-width:780px; display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px; text-align:left; }
+    .demo-box div { background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:16px; font-size:14px; color:var(--muted); }
+    .demo-box b { color:var(--white); display:block; margin-bottom:4px; }
+
   </style>
+  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-REPLACE_ME');</script>
 </head>
 <body>
 
@@ -242,11 +250,6 @@
 <nav>
   <a href="#" class="nav-logo">Funeral<span>OS</span></a>
   <div class="nav-links">
-    <div class="lang-switcher">
-      <a href="en/index.html" class="nav-lang">🇬🇧 EN</a>
-      <span class="lang-sep">|</span>
-      <span class="nav-lang active">🇬🇷 GR</span>
-    </div>
     <a href="login.html?tab=login" class="btn btn-ghost">Σύνδεση</a>
     <a href="login.html?tab=register" class="btn btn-primary">Ξεκίνα δωρεάν</a>
   </div>
@@ -266,7 +269,7 @@
   </div>
   <div class="hero-trust">
     <div class="trust-item"><div class="trust-dot"></div>Χωρίς κάρτα πληρωμής</div>
-    <div class="trust-item"><div class="trust-dot"></div>10 τελετές/μήνα δωρεάν</div>
+    <div class="trust-item"><div class="trust-dot"></div>5 τελετές/μήνα δωρεάν</div>
     <div class="trust-item"><div class="trust-dot"></div>Ελληνική εφαρμογή</div>
     <div class="trust-item"><div class="trust-dot"></div>Cloud & offline</div>
   </div>
@@ -341,46 +344,67 @@
 <section class="section" id="pricing">
   <div class="section-inner">
     <p class="section-label">Τιμές</p>
-    <h2 class="section-title">Απλό και διαφανές</h2>
+    <h2 class="section-title">Καθαρές τιμές. Χωρίς ψιλά γράμματα.</h2>
     <div class="pricing-grid">
-
-      <!-- FREE -->
       <div class="price-card">
         <div class="price-name">Δωρεάν</div>
         <div class="price-amount">€0</div>
         <div class="price-period">για πάντα</div>
         <ul class="price-features">
-          <li><span class="check">✓</span> 10 τελετές / μήνα</li>
-          <li><span class="check">✓</span> Αποθήκη φερέτρων & ΣΕΤ</li>
+          <li><span class="check">✓</span> 5 τελετές / μήνα</li>
           <li><span class="check">✓</span> Βασική κάρτα τελετής</li>
-          <li><span class="check">✓</span> Τοπική αποθήκευση</li>
-          <li><span class="cross">✗</span> <span style="color:var(--muted)">AI Hermes</span></li>
+          <li><span class="check">✓</span> Αποθήκη φερέτρων & ΣΕΤ</li>
+          <li><span class="check">✓</span> Τοπικό backup</li>
+          <li><span class="cross">✗</span> <span style="color:var(--muted)">Hermes AI</span></li>
           <li><span class="cross">✗</span> <span style="color:var(--muted)">Cloud sync</span></li>
-          <li><span class="cross">✗</span> <span style="color:var(--muted)">Στατιστικά</span></li>
-          <li><span class="cross">✗</span> <span style="color:var(--muted)">Προμηθευτές</span></li>
+          <li><span class="cross">✗</span> <span style="color:var(--muted)">Στατιστικά / admin</span></li>
         </ul>
         <a href="login.html?tab=register" class="price-cta price-cta-ghost">Ξεκίνα δωρεάν</a>
       </div>
-
-      <!-- PRO -->
       <div class="price-card featured">
         <div class="price-badge">ΣΥΝΙΣΤΩΜΕΝΟ</div>
         <div class="price-name">Pro</div>
         <div class="price-amount">€39 <small>/μήνα</small></div>
-        <div class="price-period">ή €390/χρόνο (2 μήνες δωρεάν)</div>
+        <div class="price-period">ή €390/χρόνο — 2 μήνες δωρεάν</div>
         <ul class="price-features">
           <li><span class="check">✓</span> Απεριόριστες τελετές</li>
-          <li><span class="check">✓</span> Αποθήκη φερέτρων & ΣΕΤ</li>
-          <li><span class="check">✓</span> Πλήρης κάρτα τελετής</li>
+          <li><span class="check">✓</span> Hermes AI Action Center</li>
           <li><span class="check">✓</span> Cloud sync σε όλες τις συσκευές</li>
-          <li><span class="check">✓</span> AI Hermes (Action Center)</li>
-          <li><span class="check">✓</span> Στατιστικά & Ιστορικό</li>
+          <li><span class="check">✓</span> PDF / εκτύπωση κάρτας τελετής</li>
+          <li><span class="check">✓</span> WhatsApp + Email αποστολή</li>
+          <li><span class="check">✓</span> Στατιστικά & ιστορικό</li>
           <li><span class="check">✓</span> Προμηθευτές</li>
-          <li><span class="check">✓</span> Email υποστήριξη</li>
         </ul>
-        <a href="login.html?tab=register" class="price-cta price-cta-gold">Ξεκίνα Pro →</a>
+        <a href="https://buy.stripe.com/PLACEHOLDER_PRO" class="price-cta price-cta-gold">Αναβάθμιση σε Pro →</a>
+        <div class="price-note">Βάζεις εδώ το πραγματικό Stripe payment link.</div>
       </div>
+      <div class="price-card team">
+        <div class="price-name">Team</div>
+        <div class="price-amount">€79 <small>/μήνα</small></div>
+        <div class="price-period">έως 5 χρήστες</div>
+        <ul class="price-features">
+          <li><span class="check">✓</span> Όλα του Pro</li>
+          <li><span class="check">✓</span> 5 λογαριασμοί προσωπικού</li>
+          <li><span class="check">✓</span> Ρόλοι: ιδιοκτήτης, γραφείο, οδηγός</li>
+          <li><span class="check">✓</span> Admin panel γραφείου</li>
+          <li><span class="check">✓</span> Προτεραιότητα στην υποστήριξη</li>
+          <li><span class="check">✓</span> Referral: φέρε γραφείο, πάρε 1 μήνα δωρεάν</li>
+        </ul>
+        <a href="https://buy.stripe.com/PLACEHOLDER_TEAM" class="price-cta price-cta-ghost">Ξεκίνα Team →</a>
+      </div>
+    </div>
+  </div>
+</section>
 
+<section class="section" style="padding-top:40px;padding-bottom:40px;">
+  <div class="section-inner">
+    <p class="section-label">Growth</p>
+    <h2 class="section-title">Για να φέρεις περισσότερα γραφεία</h2>
+    <div class="mini-band">
+      <div class="mini"><strong>Referral σύστημα</strong><span>Φέρε ένα γραφείο → πάρε 1 μήνα δωρεάν.</span></div>
+      <div class="mini"><strong>Live demo</strong><span>Παρουσίαση με WhatsApp/Viber για ιδιοκτήτες που θέλουν να το δουν.</span></div>
+      <div class="mini"><strong>Google Analytics</strong><span>Έτοιμο placeholder για GA4 ώστε να βλέπεις επισκέψεις και πωλήσεις.</span></div>
+      <div class="mini"><strong>Ιταλικά + Ισπανικά</strong><span>Έτοιμη κατεύθυνση επέκτασης για μεγαλύτερη αγορά.</span></div>
     </div>
   </div>
 </section>
@@ -408,7 +432,7 @@
         <div class="faq-a">Η εφαρμογή είναι Progressive Web App (PWA) — μπορείς να την "εγκαταστήσεις" από τον browser χωρίς App Store.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q">Τι γίνεται αν έχω πάνω από 10 τελετές/μήνα στο δωρεάν; <span>+</span></div>
+        <div class="faq-q">Τι γίνεται αν έχω πάνω από 5 τελετές/μήνα στο δωρεάν; <span>+</span></div>
         <div class="faq-a">Θα χρειαστεί αναβάθμιση σε Pro. Τα υπάρχοντα δεδομένα σου δεν χάνονται σε καμία περίπτωση.</div>
       </div>
     </div>
@@ -418,7 +442,7 @@
 <!-- CTA BOTTOM -->
 <section class="cta-bottom">
   <h2>Ξεκίνα σήμερα δωρεάν</h2>
-  <p>Δεν χρειάζεσαι κάρτα πληρωμής. 10 τελετές/μήνα χωρίς χρέωση.</p>
+  <p>Δεν χρειάζεσαι κάρτα πληρωμής. 5 τελετές/μήνα χωρίς χρέωση.</p>
   <a href="login.html?tab=register" class="btn btn-primary btn-lg">Δημιούργησε λογαριασμό →</a>
 </section>
 
@@ -428,6 +452,8 @@
   <div class="footer-links">
     <a href="login.html?tab=login">Σύνδεση</a>
     <a href="login.html?tab=register">Εγγραφή</a>
+    <a href="privacy.html">Απόρρητο</a>
+    <a href="terms.html">Όροι</a>
     <a href="mailto:support@funeralos.net">Επικοινωνία</a>
   </div>
 </footer>

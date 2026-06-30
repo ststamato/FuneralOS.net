@@ -1,11 +1,27 @@
 [build]
   publish = "saas"
+  functions = "netlify/functions"
 
 [[redirects]]
   from = "/"
   to = "/en/"
   status = 302
   force = true
+
+[[redirects]]
+  from = "/en"
+  to = "/en/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/en/app"
+  to = "/en/app.html"
+  status = 200
+
+[[redirects]]
+  from = "/app"
+  to = "/app.html"
+  status = 200
 
 [[redirects]]
   from = "/login.html"
@@ -17,3 +33,10 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

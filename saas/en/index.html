@@ -122,7 +122,7 @@
     .step p { font-size: 14px; color: var(--muted); }
 
     /* PRICING */
-    .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; max-width: 700px; margin: 0 auto; }
+    .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; max-width: 1000px; margin: 0 auto; }
     .price-card { padding: 36px 28px; border: 1px solid rgba(255,255,255,.08); border-radius: var(--radius); background: rgba(255,255,255,.03); position: relative; }
     .price-card.featured { border-color: var(--gold); background: rgba(200,169,110,.06); }
     .price-badge { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); background: var(--gold); color: var(--ink); font-size: 11px; font-weight: 800; padding: 4px 14px; border-radius: 100px; letter-spacing: 1px; text-transform: uppercase; }
@@ -164,6 +164,14 @@
       .pain-grid { grid-template-columns: 1fr; }
       footer { flex-direction: column; text-align: center; }
     }
+
+    /* v1.2 commercial additions */
+    .price-note { font-size:12px; color:var(--muted); margin-top:10px; }
+    .price-card.team { border-color: rgba(200,169,110,.35); }
+    .mini-band { max-width:1080px; margin:0 auto 24px; display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; }
+    .mini-band .mini { background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:18px; }
+    .mini strong { display:block; color:var(--gold); margin-bottom:6px; }
+    .mini span { color:var(--muted); font-size:14px; }
   </style>
 </head>
 <body>
@@ -303,7 +311,7 @@
 <section class="section" id="pricing">
   <div class="section-inner">
     <p class="section-label">Pricing</p>
-    <h2 class="section-title">Simple and transparent</h2>
+    <h2 class="section-title">Simple plans. Clear value.</h2>
     <div class="pricing-grid">
 
       <!-- FREE -->
@@ -313,13 +321,12 @@
         <div class="price-period">forever</div>
         <ul class="price-features">
           <li><span class="check">✓</span> 5 ceremonies / month</li>
+          <li><span class="check">✓</span> Basic ceremony card</li>
           <li><span class="check">✓</span> Coffin & burial set inventory</li>
-          <li><span class="check">✓</span> Full ceremony card</li>
-          <li><span class="check">✓</span> Local storage</li>
+          <li><span class="check">✓</span> Local backup</li>
           <li><span class="cross">✗</span> <span style="color:var(--muted)">Hermes AI</span></li>
           <li><span class="cross">✗</span> <span style="color:var(--muted)">Cloud sync</span></li>
-          <li><span class="cross">✗</span> <span style="color:var(--muted)">Statistics</span></li>
-          <li><span class="cross">✗</span> <span style="color:var(--muted)">Supplier directory</span></li>
+          <li><span class="cross">✗</span> <span style="color:var(--muted)">Statistics / admin</span></li>
         </ul>
         <a href="login.html?tab=register" class="price-cta price-cta-ghost">Start free</a>
       </div>
@@ -332,17 +339,46 @@
         <div class="price-period">or €390/year — 2 months free</div>
         <ul class="price-features">
           <li><span class="check">✓</span> Unlimited ceremonies</li>
-          <li><span class="check">✓</span> Coffin & burial set inventory</li>
-          <li><span class="check">✓</span> Full ceremony card</li>
+          <li><span class="check">✓</span> Hermes AI Action Center</li>
           <li><span class="check">✓</span> Cloud sync across devices</li>
-          <li><span class="check">✓</span> Hermes AI (Action Center)</li>
+          <li><span class="check">✓</span> PDF / print ceremony card</li>
+          <li><span class="check">✓</span> WhatsApp + Email sharing</li>
           <li><span class="check">✓</span> Statistics & history</li>
           <li><span class="check">✓</span> Supplier directory</li>
-          <li><span class="check">✓</span> Email support</li>
         </ul>
-        <a href="login.html?tab=register" class="price-cta price-cta-gold">Start Pro →</a>
+        <a href="login.html?tab=register" class="price-cta price-cta-gold">Upgrade to Pro →</a>
       </div>
 
+      <!-- TEAM -->
+      <div class="price-card team">
+        <div class="price-name">Team</div>
+        <div class="price-amount">€79 <small>/mo</small></div>
+        <div class="price-period">up to 5 users</div>
+        <ul class="price-features">
+          <li><span class="check">✓</span> Everything in Pro</li>
+          <li><span class="check">✓</span> 5 staff accounts</li>
+          <li><span class="check">✓</span> Roles: owner, office, driver</li>
+          <li><span class="check">✓</span> Office admin panel</li>
+          <li><span class="check">✓</span> Priority support</li>
+          <li><span class="check">✓</span> Referral rewards</li>
+        </ul>
+        <a href="mailto:support@funeralos.net" class="price-cta price-cta-ghost">Contact us →</a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- GROWTH -->
+<section class="section" style="padding-top:40px;padding-bottom:40px;">
+  <div class="section-inner">
+    <p class="section-label">Growth</p>
+    <h2 class="section-title">Built to spread by word of mouth</h2>
+    <div class="mini-band">
+      <div class="mini"><strong>Referral system</strong><span>Bring one funeral home and get one month free.</span></div>
+      <div class="mini"><strong>Book live demo</strong><span>WhatsApp/Viber presentation for owners who want to see it working.</span></div>
+      <div class="mini"><strong>Offline-first</strong><span>Works without internet — your data is safe even with no signal.</span></div>
+      <div class="mini"><strong>More languages next</strong><span>Italian and Spanish are prepared as expansion targets.</span></div>
     </div>
   </div>
 </section>

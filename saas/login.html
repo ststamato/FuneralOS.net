@@ -94,6 +94,7 @@
       <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" />
     </div>
     <button class="btn-submit" id="loginBtn" onclick="doLogin()">Σύνδεση</button>
+    <button class="btn-submit" style="background:transparent;color:var(--gold);border:1px solid rgba(200,169,110,.35);margin-top:8px;" onclick="resetPassword()">Ξέχασα τον κωδικό</button>
   </div>
 
   <!-- REGISTER -->
@@ -197,6 +198,15 @@
       showMsg('registerMsg', '✓ Έγινε! Έλεγξε το email σου για επιβεβαίωση και μετά συνδέσου.', 'success');
       btn.disabled = false; btn.textContent = 'Δημιουργία λογαριασμού';
     }
+  }
+
+  async function resetPassword() {
+    const email = document.getElementById('loginEmail').value.trim();
+    if (!email) { showMsg('loginMsg', 'Γράψε πρώτα το email σου παραπάνω.', 'error'); return; }
+    const redirectTo = location.origin + location.pathname.replace(/login\.html$/, 'reset.html');
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+    if (error) showMsg('loginMsg', error.message, 'error');
+    else showMsg('loginMsg', 'Στάλθηκε email επαναφοράς. Έλεγξε τα εισερχόμενά σου.', 'success');
   }
 
   function translateError(msg) {

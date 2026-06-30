@@ -6591,3 +6591,107 @@ document.addEventListener('DOMContentLoaded',seedOfficeKnowledge);
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
   else init();
 })();
+
+
+/* FuneralOS v1.2 commercial polish — pricing config, WhatsApp to family, team/admin, referral, export backup */
+(function(){
+  const cfg = window.FUNERALOS_CONFIG || {};
+  const PRO_PRICE = cfg.proPrice || 39;
+  const TEAM_PRICE = cfg.teamPrice || 79;
+  const proUrl = cfg.stripeProUrl || "https://buy.stripe.com/PLACEHOLDER_PRO";
+  const teamUrl = cfg.stripeTeamUrl || "https://buy.stripe.com/PLACEHOLDER_TEAM";
+  const demoUrl = cfg.demoBookingUrl || "https://wa.me/306987171717?text=Hello%20FuneralOS%2C%20I%20would%20like%20a%20live%20demo";
+
+  function safeEsc(s){ try { return typeof esc === 'function' ? esc(s) : String(s||'').replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); } catch(e){ return String(s||''); } }
+  function allCeremonies(){ return Array.isArray(window.ceremonies) ? window.ceremonies : (typeof ceremonies !== 'undefined' ? ceremonies : []); }
+  function allWarehouse(){ return Array.isArray(window.warehouse) ? window.warehouse : (typeof warehouse !== 'undefined' ? warehouse : []); }
+  function allSets(){ return Array.isArray(window.setsWarehouse) ? window.setsWarehouse : (typeof setsWarehouse !== 'undefined' ? setsWarehouse : []); }
+
+  function patchPrices(){
+    document.querySelectorAll('a[href*="PLACEHOLDER_PRO"], a[href*="PLACEHOLDER"], #upgradeBtn').forEach(a=>{ if(proUrl && !proUrl.includes('PLACEHOLDER')) { a.href = proUrl; a.textContent = a.textContent.replace(/€\d+\/month|€\d+\/μήνα/g, `€${PRO_PRICE}/month`); } });
+    document.querySelectorAll('a[href*="PLACEHOLDER_TEAM"]').forEach(a=>{ if(teamUrl && !teamUrl.includes('PLACEHOLDER')) { a.href = teamUrl; a.textContent = a.textContent.replace(/€\d+\/month|€\d+\/μήνα/g, `€${TEAM_PRICE}/month`); } });
+    document.querySelectorAll('[data-book-demo], a[href="#demo"], a[href="#contact"]').forEach(a=>{ if(!a.dataset.keepHref) a.href = demoUrl; });
+  }
+
+  function familyMessage(c){
+    return [
+      `Dear family,`,
+      `These are the basic ceremony details:`,
+      c.name ? `Name: ${c.name}` : '',
+      (c.date || c.time) ? `Date/time: ${c.date || ''} ${c.time || ''}`.trim() : '',
+      c.place ? `Location: ${c.place}` : '',
+      c.burialType ? `Type: ${c.burialType}` : '',
+      ``,
+      `Please reply if anything needs correction.`,
+      `FuneralOS`
+    ].filter(Boolean).join('\n');
+  }
+
+  function internalMessage(c){
+    if(typeof buildWhatsAppMessage === 'function') return buildWhatsAppMessage(c);
+    return `FuneralOS case\n${c.name||''}\n${c.date||''} ${c.time||''}\n${c.place||''}`;
+  }
+
+  function openWa(text){ window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank', 'noopener'); }
+  function openEmail(subject, body){ location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`; }
+
+  function addFamilyActions(){
+    const list=document.getElementById('ceremoniesList'); if(!list || list.dataset.v12==='1') return; list.dataset.v12='1';
+    const mo=new MutationObserver(()=>{
+      document.querySelectorAll('.ceremony-card .card-buttons').forEach(bar=>{
+        if(bar.dataset.v12==='1') return; bar.dataset.v12='1';
+        const waFamily=document.createElement('button');
+        waFamily.type='button'; waFamily.textContent='Send to family'; waFamily.dataset.v12='family-wa';
+        waFamily.style.cssText='border-radius:999px;border:none;padding:6px 12px;font-size:13px;cursor:pointer;background:#dcfce7;color:#14532d;font-weight:900;';
+        const waInternal=document.createElement('button');
+        waInternal.type='button'; waInternal.textContent='Internal WA'; waInternal.dataset.v12='internal-wa';
+        waInternal.style.cssText='border-radius:999px;border:none;padding:6px 12px;font-size:13px;cursor:pointer;background:#25d366;color:#fff;font-weight:900;';
+        const emailFamily=document.createElement('button');
+        emailFamily.type='button'; emailFamily.textContent='Family Email'; emailFamily.dataset.v12='family-email';
+        emailFamily.style.cssText='border-radius:999px;border:none;padding:6px 12px;font-size:13px;cursor:pointer;background:#e0f2fe;color:#075985;font-weight:900;';
+        bar.insertBefore(waFamily, bar.lastElementChild);
+        bar.insertBefore(emailFamily, bar.lastElementChild);
+        bar.insertBefore(waInternal, bar.lastElementChild);
+      });
+    });
+    mo.observe(list,{childList:true,subtree:true});
+    list.addEventListener('click', e=>{
+      const btn=e.target.closest('[data-v12]'); if(!btn) return;
+      const card=btn.closest('.ceremony-card'); const id=card?.dataset?.id; const c=allCeremonies().find(x=>String(x.id)===String(id)); if(!c) return;
+      if(btn.dataset.v12==='family-wa') openWa(familyMessage(c));
+      if(btn.dataset.v12==='internal-wa') openWa(internalMessage(c));
+      if(btn.dataset.v12==='family-email') openEmail('Ceremony details - '+(c.name||''), familyMessage(c));
+    });
+  }
+
+  function backupJSON(){
+    const payload = { exported_at:new Date().toISOString(), ceremonies:allCeremonies(), warehouse:allWarehouse(), setsWarehouse:allSets(), version:'v1.2' };
+    const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='funeralos-backup-'+new Date().toISOString().slice(0,10)+'.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  }
+
+  function addOwnerBar(){
+    if(document.getElementById('v12OwnerBar')) return;
+    if(window.__authPlan !== 'pro') return;
+    const top=document.querySelector('.top-bar') || document.querySelector('.tabs') || document.body;
+    const bar=document.createElement('div'); bar.id='v12OwnerBar';
+    bar.style.cssText='display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center;padding:10px 12px;background:rgba(15,23,42,.92);color:#fff;border-bottom:1px solid rgba(255,255,255,.08)';
+    bar.innerHTML=`<b style="margin-right:8px">Owner tools</b><button id="v12ExportBackup" type="button">Export backup</button><a href="${demoUrl}" target="_blank" rel="noopener" style="text-decoration:none">Book demo link</a><span>Pro €${PRO_PRICE}/month · Team €${TEAM_PRICE}/month</span>`;
+    bar.querySelectorAll('button,a').forEach(el=>el.style.cssText+=';border:1px solid rgba(255,255,255,.22);border-radius:999px;background:rgba(255,255,255,.08);color:#fff;padding:7px 11px;font-weight:800;cursor:pointer');
+    top.insertAdjacentElement('afterend', bar);
+    document.getElementById('v12ExportBackup').onclick=backupJSON;
+  }
+
+  function enhanceAdmin(){
+    const admin=document.getElementById('adminTab'); if(!admin || document.getElementById('v12SaasChecklist')) return;
+    const box=document.createElement('div'); box.id='v12SaasChecklist'; box.className='section-card';
+    box.innerHTML=`<h2>SaaS launch checklist</h2><p class="muted">Before taking real money, finish these items. No romance here: without them, support will become a small civil war.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px"><div><b>Payments</b><br><small>Stripe Payment Links: Pro €${PRO_PRICE}, Team €${TEAM_PRICE}. Webhook file included.</small></div><div><b>Privacy / Terms</b><br><small>Pages included. Review with a legal professional before launch.</small></div><div><b>Team users</b><br><small>Team plan up to 5 users. Real invitations need Supabase profile table.</small></div><div><b>Native app</b><br><small>Capacitor starter files included for later App Store / Play Store step.</small></div></div>`;
+    admin.appendChild(box);
+  }
+
+  function init(){
+    patchPrices(); addFamilyActions(); addOwnerBar(); setTimeout(enhanceAdmin,1000);
+    document.addEventListener('click', e=>{ if(e.target?.closest?.('[data-tab="admin"]')) setTimeout(enhanceAdmin,120); });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
