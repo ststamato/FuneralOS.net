@@ -288,6 +288,9 @@
 
     if (plan === "free") {
       setTimeout(function () {
+        const aiBtn = document.getElementById("aiAssistantBtn");
+        if (aiBtn) aiBtn.style.display = "none";
+
         document.querySelectorAll(".opt-field").forEach(function (el) { el.style.display = "none"; });
 
         const heroGrid = document.getElementById("homeDashboardGrid");
