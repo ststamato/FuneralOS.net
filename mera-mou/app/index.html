@@ -17,7 +17,7 @@
 
   <header class="topbar">
     <div class="topbar-title" id="topbar-title">Σήμερα</div>
-    <button class="avatar-btn" id="profile-btn" aria-label="Προφίλ">ΣΤ</button>
+    <button class="avatar-btn" id="profile-btn" aria-label="Προφίλ">＋</button>
   </header>
 
   <main class="screens">
@@ -25,32 +25,25 @@
     <!-- ΣΗΜΕΡΑ -->
     <section class="screen" id="screen-today" data-screen>
       <div class="card card-brief">
-        <p class="brief-greeting">Καλημέρα, Σταύρο ☀️</p>
-        <p class="brief-line">Σήμερα έχεις <strong>3 εκκρεμότητες</strong>.</p>
-        <p class="brief-priority">Προτεραιότητα: Πλήρωσε πρώτα τον λογαριασμό της ΔΕΗ.</p>
+        <p class="brief-greeting">Καλημέρα ☀️</p>
+        <p class="brief-line">Δεν έχεις καταχωρήσει ακόμα τίποτα για σήμερα.</p>
+        <p class="brief-priority">Πάτα το ＋ κάτω δεξιά για να προσθέσεις την πρώτη σου υποχρέωση.</p>
       </div>
 
       <div class="card">
         <h2 class="card-title">Εκκρεμότητες ημέρας</h2>
-        <ul class="list">
-          <li class="list-item"><span class="dot dot-urgent"></span> Πληρωμή ΔΕΗ — αύριο</li>
-          <li class="list-item"><span class="dot dot-warn"></span> ΚΤΕΟ σε 12 μέρες</li>
-          <li class="list-item"><span class="dot"></span> Φάρμακο στις 21:00</li>
-        </ul>
+        <p class="empty-state">Καμία εκκρεμότητα ακόμα.</p>
       </div>
 
       <div class="card">
         <h2 class="card-title">Λήγει κάτι;</h2>
-        <ul class="list">
-          <li class="list-item"><span class="dot dot-warn"></span> Ασφάλεια αυτοκινήτου — σε 5 ημέρες</li>
-          <li class="list-item"><span class="dot"></span> Εγγύηση πλυντηρίου — σε 20 ημέρες</li>
-        </ul>
+        <p class="empty-state">Καμία λήξη καταχωρημένη.</p>
       </div>
 
       <div class="card">
         <h2 class="card-title">Τι πρέπει να αγοράσεις;</h2>
-        <p class="card-subtext">6 προϊόντα στη λίστα supermarket</p>
-        <button class="link-btn" data-goto="shopping">Δες τη λίστα →</button>
+        <p class="empty-state">Η λίστα αγορών είναι άδεια.</p>
+        <button class="link-btn" data-goto="shopping">Πήγαινε στις Αγορές →</button>
       </div>
 
       <button class="fab" id="quick-add-btn" aria-label="Γρήγορη προσθήκη">+</button>
@@ -60,27 +53,11 @@
     <section class="screen" id="screen-family" data-screen hidden>
       <div class="card">
         <h2 class="card-title">Μέλη οικογένειας</h2>
-        <ul class="list">
-          <li class="list-item member">
-            <span class="member-name">Σταύρος</span>
-            <span class="member-meta">Γενέθλια: 14 Μαρτίου</span>
-          </li>
-          <li class="list-item member">
-            <span class="member-name">Ελένη</span>
-            <span class="member-meta">Γενέθλια: 2 Αυγούστου · Φάρμακο 21:00</span>
-          </li>
-          <li class="list-item member">
-            <span class="member-name">Νίκος</span>
-            <span class="member-meta">Γενέθλια: 30 Νοεμβρίου</span>
-          </li>
-        </ul>
+        <p class="empty-state">Δεν έχεις προσθέσει μέλη ακόμα.</p>
       </div>
       <div class="card">
         <h2 class="card-title">Δραστηριότητες</h2>
-        <ul class="list">
-          <li class="list-item">Κολύμπι — Τρίτη 18:00 (Νίκος)</li>
-          <li class="list-item">Γιατρός — Πέμπτη 10:30 (Ελένη)</li>
-        </ul>
+        <p class="empty-state">Καμία δραστηριότητα καταχωρημένη.</p>
       </div>
       <button class="link-btn add-btn">+ Νέο μέλος</button>
     </section>
@@ -89,17 +66,11 @@
     <section class="screen" id="screen-home" data-screen hidden>
       <div class="card">
         <h2 class="card-title">Λογαριασμοί</h2>
-        <ul class="list">
-          <li class="list-item"><span class="dot dot-urgent"></span> ΔΕΗ — λήγει αύριο</li>
-          <li class="list-item"><span class="dot"></span> ΕΥΔΑΠ — λήγει σε 18 ημέρες</li>
-        </ul>
+        <p class="empty-state">Κανένας λογαριασμός καταχωρημένος.</p>
       </div>
       <div class="card">
         <h2 class="card-title">Ασφάλειες &amp; συντηρήσεις</h2>
-        <ul class="list">
-          <li class="list-item"><span class="dot"></span> Ασφάλεια σπιτιού — ανανέωση σε 40 ημέρες</li>
-          <li class="list-item"><span class="dot"></span> Καθαρισμός καπναγωγού — προγραμματισμένο</li>
-        </ul>
+        <p class="empty-state">Καμία ασφάλεια ή συντήρηση καταχωρημένη.</p>
       </div>
       <button class="link-btn add-btn">+ Νέα υποχρέωση</button>
     </section>
@@ -107,14 +78,8 @@
     <!-- ΑΥΤΟΚΙΝΗΤΟ -->
     <section class="screen" id="screen-auto" data-screen hidden>
       <div class="card">
-        <h2 class="card-title">Toyota Yaris · ΙΧΧ 1234</h2>
-        <ul class="list">
-          <li class="list-item"><span class="dot dot-warn"></span> ΚΤΕΟ — σε 12 ημέρες</li>
-          <li class="list-item"><span class="dot dot-warn"></span> Ασφάλεια — σε 5 ημέρες</li>
-          <li class="list-item"><span class="dot"></span> Service — σε 8 ημέρες</li>
-          <li class="list-item"><span class="dot"></span> Τέλη κυκλοφορίας — πληρωμένα</li>
-          <li class="list-item"><span class="dot"></span> Ελαστικά — άλλαξαν πριν 6 μήνες</li>
-        </ul>
+        <h2 class="card-title">Τα οχήματά σου</h2>
+        <p class="empty-state">Δεν έχεις προσθέσει όχημα ακόμα.</p>
       </div>
       <button class="link-btn add-btn">+ Νέο όχημα</button>
     </section>
@@ -123,23 +88,12 @@
     <section class="screen" id="screen-shopping" data-screen hidden>
       <div class="card">
         <h2 class="card-title">Λίστα supermarket</h2>
-        <ul class="list checklist" id="shopping-list">
-          <li class="list-item checkable"><label><input type="checkbox"> Γάλα</label></li>
-          <li class="list-item checkable"><label><input type="checkbox"> Ψωμί</label></li>
-          <li class="list-item checkable"><label><input type="checkbox"> Αυγά</label></li>
-          <li class="list-item checkable"><label><input type="checkbox"> Απορρυπαντικό</label></li>
-          <li class="list-item checkable"><label><input type="checkbox"> Καφές</label></li>
-          <li class="list-item checkable"><label><input type="checkbox"> Χαρτί υγείας</label></li>
-        </ul>
+        <ul class="list checklist" id="shopping-list"></ul>
+        <p class="empty-state">Η λίστα είναι άδεια.</p>
       </div>
       <div class="card">
         <h2 class="card-title">Συχνά προϊόντα</h2>
-        <div class="chips">
-          <span class="chip">Γάλα</span>
-          <span class="chip">Ψωμί</span>
-          <span class="chip">Νερό</span>
-          <span class="chip">Αυγά</span>
-        </div>
+        <p class="empty-state">Δεν έχεις καταχωρήσει συχνά προϊόντα ακόμα.</p>
       </div>
       <button class="link-btn add-btn">+ Προϊόν</button>
     </section>
@@ -149,11 +103,7 @@
       <div class="card">
         <h2 class="card-title">Timeline</h2>
         <p class="card-subtext">Ιστορικό ζωής, εξόδων και ενεργειών.</p>
-        <ul class="list">
-          <li class="list-item">Σήμερα — Πληρώθηκε ΔΕΗ</li>
-          <li class="list-item">Χθες — Service αυτοκινήτου</li>
-          <li class="list-item">Πριν 3 μέρες — Αγορές supermarket</li>
-        </ul>
+        <p class="empty-state">Δεν υπάρχει ακόμα ιστορικό. Θα εμφανίζεται εδώ καθώς χρησιμοποιείς την εφαρμογή.</p>
       </div>
     </section>
 

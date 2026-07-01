@@ -127,6 +127,13 @@ html, body {
   color: var(--muted);
 }
 
+.empty-state {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  font-style: italic;
+}
+
 .list {
   list-style: none;
   margin: 0;
