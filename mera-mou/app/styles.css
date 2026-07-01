@@ -164,14 +164,44 @@ html, body {
 .dot-urgent { background: var(--urgent); }
 .dot-warn { background: var(--warn); }
 
-.member {
+.member-info {
+  display: flex;
   flex-direction: column;
-  align-items: flex-start;
   gap: 2px;
+  flex: 1;
 }
 
 .member-name { font-weight: 600; }
 .member-meta { font-size: 12px; color: var(--muted); }
+
+.row-text { flex: 1; }
+
+.editable-row { cursor: pointer; }
+
+.item-delete {
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  padding: 4px 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.item-delete:hover { color: var(--urgent); }
+
+.vehicle-card + .vehicle-card { margin-top: 14px; }
+
+.vehicle-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.vehicle-header .card-title { margin: 0; }
 
 .checkable label {
   display: flex;
@@ -326,10 +356,47 @@ html, body {
   font-size: 16px;
 }
 
-.quickadd-input {
+.text-input {
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 12px 14px;
   font-size: 15px;
   margin-bottom: 12px;
+  font-family: inherit;
+  width: 100%;
+  background: #fff;
+  color: var(--ink);
+}
+
+.field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  margin-bottom: 14px;
+  cursor: pointer;
+}
+
+.checkbox-field input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.sheet-scroll {
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.file-btn {
+  display: block;
+  margin-top: 10px;
+  cursor: pointer;
 }

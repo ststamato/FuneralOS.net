@@ -17,7 +17,7 @@
 
   <header class="topbar">
     <div class="topbar-title" id="topbar-title">Σήμερα</div>
-    <button class="avatar-btn" id="profile-btn" aria-label="Προφίλ">＋</button>
+    <button class="avatar-btn" id="profile-btn" aria-label="Προφίλ">👤</button>
   </header>
 
   <main class="screens">
@@ -25,24 +25,27 @@
     <!-- ΣΗΜΕΡΑ -->
     <section class="screen" id="screen-today" data-screen>
       <div class="card card-brief">
-        <p class="brief-greeting">Καλημέρα ☀️</p>
-        <p class="brief-line">Δεν έχεις καταχωρήσει ακόμα τίποτα για σήμερα.</p>
-        <p class="brief-priority">Πάτα το ＋ κάτω δεξιά για να προσθέσεις την πρώτη σου υποχρέωση.</p>
+        <p class="brief-greeting" id="brief-greeting"></p>
+        <p class="brief-line" id="brief-line"></p>
+        <p class="brief-priority" id="brief-priority" hidden></p>
       </div>
 
       <div class="card">
         <h2 class="card-title">Εκκρεμότητες ημέρας</h2>
-        <p class="empty-state">Καμία εκκρεμότητα ακόμα.</p>
+        <ul class="list checklist" id="today-tasks-list"></ul>
+        <p class="empty-state" id="today-tasks-empty">Καμία εκκρεμότητα ακόμα.</p>
       </div>
 
       <div class="card">
         <h2 class="card-title">Λήγει κάτι;</h2>
-        <p class="empty-state">Καμία λήξη καταχωρημένη.</p>
+        <ul class="list" id="expiring-list"></ul>
+        <p class="empty-state" id="expiring-empty">Καμία λήξη καταχωρημένη.</p>
       </div>
 
       <div class="card">
         <h2 class="card-title">Τι πρέπει να αγοράσεις;</h2>
-        <p class="empty-state">Η λίστα αγορών είναι άδεια.</p>
+        <p class="card-subtext" id="shopping-summary" hidden></p>
+        <p class="empty-state" id="shopping-summary-empty">Η λίστα αγορών είναι άδεια.</p>
         <button class="link-btn" data-goto="shopping">Πήγαινε στις Αγορές →</button>
       </div>
 
@@ -53,35 +56,38 @@
     <section class="screen" id="screen-family" data-screen hidden>
       <div class="card">
         <h2 class="card-title">Μέλη οικογένειας</h2>
-        <p class="empty-state">Δεν έχεις προσθέσει μέλη ακόμα.</p>
+        <ul class="list" id="family-list"></ul>
+        <p class="empty-state" id="family-empty">Δεν έχεις προσθέσει μέλη ακόμα.</p>
       </div>
       <div class="card">
         <h2 class="card-title">Δραστηριότητες</h2>
-        <p class="empty-state">Καμία δραστηριότητα καταχωρημένη.</p>
+        <ul class="list" id="activities-list"></ul>
+        <p class="empty-state" id="activities-empty">Καμία δραστηριότητα καταχωρημένη.</p>
+        <button class="link-btn add-btn" id="add-activity-btn">+ Δραστηριότητα</button>
       </div>
-      <button class="link-btn add-btn">+ Νέο μέλος</button>
+      <button class="link-btn add-btn" id="add-member-btn">+ Νέο μέλος</button>
     </section>
 
     <!-- ΣΠΙΤΙ -->
     <section class="screen" id="screen-home" data-screen hidden>
       <div class="card">
         <h2 class="card-title">Λογαριασμοί</h2>
-        <p class="empty-state">Κανένας λογαριασμός καταχωρημένος.</p>
+        <ul class="list" id="home-bills-list"></ul>
+        <p class="empty-state" id="home-bills-empty">Κανένας λογαριασμός καταχωρημένος.</p>
       </div>
       <div class="card">
         <h2 class="card-title">Ασφάλειες &amp; συντηρήσεις</h2>
-        <p class="empty-state">Καμία ασφάλεια ή συντήρηση καταχωρημένη.</p>
+        <ul class="list" id="home-other-list"></ul>
+        <p class="empty-state" id="home-other-empty">Καμία ασφάλεια ή συντήρηση καταχωρημένη.</p>
       </div>
-      <button class="link-btn add-btn">+ Νέα υποχρέωση</button>
+      <button class="link-btn add-btn" id="add-home-btn">+ Νέα υποχρέωση</button>
     </section>
 
     <!-- ΑΥΤΟΚΙΝΗΤΟ -->
     <section class="screen" id="screen-auto" data-screen hidden>
-      <div class="card">
-        <h2 class="card-title">Τα οχήματά σου</h2>
-        <p class="empty-state">Δεν έχεις προσθέσει όχημα ακόμα.</p>
-      </div>
-      <button class="link-btn add-btn">+ Νέο όχημα</button>
+      <div id="vehicles-container"></div>
+      <p class="empty-state" id="vehicles-empty">Δεν έχεις προσθέσει όχημα ακόμα.</p>
+      <button class="link-btn add-btn" id="add-vehicle-btn">+ Νέο όχημα</button>
     </section>
 
     <!-- ΑΓΟΡΕΣ -->
@@ -89,13 +95,14 @@
       <div class="card">
         <h2 class="card-title">Λίστα supermarket</h2>
         <ul class="list checklist" id="shopping-list"></ul>
-        <p class="empty-state">Η λίστα είναι άδεια.</p>
+        <p class="empty-state" id="shopping-list-empty">Η λίστα είναι άδεια.</p>
       </div>
       <div class="card">
         <h2 class="card-title">Συχνά προϊόντα</h2>
-        <p class="empty-state">Δεν έχεις καταχωρήσει συχνά προϊόντα ακόμα.</p>
+        <div class="chips" id="frequent-chips"></div>
+        <p class="empty-state" id="frequent-empty">Δεν έχεις καταχωρήσει συχνά προϊόντα ακόμα.</p>
       </div>
-      <button class="link-btn add-btn">+ Προϊόν</button>
+      <button class="link-btn add-btn" id="add-shopping-btn">+ Προϊόν</button>
     </section>
 
     <!-- TIMELINE -->
@@ -103,7 +110,8 @@
       <div class="card">
         <h2 class="card-title">Timeline</h2>
         <p class="card-subtext">Ιστορικό ζωής, εξόδων και ενεργειών.</p>
-        <p class="empty-state">Δεν υπάρχει ακόμα ιστορικό. Θα εμφανίζεται εδώ καθώς χρησιμοποιείς την εφαρμογή.</p>
+        <ul class="list" id="timeline-list"></ul>
+        <p class="empty-state" id="timeline-empty">Δεν υπάρχει ακόμα ιστορικό. Θα εμφανίζεται εδώ καθώς χρησιμοποιείς την εφαρμογή.</p>
       </div>
     </section>
 
@@ -111,6 +119,8 @@
     <section class="screen" id="screen-settings" data-screen hidden>
       <div class="card">
         <h2 class="card-title">Ρυθμίσεις</h2>
+        <label class="field-label" for="settings-name">Το όνομά σου</label>
+        <input class="text-input" id="settings-name" type="text" placeholder="π.χ. Σταύρος" autocomplete="off">
         <ul class="list">
           <li class="list-item">Γλώσσα — Ελληνικά</li>
           <li class="list-item">Ειδοποιήσεις — Ενεργές</li>
@@ -124,7 +134,9 @@
       <div class="card">
         <h2 class="card-title">Backup</h2>
         <p class="card-subtext">Τα δεδομένα σου μένουν στο κινητό. Το cloud backup είναι λειτουργία Premium.</p>
-        <button class="link-btn">Αντίγραφο τώρα</button>
+        <button class="link-btn primary" id="backup-export-btn">Λήψη αντιγράφου (.json)</button>
+        <label class="link-btn add-btn file-btn" for="backup-import-input">Εισαγωγή αντιγράφου</label>
+        <input type="file" id="backup-import-input" accept="application/json" hidden>
       </div>
     </section>
 
@@ -167,16 +179,107 @@
   </div>
 </div>
 
-<!-- Quick add -->
+<!-- Quick add (Σήμερα) -->
 <div class="sheet-backdrop" id="quickadd-backdrop" hidden>
-  <div class="sheet" id="quickadd-sheet">
+  <form class="sheet" id="quickadd-sheet">
     <div class="sheet-handle"></div>
     <h3 class="sheet-title">Γρήγορη προσθήκη</h3>
-    <input class="quickadd-input" type="text" placeholder="π.χ. Πληρωμή ΟΤΕ αύριο" autocomplete="off">
-    <button class="link-btn primary" id="quickadd-save">Αποθήκευση</button>
-  </div>
+    <input class="text-input" id="quickadd-title" type="text" placeholder="π.χ. Πληρωμή ΟΤΕ" autocomplete="off" required>
+    <label class="field-label" for="quickadd-date">Πότε; (προαιρετικό)</label>
+    <input class="text-input" id="quickadd-date" type="date">
+    <button class="link-btn primary" type="submit">Αποθήκευση</button>
+  </form>
 </div>
 
+<!-- Add family member -->
+<div class="sheet-backdrop" id="member-backdrop" hidden>
+  <form class="sheet" id="member-sheet">
+    <div class="sheet-handle"></div>
+    <h3 class="sheet-title" id="member-sheet-title">Νέο μέλος</h3>
+    <input type="hidden" id="member-id">
+    <label class="field-label" for="member-name">Όνομα</label>
+    <input class="text-input" id="member-name" type="text" placeholder="π.χ. Ελένη" required>
+    <label class="field-label" for="member-birthday">Γενέθλια</label>
+    <input class="text-input" id="member-birthday" type="date">
+    <label class="field-label" for="member-meds">Ώρα φαρμάκου (προαιρετικό)</label>
+    <input class="text-input" id="member-meds" type="time">
+    <label class="field-label" for="member-notes">Σημειώσεις</label>
+    <input class="text-input" id="member-notes" type="text" placeholder="π.χ. αλλεργίες, προτιμήσεις">
+    <button class="link-btn primary" type="submit">Αποθήκευση</button>
+  </form>
+</div>
+
+<!-- Add family activity -->
+<div class="sheet-backdrop" id="activity-backdrop" hidden>
+  <form class="sheet" id="activity-sheet">
+    <div class="sheet-handle"></div>
+    <h3 class="sheet-title">Νέα δραστηριότητα</h3>
+    <label class="field-label" for="activity-title">Τι;</label>
+    <input class="text-input" id="activity-title" type="text" placeholder="π.χ. Κολύμπι" required>
+    <label class="field-label" for="activity-member">Ποιος;</label>
+    <select class="text-input" id="activity-member"></select>
+    <label class="field-label" for="activity-when">Πότε;</label>
+    <input class="text-input" id="activity-when" type="text" placeholder="π.χ. Τρίτη 18:00">
+    <button class="link-btn primary" type="submit">Αποθήκευση</button>
+  </form>
+</div>
+
+<!-- Add home item -->
+<div class="sheet-backdrop" id="home-backdrop" hidden>
+  <form class="sheet" id="home-sheet">
+    <div class="sheet-handle"></div>
+    <h3 class="sheet-title" id="home-sheet-title">Νέα υποχρέωση σπιτιού</h3>
+    <input type="hidden" id="home-id">
+    <label class="field-label" for="home-title">Τίτλος</label>
+    <input class="text-input" id="home-title" type="text" placeholder="π.χ. ΔΕΗ" required>
+    <label class="field-label" for="home-category">Κατηγορία</label>
+    <select class="text-input" id="home-category">
+      <option value="bill">Λογαριασμός</option>
+      <option value="insurance">Ασφάλεια</option>
+      <option value="maintenance">Συντήρηση</option>
+    </select>
+    <label class="field-label" for="home-date">Ημερομηνία λήξης</label>
+    <input class="text-input" id="home-date" type="date">
+    <button class="link-btn primary" type="submit">Αποθήκευση</button>
+  </form>
+</div>
+
+<!-- Add vehicle -->
+<div class="sheet-backdrop" id="vehicle-backdrop" hidden>
+  <form class="sheet sheet-scroll" id="vehicle-sheet">
+    <div class="sheet-handle"></div>
+    <h3 class="sheet-title" id="vehicle-sheet-title">Νέο όχημα</h3>
+    <input type="hidden" id="vehicle-id">
+    <label class="field-label" for="vehicle-name">Μοντέλο</label>
+    <input class="text-input" id="vehicle-name" type="text" placeholder="π.χ. Toyota Yaris" required>
+    <label class="field-label" for="vehicle-plate">Πινακίδα</label>
+    <input class="text-input" id="vehicle-plate" type="text" placeholder="π.χ. ΙΧΧ 1234">
+    <label class="field-label" for="vehicle-kteo">ΚΤΕΟ — λήξη</label>
+    <input class="text-input" id="vehicle-kteo" type="date">
+    <label class="field-label" for="vehicle-insurance">Ασφάλεια — λήξη</label>
+    <input class="text-input" id="vehicle-insurance" type="date">
+    <label class="field-label" for="vehicle-service">Επόμενο service</label>
+    <input class="text-input" id="vehicle-service" type="date">
+    <label class="field-label" for="vehicle-fees">Τέλη κυκλοφορίας — προθεσμία</label>
+    <input class="text-input" id="vehicle-fees" type="date">
+    <label class="field-label" for="vehicle-tires">Ελαστικά — τελευταία αλλαγή</label>
+    <input class="text-input" id="vehicle-tires" type="date">
+    <button class="link-btn primary" type="submit">Αποθήκευση</button>
+  </form>
+</div>
+
+<!-- Add shopping item -->
+<div class="sheet-backdrop" id="shopping-backdrop" hidden>
+  <form class="sheet" id="shopping-sheet">
+    <div class="sheet-handle"></div>
+    <h3 class="sheet-title">Νέο προϊόν</h3>
+    <input class="text-input" id="shopping-name" type="text" placeholder="π.χ. Γάλα" required>
+    <label class="checkbox-field"><input type="checkbox" id="shopping-frequent"> Συχνό προϊόν</label>
+    <button class="link-btn primary" type="submit">Προσθήκη</button>
+  </form>
+</div>
+
+<script src="storage.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
