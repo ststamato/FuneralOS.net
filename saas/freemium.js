@@ -62,6 +62,9 @@
         const override = sessionStorage.getItem("__fos_plan_override");
         if (override) window.__authPlan = override;
         // Show admin switcher panel
+        const adminLink = document.getElementById("ownerAdminLink");
+        if (adminLink) adminLink.style.display = "";
+
         const switcher = document.getElementById("ownerPlanSwitcher");
         if (switcher) {
           switcher.style.display = "";

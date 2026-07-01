@@ -56,6 +56,9 @@
       if (isOwner) {
         const override = sessionStorage.getItem("__fos_plan_override");
         if (override) window.__authPlan = override;
+        const adminLink = document.getElementById("ownerAdminLink");
+        if (adminLink) adminLink.style.display = "";
+
         const switcher = document.getElementById("ownerPlanSwitcher");
         if (switcher) {
           switcher.style.display = "";
