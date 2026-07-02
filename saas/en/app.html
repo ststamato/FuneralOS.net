@@ -78,6 +78,7 @@
       <span>History</span>
       <span>Settings</span>
       <span>Hermes</span>
+      <span>🇺🇸 USA</span>
     </div>
     <div class="user-chip">
       <div class="lang-app">
@@ -102,6 +103,15 @@
     <button class="tab-button" data-tab="history">History</button>
     <button class="tab-button" data-tab="settings">Settings</button>
     <button class="tab-button" data-tab="hermes">Hermes</button>
+    <button class="tab-button usa-tab-button" data-tab="usaDirector">🇺🇸 Director</button>
+    <button class="tab-button usa-tab-button" data-tab="usaCases">Cases</button>
+    <button class="tab-button usa-tab-button" data-tab="usaFirstCall">First Call</button>
+    <button class="tab-button usa-tab-button" data-tab="usaDocuments">Documents</button>
+    <button class="tab-button usa-tab-button" data-tab="usaStaff">Staff</button>
+    <button class="tab-button usa-tab-button" data-tab="usaFleet">Fleet</button>
+    <button class="tab-button usa-tab-button" data-tab="usaCremation">Cremation</button>
+    <button class="tab-button usa-tab-button" data-tab="usaFinance">Finance</button>
+    <button class="tab-button usa-tab-button" data-tab="usaSchedule">Schedule</button>
     <button class="new-ceremony" id="newCeremonyBtn">+ New ceremony</button>
   </nav>
 
@@ -311,6 +321,168 @@
         </div>
       </div>
     </section>
+
+    <section id="usaDirectorTab" class="tab usa-module-tab">
+      <div class="usa-hero">
+        <div>
+          <p class="usa-kicker">FUNERALOS USA v3</p>
+          <h2>Director Command Center</h2>
+          <p>Daily cockpit for the funeral director: cases, documents, payments and next moves on one screen.</p>
+        </div>
+        <button type="button" id="usaSeedBtn" class="usa-primary">+ Demo USA Case</button>
+      </div>
+      <div class="usa-dashboard-grid">
+        <div class="usa-card"><span>ACTIVE CASES</span><strong id="usaActiveCount">0</strong><small>open workload</small></div>
+        <div class="usa-card warning"><span>MISSING DOCUMENTS</span><strong id="usaMissingDocsCount">0</strong><small>need signatures/permits</small></div>
+        <div class="usa-card danger"><span>PENDING BALANCES</span><strong id="usaPendingPaymentsTotal">$0</strong><small>unpaid</small></div>
+        <div class="usa-card"><span>UPCOMING SERVICES</span><strong id="usaUpcomingServicesCount">0</strong><small>next 7 days</small></div>
+      </div>
+      <div class="usa-split">
+        <section class="usa-panel">
+          <h3>Attention Required</h3>
+          <div id="usaAttentionList" class="usa-list"></div>
+        </section>
+        <section class="usa-panel">
+          <h3>Director AI Brief</h3>
+          <div id="usaDirectorBrief" class="usa-brief"></div>
+        </section>
+      </div>
+      <section class="usa-v3-ai-director">
+        <div class="usa-section-head">
+          <div>
+            <p class="usa-kicker">AI OPERATIONS DIRECTOR</p>
+            <h2>30-Second Funeral Home Overview</h2>
+            <p>Morning briefing, end-of-day recap, Operations Score, Case Health and smart alerts for independent funeral homes.</p>
+          </div>
+          <div class="usa-v3-actions">
+            <button type="button" id="usaV3MorningBtn" class="usa-primary">Morning Briefing</button>
+            <button type="button" id="usaV3EveningBtn" class="usa-secondary">Evening Recap</button>
+          </div>
+        </div>
+        <div class="usa-v3-score-row">
+          <article class="usa-v3-score-card">
+            <span>OPERATIONS SCORE</span>
+            <strong id="usaV3OpsScore">0</strong>
+            <small id="usaV3OpsLabel">Waiting for data</small>
+            <div class="usa-v3-score-bar"><i id="usaV3OpsBar"></i></div>
+          </article>
+          <article class="usa-v3-mini-card"><span>Cases At Risk</span><strong id="usaV3RiskCases">0</strong><small>need director action</small></article>
+          <article class="usa-v3-mini-card"><span>Smart Alerts</span><strong id="usaV3AlertCount">0</strong><small>important only</small></article>
+          <article class="usa-v3-mini-card"><span>Recommended Action</span><strong id="usaV3TopAction">—</strong><small>next best move</small></article>
+        </div>
+        <div class="usa-split">
+          <section class="usa-panel">
+            <h3>AI Morning Briefing</h3>
+            <div id="usaV3MorningBrief" class="usa-v3-brief"></div>
+          </section>
+          <section class="usa-panel">
+            <h3>AI Evening Recap</h3>
+            <div id="usaV3EveningRecap" class="usa-v3-brief"></div>
+          </section>
+        </div>
+        <div class="usa-split">
+          <section class="usa-panel">
+            <h3>Case Health</h3>
+            <div id="usaV3CaseHealth" class="usa-v3-case-health"></div>
+          </section>
+          <section class="usa-panel">
+            <h3>Smart Alerts</h3>
+            <div id="usaV3SmartAlerts" class="usa-list"></div>
+          </section>
+        </div>
+      </section>
+    </section>
+
+    <section id="usaCasesTab" class="tab usa-module-tab">
+      <div class="usa-section-head">
+        <div><h2>Cases</h2><p>American case file from First Call to Case Closing.</p></div>
+        <button type="button" id="usaNewCaseBtn" class="usa-primary">+ New Case</button>
+      </div>
+      <div class="usa-filters">
+        <button type="button" class="usa-filter active" data-usa-filter="active">Active</button>
+        <button type="button" class="usa-filter" data-usa-filter="pending">Pending</button>
+        <button type="button" class="usa-filter" data-usa-filter="closed">Closed</button>
+        <input id="usaCaseSearch" type="search" placeholder="Search decedent, family, director..." />
+      </div>
+      <div id="usaCasesList" class="usa-case-list"></div>
+    </section>
+
+    <section id="usaFirstCallTab" class="tab usa-module-tab">
+      <div class="usa-section-head"><div><h2>First Call Center</h2><p>The call that opens the case. Fast intake and removal team assignment.</p></div></div>
+      <form id="usaFirstCallForm" class="usa-form usa-panel">
+        <div class="usa-form-grid">
+          <label>Decedent Name<input id="usaFcDecedent" required placeholder="John Smith" /></label>
+          <label>Date of Death<input id="usaFcDod" type="date" /></label>
+          <label>Caller Name<input id="usaFcCaller" placeholder="Mary Smith" /></label>
+          <label>Relationship<input id="usaFcRelationship" placeholder="Daughter / Spouse" /></label>
+          <label>Phone<input id="usaFcPhone" placeholder="(555) 000-0000" /></label>
+          <label>Place of Death<select id="usaFcPlace"><option>Hospital</option><option>Nursing Home</option><option>Hospice</option><option>Residence</option><option>Coroner / Medical Examiner</option><option>Other</option></select></label>
+          <label>Facility / Address<input id="usaFcFacility" placeholder="Hospital, facility or home address" /></label>
+          <label>Priority<select id="usaFcPriority"><option>Normal</option><option>Urgent</option><option>Coroner Case</option><option>After Hours</option></select></label>
+          <label>Removal Driver<input id="usaFcDriver" placeholder="Driver" /></label>
+          <label>Vehicle<input id="usaFcVehicle" placeholder="Removal Van / Hearse" /></label>
+        </div>
+        <label>Notes<textarea id="usaFcNotes" rows="3" placeholder="Important instructions, personal effects, family requests..."></textarea></label>
+        <div class="modal-actions"><button type="reset">Clear</button><button type="submit" class="usa-primary">Create Case + Assign Team</button></div>
+      </form>
+    </section>
+
+    <section id="usaDocumentsTab" class="tab usa-module-tab">
+      <div class="usa-section-head"><div><h2>Documents</h2><p>Checklist for death certificate, permits, authorizations, contract and invoice.</p></div></div>
+      <div id="usaDocumentsList" class="usa-doc-list"></div>
+    </section>
+
+    <section id="usaStaffTab" class="tab usa-module-tab">
+      <div class="usa-section-head"><div><h2>Staff Management</h2><p>Shifts, assignments and certification expirations for funeral directors, drivers and removal technicians.</p></div><button type="button" id="usaAddStaffDemo" class="usa-primary">+ Demo Staff</button></div>
+      <div id="usaStaffList" class="usa-grid-list"></div>
+      <form id="usaStaffForm" class="usa-form usa-panel usa-mini-form">
+        <div class="usa-form-grid">
+          <label>Name<input id="usaStaffName" placeholder="Michael Brown" /></label>
+          <label>Role<select id="usaStaffRole"><option>Funeral Director</option><option>Removal Technician</option><option>Driver</option><option>Embalmer</option><option>Office Staff</option></select></label>
+          <label>Shift<input id="usaStaffShift" placeholder="Today 8:00–17:00" /></label>
+          <label>Certification Expiration<input id="usaStaffCert" type="date" /></label>
+        </div>
+        <div class="modal-actions"><button type="submit" class="usa-primary">Add Staff Member</button></div>
+      </form>
+    </section>
+
+    <section id="usaFleetTab" class="tab usa-module-tab">
+      <div class="usa-section-head"><div><h2>Fleet Management</h2><p>Hearse, removal van, limousine and utility vehicles with service, insurance and case assignments.</p></div><button type="button" id="usaAddFleetDemo" class="usa-primary">+ Demo Vehicle</button></div>
+      <div id="usaFleetList" class="usa-grid-list"></div>
+      <form id="usaFleetForm" class="usa-form usa-panel usa-mini-form">
+        <div class="usa-form-grid">
+          <label>Vehicle Name<input id="usaFleetName" placeholder="Hearse 1" /></label>
+          <label>Type<select id="usaFleetType"><option>Hearse</option><option>Removal Van</option><option>Limousine</option><option>Utility Vehicle</option></select></label>
+          <label>Mileage<input id="usaFleetMileage" type="number" placeholder="84500" /></label>
+          <label>Next Service<input id="usaFleetService" type="date" /></label>
+          <label>Insurance Expiration<input id="usaFleetInsurance" type="date" /></label>
+          <label>Status<select id="usaFleetStatus"><option>Available</option><option>Assigned</option><option>In Service</option><option>Out of Service</option></select></label>
+        </div>
+        <div class="modal-actions"><button type="submit" class="usa-primary">Add Vehicle</button></div>
+      </form>
+    </section>
+
+    <section id="usaCremationTab" class="tab usa-module-tab">
+      <div class="usa-section-head"><div><h2>Cremation Workflow</h2><p>Authorization, permit, crematory booking, urn selection and release of ashes per case.</p></div></div>
+      <div id="usaCremationList" class="usa-case-list"></div>
+    </section>
+
+    <section id="usaFinanceTab" class="tab usa-module-tab">
+      <div class="usa-section-head"><div><h2>Finance Dashboard</h2><p>Revenue, outstanding balances, average case value and quick balance updates without digging through cases.</p></div></div>
+      <div class="usa-dashboard-grid">
+        <div class="usa-card"><span>REVENUE CLOSED</span><strong id="usaRevenueClosed">$0</strong><small>closed cases</small></div>
+        <div class="usa-card danger"><span>OUTSTANDING</span><strong id="usaFinanceOutstanding">$0</strong><small>open balances</small></div>
+        <div class="usa-card"><span>AVG CASE VALUE</span><strong id="usaAvgCaseValue">$0</strong><small>all cases</small></div>
+        <div class="usa-card warning"><span>UNPAID CASES</span><strong id="usaUnpaidCases">0</strong><small>need follow-up</small></div>
+      </div>
+      <div id="usaFinanceList" class="usa-case-list"></div>
+    </section>
+
+    <section id="usaScheduleTab" class="tab usa-module-tab">
+      <div class="usa-section-head"><div><h2>Service &amp; Viewing Schedule</h2><p>Viewing room, chapel/service, cemetery or crematory — all with time, staff and vehicle.</p></div></div>
+      <div id="usaScheduleList" class="usa-case-list"></div>
+    </section>
+
   </main>
 
   <!-- CEREMONY MODAL -->
@@ -510,6 +682,7 @@
 <script>window.__appLang = "en";</script>
 <script src="../app.js"></script>
 <script src="suppliers.js"></script>
+<script src="../usa.js"></script>
 
 </body>
 </html>
