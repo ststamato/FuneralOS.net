@@ -1,11 +1,9 @@
 (function (global) {
   var STORAGE_KEY = 'mera-mou:v1';
-  var GREEK_MONTHS = ['Ιανουαρίου', 'Φεβρουαρίου', 'Μαρτίου', 'Απριλίου', 'Μαΐου', 'Ιουνίου',
-    'Ιουλίου', 'Αυγούστου', 'Σεπτεμβρίου', 'Οκτωβρίου', 'Νοεμβρίου', 'Δεκεμβρίου'];
 
   function emptyStore() {
     return {
-      profile: { name: '' },
+      profile: { name: '', lang: 'el' },
       tasks: [],
       family: [],
       activities: [],
@@ -22,7 +20,9 @@
       if (raw) {
         var parsed = JSON.parse(raw);
         var base = emptyStore();
-        return Object.assign(base, parsed);
+        var merged = Object.assign(base, parsed);
+        merged.profile = Object.assign({ name: '', lang: 'el' }, merged.profile);
+        return merged;
       }
     } catch (e) {}
     return emptyStore();
@@ -58,49 +58,12 @@
     return '';
   }
 
-  function dueLabel(days) {
-    if (days === null) return '';
-    if (days < 0) return 'έληξε πριν ' + Math.abs(days) + (Math.abs(days) === 1 ? ' ημέρα' : ' ημέρες');
-    if (days === 0) return 'σήμερα';
-    if (days === 1) return 'αύριο';
-    return 'σε ' + days + ' ημέρες';
-  }
-
-  function formatDayMonth(dateStr) {
-    if (!dateStr) return '';
-    var d = new Date(dateStr + 'T00:00:00');
-    if (isNaN(d.getTime())) return '';
-    return d.getDate() + ' ' + GREEK_MONTHS[d.getMonth()];
-  }
-
-  function greeting() {
-    var h = new Date().getHours();
-    if (h < 12) return 'Καλημέρα';
-    if (h < 19) return 'Καλησπέρα';
-    return 'Καληνύχτα';
-  }
-
-  function relativeDay(ts) {
-    var today = new Date();
-    today.setHours(0, 0, 0, 0);
-    var day = new Date(ts);
-    day.setHours(0, 0, 0, 0);
-    var diff = Math.round((today - day) / 86400000);
-    if (diff === 0) return 'Σήμερα';
-    if (diff === 1) return 'Χθες';
-    return 'Πριν ' + diff + ' ημέρες';
-  }
-
   global.MeraMou = {
     load: load,
     save: save,
     uid: uid,
     todayISO: todayISO,
     daysUntil: daysUntil,
-    urgencyClass: urgencyClass,
-    dueLabel: dueLabel,
-    formatDayMonth: formatDayMonth,
-    greeting: greeting,
-    relativeDay: relativeDay
+    urgencyClass: urgencyClass
   };
 })(window);

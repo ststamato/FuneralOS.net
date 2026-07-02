@@ -1,20 +1,9 @@
 (function () {
   var M = window.MeraMou;
+  var I = window.I18N;
   var store = M.load();
 
-  var TITLES = {
-    today: 'Σήμερα',
-    family: 'Οικογένεια',
-    home: 'Σπίτι',
-    auto: 'Αυτοκίνητο',
-    shopping: 'Αγορές',
-    timeline: 'Timeline',
-    settings: 'Ρυθμίσεις',
-    backup: 'Backup',
-    premium: 'Premium'
-  };
-
-  var GREETING_EMOJI = { 'Καλημέρα': '☀️', 'Καλησπέρα': '🌇', 'Καληνύχτα': '🌙' };
+  I.setLang(store.profile.lang || 'el');
 
   var EDIT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l4.5-1L19 8.5a1.5 1.5 0 0 0 0-2.1l-1.4-1.4a1.5 1.5 0 0 0-2.1 0L5 15.5 4 20z"/></svg>';
 
@@ -32,24 +21,60 @@
     M.save(store);
   }
 
-  function logTimeline(text) {
-    store.timeline.unshift({ id: M.uid(), ts: Date.now(), text: text });
+  function logTimeline(key, title) {
+    store.timeline.unshift({ id: M.uid(), ts: Date.now(), key: key, title: title });
   }
 
   function rowActions(type, id) {
     return '<div class="row-actions">' +
-      '<button class="item-edit" data-type="' + type + '" data-id="' + id + '" aria-label="Επεξεργασία">' + EDIT_ICON + '</button>' +
-      '<button class="item-delete" data-type="' + type + '" data-id="' + id + '" aria-label="Διαγραφή">×</button>' +
+      '<button class="item-edit" data-type="' + type + '" data-id="' + id + '" aria-label="' + I.t('aria.edit') + '">' + EDIT_ICON + '</button>' +
+      '<button class="item-delete" data-type="' + type + '" data-id="' + id + '" aria-label="' + I.t('aria.delete') + '">×</button>' +
       '</div>';
   }
 
+  // ---------- i18n ----------
+
+  function applyStaticTranslations() {
+    document.querySelectorAll('[data-i18n]').forEach(function (el) {
+      el.textContent = I.t(el.dataset.i18n);
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(function (el) {
+      el.placeholder = I.t(el.dataset.i18nPlaceholder);
+    });
+    document.querySelectorAll('[data-i18n-aria]').forEach(function (el) {
+      el.setAttribute('aria-label', I.t(el.dataset.i18nAria));
+    });
+    document.documentElement.lang = I.getLang();
+    document.getElementById('meta-description').setAttribute('content', I.t('app.description'));
+  }
+
+  function populateLanguageSelect() {
+    var select = document.getElementById('settings-language');
+    select.innerHTML = I.LANGS.map(function (code) {
+      return '<option value="' + code + '">' + I.LANG_NAMES[code] + '</option>';
+    }).join('');
+    select.value = I.getLang();
+  }
+
+  document.getElementById('settings-language').addEventListener('change', function (e) {
+    store.profile.lang = e.target.value;
+    I.setLang(store.profile.lang);
+    persist();
+    applyStaticTranslations();
+    goto(currentScreen);
+    renderAll();
+  });
+
   // ---------- navigation ----------
 
+  var currentScreen = 'today';
+
   function goto(screen) {
+    currentScreen = screen;
     document.querySelectorAll('[data-screen]').forEach(function (el) {
       el.hidden = el.id !== 'screen-' + screen;
     });
-    topbarTitle.textContent = TITLES[screen] || 'Η Μέρα Μου';
+    topbarTitle.textContent = I.t('nav.' + screen);
     navButtons.forEach(function (btn) {
       btn.classList.toggle('active', btn.dataset.goto === screen);
     });
@@ -81,10 +106,10 @@
     });
     store.vehicles.forEach(function (v) {
       var fields = [
-        ['kteo', 'ΚΤΕΟ'],
-        ['insurance', 'Ασφάλεια'],
-        ['service', 'Service'],
-        ['fees', 'Τέλη κυκλοφορίας']
+        ['kteo', I.t('auto.kteo')],
+        ['insurance', I.t('auto.insurance')],
+        ['service', I.t('auto.service')],
+        ['fees', I.t('auto.fees')]
       ];
       fields.forEach(function (f) {
         if (v[f[0]]) {
@@ -100,22 +125,22 @@
 
   function renderToday() {
     var name = store.profile.name ? ', ' + escapeHtml(store.profile.name) : '';
-    var g = M.greeting();
-    document.getElementById('brief-greeting').textContent = g + name + ' ' + GREETING_EMOJI[g];
+    document.getElementById('brief-greeting').textContent = I.greeting() + name + ' ' + I.greetingEmoji();
 
     var pending = store.tasks.filter(function (t) { return !t.done; });
     var briefLine = document.getElementById('brief-line');
     if (pending.length > 0) {
-      briefLine.innerHTML = 'Σήμερα έχεις <strong>' + pending.length + (pending.length === 1 ? ' εκκρεμότητα' : ' εκκρεμότητες') + '</strong>.';
+      var unit = pending.length === 1 ? I.t('unit.pendingOne') : I.t('unit.pendingMany');
+      briefLine.innerHTML = I.t('today.pendingLine', { n: pending.length, unit: unit });
     } else {
-      briefLine.textContent = 'Δεν έχεις καταχωρήσει ακόμα τίποτα για σήμερα.';
+      briefLine.textContent = I.t('today.noneToday');
     }
 
     var due = collectDueItems();
     var priorityEl = document.getElementById('brief-priority');
     if (due.length > 0) {
       priorityEl.hidden = false;
-      priorityEl.textContent = 'Προτεραιότητα: ' + due[0].title + ' — ' + M.dueLabel(due[0].days) + '.';
+      priorityEl.textContent = I.t('today.priorityPrefix') + ' ' + due[0].title + ' — ' + I.dueLabel(due[0].days) + '.';
     } else {
       priorityEl.hidden = true;
     }
@@ -131,7 +156,7 @@
       var li = document.createElement('li');
       li.className = 'list-item checkable';
       li.innerHTML = '<label><input type="checkbox" class="task-checkbox" data-id="' + t.id + '">' +
-        '<span class="row-text">' + escapeHtml(t.title) + (days !== null ? ' — ' + M.dueLabel(days) : '') + '</span></label>' +
+        '<span class="row-text">' + escapeHtml(t.title) + (days !== null ? ' — ' + I.dueLabel(days) : '') + '</span></label>' +
         rowActions('task', t.id);
       tasksList.appendChild(li);
     });
@@ -148,7 +173,7 @@
       var li = document.createElement('li');
       li.className = 'list-item';
       li.innerHTML = '<span class="dot ' + M.urgencyClass(item.days) + '"></span><span class="row-text">' +
-        escapeHtml(item.title) + ' — ' + M.dueLabel(item.days) + '</span>';
+        escapeHtml(item.title) + ' — ' + I.dueLabel(item.days) + '</span>';
       expiringList.appendChild(li);
     });
 
@@ -159,7 +184,8 @@
     if (pendingShopping.length > 0) {
       summary.hidden = false;
       summaryEmpty.hidden = true;
-      summary.textContent = pendingShopping.length + (pendingShopping.length === 1 ? ' προϊόν' : ' προϊόντα') + ' στη λίστα supermarket';
+      var pUnit = pendingShopping.length === 1 ? I.t('unit.productOne') : I.t('unit.productMany');
+      summary.textContent = I.t('today.shoppingSummary', { n: pendingShopping.length, unit: pUnit });
     } else {
       summary.hidden = true;
       summaryEmpty.hidden = false;
@@ -175,9 +201,9 @@
     empty.hidden = store.family.length > 0;
     store.family.forEach(function (m) {
       var meta = [];
-      if (m.birthday) meta.push('Γενέθλια: ' + M.formatDayMonth(m.birthday));
-      if (m.nameday) meta.push('Γιορτή: ' + M.formatDayMonth(m.nameday));
-      if (m.medsTime) meta.push('Φάρμακο ' + m.medsTime);
+      if (m.birthday) meta.push(I.t('family.birthdayPrefix') + ' ' + I.formatDayMonth(m.birthday));
+      if (m.nameday) meta.push(I.t('family.namedayPrefix') + ' ' + I.formatDayMonth(m.nameday));
+      if (m.medsTime) meta.push(I.t('family.medsPrefix') + ' ' + m.medsTime);
       var li = document.createElement('li');
       li.className = 'list-item member editable-row';
       li.dataset.type = 'family';
@@ -230,7 +256,7 @@
       li.dataset.type = 'home';
       li.dataset.id = h.id;
       li.innerHTML = '<span class="dot ' + (days !== null ? M.urgencyClass(days) : '') + '"></span>' +
-        '<span class="row-text">' + escapeHtml(h.title) + (days !== null ? ' — ' + M.dueLabel(days) : '') + '</span>' +
+        '<span class="row-text">' + escapeHtml(h.title) + (days !== null ? ' — ' + I.dueLabel(days) : '') + '</span>' +
         rowActions('home', h.id);
       return li;
     }
@@ -249,20 +275,20 @@
 
     store.vehicles.forEach(function (v) {
       var fields = [
-        ['ΚΤΕΟ', v.kteo, false],
-        ['Ασφάλεια', v.insurance, false],
-        ['Service', v.service, false],
-        ['Τέλη κυκλοφορίας', v.fees, false],
-        ['Ελαστικά — τελευταία αλλαγή', v.tires, true]
+        [I.t('auto.kteo'), v.kteo, false],
+        [I.t('auto.insurance'), v.insurance, false],
+        [I.t('auto.service'), v.service, false],
+        [I.t('auto.fees'), v.fees, false],
+        [I.t('auto.tiresLabel'), v.tires, true]
       ];
       var rows = fields.map(function (f) {
         if (!f[1]) return '';
         if (f[2]) {
-          return '<li class="list-item"><span class="dot"></span><span class="row-text">' + escapeHtml(f[0]) + ': ' + M.formatDayMonth(f[1]) + '</span></li>';
+          return '<li class="list-item"><span class="dot"></span><span class="row-text">' + escapeHtml(f[0]) + ': ' + I.formatDayMonth(f[1]) + '</span></li>';
         }
         var days = M.daysUntil(f[1]);
         return '<li class="list-item"><span class="dot ' + M.urgencyClass(days) + '"></span><span class="row-text">' +
-          escapeHtml(f[0]) + ' — ' + M.dueLabel(days) + '</span></li>';
+          escapeHtml(f[0]) + ' — ' + I.dueLabel(days) + '</span></li>';
       }).join('');
 
       var card = document.createElement('div');
@@ -270,7 +296,7 @@
       card.innerHTML = '<div class="vehicle-header editable-row" data-type="vehicle" data-id="' + v.id + '">' +
         '<h2 class="card-title">' + escapeHtml(v.name) + (v.plate ? ' · ' + escapeHtml(v.plate) : '') + '</h2>' +
         rowActions('vehicle', v.id) + '</div>' +
-        (rows ? '<ul class="list">' + rows + '</ul>' : '<p class="empty-state">Δεν έχεις καταχωρήσει ημερομηνίες ακόμα.</p>');
+        (rows ? '<ul class="list">' + rows + '</ul>' : '<p class="empty-state">' + I.t('auto.noDates') + '</p>');
       container.appendChild(card);
     });
   }
@@ -311,9 +337,10 @@
     list.innerHTML = '';
     empty.hidden = store.timeline.length > 0;
     store.timeline.slice(0, 50).forEach(function (entry) {
+      var text = entry.key ? I.t(entry.key, { title: entry.title }) : entry.text;
       var li = document.createElement('li');
       li.className = 'list-item';
-      li.innerHTML = '<span class="row-text">' + M.relativeDay(entry.ts) + ' — ' + escapeHtml(entry.text) + '</span>';
+      li.innerHTML = '<span class="row-text">' + I.relativeDay(entry.ts) + ' — ' + escapeHtml(text) + '</span>';
       list.appendChild(li);
     });
   }
@@ -355,10 +382,10 @@
     if (id) {
       var existing = store.tasks.find(function (t) { return t.id === id; });
       Object.assign(existing, { title: title, dueDate: dueDate });
-      logTimeline('Ενημερώθηκε: ' + title);
+      logTimeline('log.updated', title);
     } else {
       store.tasks.push({ id: M.uid(), title: title, dueDate: dueDate, done: false });
-      logTimeline('Προστέθηκε: ' + title);
+      logTimeline('log.added', title);
     }
     persist();
     resetForm(e.target);
@@ -383,10 +410,10 @@
     if (id) {
       var existing = store.family.find(function (m) { return m.id === id; });
       Object.assign(existing, data);
-      logTimeline('Ενημερώθηκε μέλος: ' + name);
+      logTimeline('log.updatedMember', name);
     } else {
       store.family.push(Object.assign({ id: M.uid() }, data));
-      logTimeline('Νέο μέλος οικογένειας: ' + name);
+      logTimeline('log.newMember', name);
     }
     persist();
     resetForm(e.target);
@@ -409,10 +436,10 @@
     if (id) {
       var existing = store.activities.find(function (a) { return a.id === id; });
       Object.assign(existing, data);
-      logTimeline('Ενημερώθηκε δραστηριότητα: ' + title);
+      logTimeline('log.updatedActivity', title);
     } else {
       store.activities.push(Object.assign({ id: M.uid() }, data));
-      logTimeline('Νέα δραστηριότητα: ' + title);
+      logTimeline('log.newActivity', title);
     }
     persist();
     resetForm(e.target);
@@ -435,10 +462,10 @@
     if (id) {
       var existing = store.home.find(function (h) { return h.id === id; });
       Object.assign(existing, data);
-      logTimeline('Ενημερώθηκε: ' + title);
+      logTimeline('log.updated', title);
     } else {
       store.home.push(Object.assign({ id: M.uid() }, data));
-      logTimeline('Νέα υποχρέωση σπιτιού: ' + title);
+      logTimeline('log.newHome', title);
     }
     persist();
     resetForm(e.target);
@@ -465,10 +492,10 @@
     if (id) {
       var existing = store.vehicles.find(function (v) { return v.id === id; });
       Object.assign(existing, data);
-      logTimeline('Ενημερώθηκε όχημα: ' + name);
+      logTimeline('log.updatedVehicle', name);
     } else {
       store.vehicles.push(Object.assign({ id: M.uid() }, data));
-      logTimeline('Νέο όχημα: ' + name);
+      logTimeline('log.newVehicle', name);
     }
     persist();
     resetForm(e.target);
@@ -490,10 +517,10 @@
     if (id) {
       var existing = store.shopping.find(function (s) { return s.id === id; });
       Object.assign(existing, data);
-      logTimeline('Ενημερώθηκε προϊόν: ' + name);
+      logTimeline('log.updatedShopping', name);
     } else {
       store.shopping.push(Object.assign({ id: M.uid(), checked: false }, data));
-      logTimeline('Προστέθηκε στη λίστα αγορών: ' + name);
+      logTimeline('log.newShopping', name);
     }
     persist();
     resetForm(e.target);
@@ -530,12 +557,16 @@
     reader.onload = function () {
       try {
         var imported = JSON.parse(reader.result);
-        store = Object.assign({ profile: {}, tasks: [], family: [], activities: [], home: [], vehicles: [], shopping: [], timeline: [] }, imported);
+        store = Object.assign({ profile: { name: '', lang: 'el' }, tasks: [], family: [], activities: [], home: [], vehicles: [], shopping: [], timeline: [] }, imported);
+        store.profile = Object.assign({ name: '', lang: 'el' }, store.profile);
+        I.setLang(store.profile.lang);
         persist();
+        populateLanguageSelect();
+        applyStaticTranslations();
         renderAll();
         document.getElementById('settings-name').value = store.profile.name || '';
       } catch (err) {
-        alert('Το αρχείο δεν είναι έγκυρο αντίγραφο.');
+        alert(I.t('backup.invalidFile'));
       }
     };
     reader.readAsText(file);
@@ -547,7 +578,7 @@
   function openTaskEdit(id) {
     var t = store.tasks.find(function (x) { return x.id === id; });
     if (!t) return;
-    document.getElementById('task-sheet-title').textContent = 'Επεξεργασία εκκρεμότητας';
+    document.getElementById('task-sheet-title').textContent = I.t('task.editTitle');
     document.getElementById('task-id').value = t.id;
     document.getElementById('task-title').value = t.title;
     document.getElementById('task-date').value = t.dueDate || '';
@@ -557,7 +588,7 @@
   function openMemberEdit(id) {
     var m = store.family.find(function (x) { return x.id === id; });
     if (!m) return;
-    document.getElementById('member-sheet-title').textContent = 'Επεξεργασία μέλους';
+    document.getElementById('member-sheet-title').textContent = I.t('member.editTitle');
     document.getElementById('member-id').value = m.id;
     document.getElementById('member-name').value = m.name;
     document.getElementById('member-birthday').value = m.birthday || '';
@@ -570,7 +601,7 @@
   function openActivityEdit(id) {
     var a = store.activities.find(function (x) { return x.id === id; });
     if (!a) return;
-    document.getElementById('activity-sheet-title').textContent = 'Επεξεργασία δραστηριότητας';
+    document.getElementById('activity-sheet-title').textContent = I.t('activity.editTitle');
     document.getElementById('activity-id').value = a.id;
     document.getElementById('activity-title').value = a.title;
     document.getElementById('activity-member').value = a.memberId || '';
@@ -581,7 +612,7 @@
   function openHomeEdit(id) {
     var h = store.home.find(function (x) { return x.id === id; });
     if (!h) return;
-    document.getElementById('home-sheet-title').textContent = 'Επεξεργασία υποχρέωσης';
+    document.getElementById('home-sheet-title').textContent = I.t('home.editTitle');
     document.getElementById('home-id').value = h.id;
     document.getElementById('home-title').value = h.title;
     document.getElementById('home-category').value = h.category;
@@ -592,7 +623,7 @@
   function openVehicleEdit(id) {
     var v = store.vehicles.find(function (x) { return x.id === id; });
     if (!v) return;
-    document.getElementById('vehicle-sheet-title').textContent = 'Επεξεργασία οχήματος';
+    document.getElementById('vehicle-sheet-title').textContent = I.t('vehicle.editTitle');
     document.getElementById('vehicle-id').value = v.id;
     document.getElementById('vehicle-name').value = v.name;
     document.getElementById('vehicle-plate').value = v.plate || '';
@@ -607,7 +638,7 @@
   function openShoppingEdit(id) {
     var s = store.shopping.find(function (x) { return x.id === id; });
     if (!s) return;
-    document.getElementById('shopping-sheet-title').textContent = 'Επεξεργασία προϊόντος';
+    document.getElementById('shopping-sheet-title').textContent = I.t('shopping.editTitle');
     document.getElementById('shopping-id').value = s.id;
     document.getElementById('shopping-name').value = s.name;
     document.getElementById('shopping-frequent').checked = !!s.frequent;
@@ -632,9 +663,9 @@
     var idx = store[key].findIndex(function (x) { return x.id === id; });
     if (idx === -1) return;
     var removed = store[key][idx];
-    var label = removed.title || removed.name || 'στοιχείο';
+    var label = removed.title || removed.name || '';
     store[key].splice(idx, 1);
-    logTimeline('Διαγράφηκε: ' + label);
+    logTimeline('log.deleted', label);
     persist();
     renderAll();
   }
@@ -684,42 +715,42 @@
 
     if (event.target.closest('#profile-btn')) { openSheet('profile-backdrop'); return; }
     if (event.target.closest('#quick-add-btn')) {
-      document.getElementById('task-sheet-title').textContent = 'Γρήγορη προσθήκη';
+      document.getElementById('task-sheet-title').textContent = I.t('task.addTitle');
       document.getElementById('task-sheet').reset();
       document.getElementById('task-id').value = '';
       openSheet('task-backdrop');
       return;
     }
     if (event.target.closest('#add-member-btn')) {
-      document.getElementById('member-sheet-title').textContent = 'Νέο μέλος';
+      document.getElementById('member-sheet-title').textContent = I.t('member.addTitle');
       document.getElementById('member-sheet').reset();
       document.getElementById('member-id').value = '';
       openSheet('member-backdrop');
       return;
     }
     if (event.target.closest('#add-activity-btn')) {
-      document.getElementById('activity-sheet-title').textContent = 'Νέα δραστηριότητα';
+      document.getElementById('activity-sheet-title').textContent = I.t('activity.addTitle');
       document.getElementById('activity-sheet').reset();
       document.getElementById('activity-id').value = '';
       openSheet('activity-backdrop');
       return;
     }
     if (event.target.closest('#add-home-btn')) {
-      document.getElementById('home-sheet-title').textContent = 'Νέα υποχρέωση σπιτιού';
+      document.getElementById('home-sheet-title').textContent = I.t('home.addTitle');
       document.getElementById('home-sheet').reset();
       document.getElementById('home-id').value = '';
       openSheet('home-backdrop');
       return;
     }
     if (event.target.closest('#add-vehicle-btn')) {
-      document.getElementById('vehicle-sheet-title').textContent = 'Νέο όχημα';
+      document.getElementById('vehicle-sheet-title').textContent = I.t('vehicle.addTitle');
       document.getElementById('vehicle-sheet').reset();
       document.getElementById('vehicle-id').value = '';
       openSheet('vehicle-backdrop');
       return;
     }
     if (event.target.closest('#add-shopping-btn')) {
-      document.getElementById('shopping-sheet-title').textContent = 'Νέο προϊόν';
+      document.getElementById('shopping-sheet-title').textContent = I.t('shopping.addTitle');
       document.getElementById('shopping-sheet').reset();
       document.getElementById('shopping-id').value = '';
       openSheet('shopping-backdrop');
@@ -737,7 +768,7 @@
       var task = store.tasks.find(function (t) { return t.id === event.target.dataset.id; });
       if (task) {
         task.done = event.target.checked;
-        if (task.done) logTimeline('Ολοκληρώθηκε: ' + task.title);
+        if (task.done) logTimeline('log.completed', task.title);
         persist();
         renderAll();
       }
@@ -755,6 +786,8 @@
 
   // ---------- init ----------
 
+  populateLanguageSelect();
+  applyStaticTranslations();
   document.getElementById('settings-name').value = store.profile.name || '';
   goto('today');
   renderAll();

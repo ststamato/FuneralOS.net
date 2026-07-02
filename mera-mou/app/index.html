@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Η Μέρα Μου</title>
-<meta name="description" content="Η Μέρα Μου — ο προσωπικός πίνακας ελέγχου της καθημερινότητάς σου.">
+<meta name="description" id="meta-description" content="Η Μέρα Μου — ο προσωπικός πίνακας ελέγχου της καθημερινότητάς σου.">
 <meta name="theme-color" content="#f2f2f7">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
@@ -17,7 +17,7 @@
 
   <header class="topbar">
     <div class="topbar-title" id="topbar-title">Σήμερα</div>
-    <button class="avatar-btn" id="profile-btn" aria-label="Προφίλ">👤</button>
+    <button class="avatar-btn" id="profile-btn" data-i18n-aria="aria.profile" aria-label="Προφίλ">👤</button>
   </header>
 
   <main class="screens">
@@ -31,103 +31,104 @@
       </div>
 
       <div class="card">
-        <h2 class="card-title">Εκκρεμότητες ημέρας</h2>
+        <h2 class="card-title" data-i18n="today.tasksTitle">Εκκρεμότητες ημέρας</h2>
         <ul class="list checklist" id="today-tasks-list"></ul>
-        <p class="empty-state" id="today-tasks-empty">Καμία εκκρεμότητα ακόμα.</p>
+        <p class="empty-state" id="today-tasks-empty" data-i18n="today.tasksEmpty">Καμία εκκρεμότητα ακόμα.</p>
       </div>
 
       <div class="card">
-        <h2 class="card-title">Λήγει κάτι;</h2>
+        <h2 class="card-title" data-i18n="today.expiringTitle">Λήγει κάτι;</h2>
         <ul class="list" id="expiring-list"></ul>
-        <p class="empty-state" id="expiring-empty">Καμία λήξη καταχωρημένη.</p>
+        <p class="empty-state" id="expiring-empty" data-i18n="today.expiringEmpty">Καμία λήξη καταχωρημένη.</p>
       </div>
 
       <div class="card">
-        <h2 class="card-title">Τι πρέπει να αγοράσεις;</h2>
+        <h2 class="card-title" data-i18n="today.shoppingTitle">Τι πρέπει να αγοράσεις;</h2>
         <p class="card-subtext" id="shopping-summary" hidden></p>
-        <p class="empty-state" id="shopping-summary-empty">Η λίστα αγορών είναι άδεια.</p>
-        <button class="link-btn" data-goto="shopping">Πήγαινε στις Αγορές →</button>
+        <p class="empty-state" id="shopping-summary-empty" data-i18n="today.shoppingEmpty">Η λίστα αγορών είναι άδεια.</p>
+        <button class="link-btn" data-goto="shopping" data-i18n="today.goShopping">Πήγαινε στις Αγορές →</button>
       </div>
 
-      <button class="fab-pill" id="quick-add-btn">
+      <button class="fab-pill" id="quick-add-btn" data-i18n-aria="aria.quickAdd">
         <svg class="fab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-        <span>Νέα υποχρέωση</span>
+        <span data-i18n="today.quickAdd">Νέα υποχρέωση</span>
       </button>
     </section>
 
     <!-- ΟΙΚΟΓΕΝΕΙΑ -->
     <section class="screen" id="screen-family" data-screen hidden>
       <div class="card">
-        <h2 class="card-title">Μέλη οικογένειας</h2>
+        <h2 class="card-title" data-i18n="family.membersTitle">Μέλη οικογένειας</h2>
         <ul class="list" id="family-list"></ul>
-        <p class="empty-state" id="family-empty">Δεν έχεις προσθέσει μέλη ακόμα.</p>
+        <p class="empty-state" id="family-empty" data-i18n="family.membersEmpty">Δεν έχεις προσθέσει μέλη ακόμα.</p>
       </div>
       <div class="card">
-        <h2 class="card-title">Δραστηριότητες</h2>
+        <h2 class="card-title" data-i18n="family.activitiesTitle">Δραστηριότητες</h2>
         <ul class="list" id="activities-list"></ul>
-        <p class="empty-state" id="activities-empty">Καμία δραστηριότητα καταχωρημένη.</p>
-        <button class="link-btn add-btn" id="add-activity-btn">+ Δραστηριότητα</button>
+        <p class="empty-state" id="activities-empty" data-i18n="family.activitiesEmpty">Καμία δραστηριότητα καταχωρημένη.</p>
+        <button class="link-btn add-btn" id="add-activity-btn" data-i18n="family.addActivity">+ Δραστηριότητα</button>
       </div>
-      <button class="link-btn add-btn" id="add-member-btn">+ Νέο μέλος</button>
+      <button class="link-btn add-btn" id="add-member-btn" data-i18n="family.addMember">+ Νέο μέλος</button>
     </section>
 
     <!-- ΣΠΙΤΙ -->
     <section class="screen" id="screen-home" data-screen hidden>
       <div class="card">
-        <h2 class="card-title">Λογαριασμοί</h2>
+        <h2 class="card-title" data-i18n="home.billsTitle">Λογαριασμοί</h2>
         <ul class="list" id="home-bills-list"></ul>
-        <p class="empty-state" id="home-bills-empty">Κανένας λογαριασμός καταχωρημένος.</p>
+        <p class="empty-state" id="home-bills-empty" data-i18n="home.billsEmpty">Κανένας λογαριασμός καταχωρημένος.</p>
       </div>
       <div class="card">
-        <h2 class="card-title">Ασφάλειες &amp; συντηρήσεις</h2>
+        <h2 class="card-title" data-i18n="home.otherTitle">Ασφάλειες &amp; συντηρήσεις</h2>
         <ul class="list" id="home-other-list"></ul>
-        <p class="empty-state" id="home-other-empty">Καμία ασφάλεια ή συντήρηση καταχωρημένη.</p>
+        <p class="empty-state" id="home-other-empty" data-i18n="home.otherEmpty">Καμία ασφάλεια ή συντήρηση καταχωρημένη.</p>
       </div>
-      <button class="link-btn add-btn" id="add-home-btn">+ Νέα υποχρέωση</button>
+      <button class="link-btn add-btn" id="add-home-btn" data-i18n="home.addItem">+ Νέα υποχρέωση</button>
     </section>
 
     <!-- ΑΥΤΟΚΙΝΗΤΟ -->
     <section class="screen" id="screen-auto" data-screen hidden>
       <div id="vehicles-container"></div>
-      <p class="empty-state" id="vehicles-empty">Δεν έχεις προσθέσει όχημα ακόμα.</p>
-      <button class="link-btn add-btn" id="add-vehicle-btn">+ Νέο όχημα</button>
+      <p class="empty-state" id="vehicles-empty" data-i18n="auto.empty">Δεν έχεις προσθέσει όχημα ακόμα.</p>
+      <button class="link-btn add-btn" id="add-vehicle-btn" data-i18n="auto.addVehicle">+ Νέο όχημα</button>
     </section>
 
     <!-- ΑΓΟΡΕΣ -->
     <section class="screen" id="screen-shopping" data-screen hidden>
       <div class="card">
-        <h2 class="card-title">Λίστα supermarket</h2>
+        <h2 class="card-title" data-i18n="shopping.listTitle">Λίστα supermarket</h2>
         <ul class="list checklist" id="shopping-list"></ul>
-        <p class="empty-state" id="shopping-list-empty">Η λίστα είναι άδεια.</p>
+        <p class="empty-state" id="shopping-list-empty" data-i18n="shopping.listEmpty">Η λίστα είναι άδεια.</p>
       </div>
       <div class="card">
-        <h2 class="card-title">Συχνά προϊόντα</h2>
+        <h2 class="card-title" data-i18n="shopping.frequentTitle">Συχνά προϊόντα</h2>
         <div class="chips" id="frequent-chips"></div>
-        <p class="empty-state" id="frequent-empty">Δεν έχεις καταχωρήσει συχνά προϊόντα ακόμα.</p>
+        <p class="empty-state" id="frequent-empty" data-i18n="shopping.frequentEmpty">Δεν έχεις καταχωρήσει συχνά προϊόντα ακόμα.</p>
       </div>
-      <button class="link-btn add-btn" id="add-shopping-btn">+ Προϊόν</button>
+      <button class="link-btn add-btn" id="add-shopping-btn" data-i18n="shopping.addProduct">+ Προϊόν</button>
     </section>
 
     <!-- TIMELINE -->
     <section class="screen" id="screen-timeline" data-screen hidden>
       <div class="card">
-        <h2 class="card-title">Timeline</h2>
-        <p class="card-subtext">Ιστορικό ζωής, εξόδων και ενεργειών.</p>
+        <h2 class="card-title" data-i18n="nav.timeline">Timeline</h2>
+        <p class="card-subtext" data-i18n="timeline.subtitle">Ιστορικό ζωής, εξόδων και ενεργειών.</p>
         <ul class="list" id="timeline-list"></ul>
-        <p class="empty-state" id="timeline-empty">Δεν υπάρχει ακόμα ιστορικό. Θα εμφανίζεται εδώ καθώς χρησιμοποιείς την εφαρμογή.</p>
+        <p class="empty-state" id="timeline-empty" data-i18n="timeline.empty">Δεν υπάρχει ακόμα ιστορικό. Θα εμφανίζεται εδώ καθώς χρησιμοποιείς την εφαρμογή.</p>
       </div>
     </section>
 
     <!-- ΡΥΘΜΙΣΕΙΣ -->
     <section class="screen" id="screen-settings" data-screen hidden>
       <div class="card">
-        <h2 class="card-title">Ρυθμίσεις</h2>
-        <label class="field-label" for="settings-name">Το όνομά σου</label>
-        <input class="text-input" id="settings-name" type="text" placeholder="π.χ. Σταύρος" autocomplete="off">
+        <h2 class="card-title" data-i18n="nav.settings">Ρυθμίσεις</h2>
+        <label class="field-label" for="settings-name" data-i18n="settings.yourName">Το όνομά σου</label>
+        <input class="text-input" id="settings-name" type="text" data-i18n-placeholder="settings.namePlaceholder" placeholder="π.χ. Σταύρος" autocomplete="off">
+        <label class="field-label" for="settings-language" data-i18n="settings.language">Γλώσσα</label>
+        <select class="text-input" id="settings-language"></select>
         <ul class="list">
-          <li class="list-item">Γλώσσα — Ελληνικά</li>
-          <li class="list-item">Ειδοποιήσεις — Ενεργές</li>
-          <li class="list-item">Θέμα — Σύστημα</li>
+          <li class="list-item" data-i18n="settings.notifications">Ειδοποιήσεις — Ενεργές</li>
+          <li class="list-item" data-i18n="settings.theme">Θέμα — Σύστημα</li>
         </ul>
       </div>
     </section>
@@ -135,10 +136,10 @@
     <!-- BACKUP -->
     <section class="screen" id="screen-backup" data-screen hidden>
       <div class="card">
-        <h2 class="card-title">Backup</h2>
-        <p class="card-subtext">Τα δεδομένα σου μένουν στο κινητό. Το cloud backup είναι λειτουργία Premium.</p>
-        <button class="link-btn primary" id="backup-export-btn">Λήψη αντιγράφου (.json)</button>
-        <label class="link-btn add-btn file-btn" for="backup-import-input">Εισαγωγή αντιγράφου</label>
+        <h2 class="card-title" data-i18n="nav.backup">Backup</h2>
+        <p class="card-subtext" data-i18n="backup.subtitle">Τα δεδομένα σου μένουν στο κινητό. Το cloud backup είναι λειτουργία Premium.</p>
+        <button class="link-btn primary" id="backup-export-btn" data-i18n="backup.export">Λήψη αντιγράφου (.json)</button>
+        <label class="link-btn add-btn file-btn" for="backup-import-input" data-i18n="backup.import">Εισαγωγή αντιγράφου</label>
         <input type="file" id="backup-import-input" accept="application/json" hidden>
       </div>
     </section>
@@ -146,16 +147,16 @@
     <!-- PREMIUM -->
     <section class="screen" id="screen-premium" data-screen hidden>
       <div class="card card-premium">
-        <h2 class="card-title">Premium — 2,99€/μήνα</h2>
+        <h2 class="card-title" id="premium-title" data-i18n="premium.title">Premium — 2,99€/μήνα</h2>
         <ul class="list">
-          <li class="list-item">Οικογένεια — πολλαπλά μέλη</li>
-          <li class="list-item">Απεριόριστες υπενθυμίσεις</li>
-          <li class="list-item">Περισσότερα αυτοκίνητα</li>
-          <li class="list-item">Cloud backup</li>
-          <li class="list-item">AI daily brief</li>
-          <li class="list-item">Συγχρονισμός συσκευών</li>
+          <li class="list-item" data-i18n="premium.family">Οικογένεια — πολλαπλά μέλη</li>
+          <li class="list-item" data-i18n="premium.reminders">Απεριόριστες υπενθυμίσεις</li>
+          <li class="list-item" data-i18n="premium.vehicles">Περισσότερα αυτοκίνητα</li>
+          <li class="list-item" data-i18n="premium.cloudBackup">Cloud backup</li>
+          <li class="list-item" data-i18n="premium.aiDailyBrief">AI daily brief</li>
+          <li class="list-item" data-i18n="premium.sync">Συγχρονισμός συσκευών</li>
         </ul>
-        <button class="link-btn primary">Δοκίμασε Premium</button>
+        <button class="link-btn primary" data-i18n="premium.cta">Δοκίμασε Premium</button>
       </div>
     </section>
 
@@ -164,23 +165,23 @@
   <nav class="bottom-nav" id="bottom-nav">
     <button class="nav-btn active" data-goto="today">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 4l8 7.5"/><path d="M6 10v9.5a.5.5 0 0 0 .5.5H10v-5.5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1V20h3.5a.5.5 0 0 0 .5-.5V10"/></svg>
-      <span>Σήμερα</span>
+      <span data-i18n="nav.today">Σήμερα</span>
     </button>
     <button class="nav-btn" data-goto="family">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3.5 19.5c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><path d="M15 15.2c2.3.3 4 2 4 4.3"/></svg>
-      <span>Οικογένεια</span>
+      <span data-i18n="nav.family">Οικογένεια</span>
     </button>
     <button class="nav-btn" data-goto="home">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/></svg>
-      <span>Σπίτι</span>
+      <span data-i18n="nav.home">Σπίτι</span>
     </button>
     <button class="nav-btn" data-goto="auto">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 15 6 9.5a2 2 0 0 1 2-1.5h8a2 2 0 0 1 2 1.5L19.5 15"/><rect x="3" y="15" width="18" height="4.5" rx="1.5"/><circle cx="7.5" cy="19.5" r="1.2"/><circle cx="16.5" cy="19.5" r="1.2"/></svg>
-      <span>Auto</span>
+      <span data-i18n="nav.auto">Auto</span>
     </button>
     <button class="nav-btn" data-goto="shopping">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12l-1.2 10.2a1.5 1.5 0 0 1-1.5 1.3H8.7a1.5 1.5 0 0 1-1.5-1.3L6 8Z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>
-      <span>Αγορές</span>
+      <span data-i18n="nav.shopping">Αγορές</span>
     </button>
   </nav>
 
@@ -190,10 +191,10 @@
 <div class="sheet-backdrop" id="profile-backdrop" hidden>
   <div class="sheet" id="profile-sheet">
     <div class="sheet-handle"></div>
-    <button class="sheet-item" data-goto="timeline">Timeline</button>
-    <button class="sheet-item" data-goto="settings">Ρυθμίσεις</button>
-    <button class="sheet-item" data-goto="backup">Backup</button>
-    <button class="sheet-item" data-goto="premium">Premium</button>
+    <button class="sheet-item" data-goto="timeline" data-i18n="nav.timeline">Timeline</button>
+    <button class="sheet-item" data-goto="settings" data-i18n="nav.settings">Ρυθμίσεις</button>
+    <button class="sheet-item" data-goto="backup" data-i18n="nav.backup">Backup</button>
+    <button class="sheet-item" data-goto="premium" data-i18n="nav.premium">Premium</button>
   </div>
 </div>
 
@@ -201,12 +202,12 @@
 <div class="sheet-backdrop" id="task-backdrop" hidden>
   <form class="sheet" id="task-sheet">
     <div class="sheet-handle"></div>
-    <h3 class="sheet-title" id="task-sheet-title">Γρήγορη προσθήκη</h3>
+    <h3 class="sheet-title" id="task-sheet-title" data-i18n="task.addTitle">Γρήγορη προσθήκη</h3>
     <input type="hidden" id="task-id">
-    <input class="text-input" id="task-title" type="text" placeholder="π.χ. Πληρωμή ΟΤΕ" autocomplete="off" required>
-    <label class="field-label" for="task-date">Πότε; (προαιρετικό)</label>
+    <input class="text-input" id="task-title" type="text" data-i18n-placeholder="task.placeholder" placeholder="π.χ. Πληρωμή ΟΤΕ" autocomplete="off" required>
+    <label class="field-label" for="task-date" data-i18n="task.whenLabel">Πότε; (προαιρετικό)</label>
     <input class="text-input" id="task-date" type="date">
-    <button class="link-btn primary" type="submit">Αποθήκευση</button>
+    <button class="link-btn primary" type="submit" data-i18n="sheet.save">Αποθήκευση</button>
   </form>
 </div>
 
@@ -214,19 +215,19 @@
 <div class="sheet-backdrop" id="member-backdrop" hidden>
   <form class="sheet" id="member-sheet">
     <div class="sheet-handle"></div>
-    <h3 class="sheet-title" id="member-sheet-title">Νέο μέλος</h3>
+    <h3 class="sheet-title" id="member-sheet-title" data-i18n="member.addTitle">Νέο μέλος</h3>
     <input type="hidden" id="member-id">
-    <label class="field-label" for="member-name">Όνομα</label>
-    <input class="text-input" id="member-name" type="text" placeholder="π.χ. Ελένη" required>
-    <label class="field-label" for="member-birthday">Γενέθλια</label>
+    <label class="field-label" for="member-name" data-i18n="member.nameLabel">Όνομα</label>
+    <input class="text-input" id="member-name" type="text" data-i18n-placeholder="member.namePlaceholder" placeholder="π.χ. Ελένη" required>
+    <label class="field-label" for="member-birthday" data-i18n="member.birthdayLabel">Γενέθλια</label>
     <input class="text-input" id="member-birthday" type="date">
-    <label class="field-label" for="member-nameday">Γιορτή ονόματος</label>
+    <label class="field-label" for="member-nameday" data-i18n="member.namedayLabel">Γιορτή ονόματος</label>
     <input class="text-input" id="member-nameday" type="date">
-    <label class="field-label" for="member-meds">Ώρα φαρμάκου (προαιρετικό)</label>
+    <label class="field-label" for="member-meds" data-i18n="member.medsLabel">Ώρα φαρμάκου (προαιρετικό)</label>
     <input class="text-input" id="member-meds" type="time">
-    <label class="field-label" for="member-notes">Σημειώσεις</label>
-    <input class="text-input" id="member-notes" type="text" placeholder="π.χ. αλλεργίες, προτιμήσεις">
-    <button class="link-btn primary" type="submit">Αποθήκευση</button>
+    <label class="field-label" for="member-notes" data-i18n="member.notesLabel">Σημειώσεις</label>
+    <input class="text-input" id="member-notes" type="text" data-i18n-placeholder="member.notesPlaceholder" placeholder="π.χ. αλλεργίες, προτιμήσεις">
+    <button class="link-btn primary" type="submit" data-i18n="sheet.save">Αποθήκευση</button>
   </form>
 </div>
 
@@ -234,15 +235,15 @@
 <div class="sheet-backdrop" id="activity-backdrop" hidden>
   <form class="sheet" id="activity-sheet">
     <div class="sheet-handle"></div>
-    <h3 class="sheet-title" id="activity-sheet-title">Νέα δραστηριότητα</h3>
+    <h3 class="sheet-title" id="activity-sheet-title" data-i18n="activity.addTitle">Νέα δραστηριότητα</h3>
     <input type="hidden" id="activity-id">
-    <label class="field-label" for="activity-title">Τι;</label>
-    <input class="text-input" id="activity-title" type="text" placeholder="π.χ. Κολύμπι" required>
-    <label class="field-label" for="activity-member">Ποιος;</label>
+    <label class="field-label" for="activity-title" data-i18n="activity.whatLabel">Τι;</label>
+    <input class="text-input" id="activity-title" type="text" data-i18n-placeholder="activity.whatPlaceholder" placeholder="π.χ. Κολύμπι" required>
+    <label class="field-label" for="activity-member" data-i18n="activity.whoLabel">Ποιος;</label>
     <select class="text-input" id="activity-member"></select>
-    <label class="field-label" for="activity-when">Πότε;</label>
-    <input class="text-input" id="activity-when" type="text" placeholder="π.χ. Τρίτη 18:00">
-    <button class="link-btn primary" type="submit">Αποθήκευση</button>
+    <label class="field-label" for="activity-when" data-i18n="activity.whenLabel">Πότε;</label>
+    <input class="text-input" id="activity-when" type="text" data-i18n-placeholder="activity.whenPlaceholder" placeholder="π.χ. Τρίτη 18:00">
+    <button class="link-btn primary" type="submit" data-i18n="sheet.save">Αποθήκευση</button>
   </form>
 </div>
 
@@ -250,19 +251,19 @@
 <div class="sheet-backdrop" id="home-backdrop" hidden>
   <form class="sheet" id="home-sheet">
     <div class="sheet-handle"></div>
-    <h3 class="sheet-title" id="home-sheet-title">Νέα υποχρέωση σπιτιού</h3>
+    <h3 class="sheet-title" id="home-sheet-title" data-i18n="home.addTitle">Νέα υποχρέωση σπιτιού</h3>
     <input type="hidden" id="home-id">
-    <label class="field-label" for="home-title">Τίτλος</label>
-    <input class="text-input" id="home-title" type="text" placeholder="π.χ. ΔΕΗ" required>
-    <label class="field-label" for="home-category">Κατηγορία</label>
+    <label class="field-label" for="home-title" data-i18n="home.titleLabel">Τίτλος</label>
+    <input class="text-input" id="home-title" type="text" data-i18n-placeholder="home.titlePlaceholder" placeholder="π.χ. ΔΕΗ" required>
+    <label class="field-label" for="home-category" data-i18n="home.categoryLabel">Κατηγορία</label>
     <select class="text-input" id="home-category">
-      <option value="bill">Λογαριασμός</option>
-      <option value="insurance">Ασφάλεια</option>
-      <option value="maintenance">Συντήρηση</option>
+      <option value="bill" data-i18n="home.categoryBill">Λογαριασμός</option>
+      <option value="insurance" data-i18n="home.categoryInsurance">Ασφάλεια</option>
+      <option value="maintenance" data-i18n="home.categoryMaintenance">Συντήρηση</option>
     </select>
-    <label class="field-label" for="home-date">Ημερομηνία λήξης</label>
+    <label class="field-label" for="home-date" data-i18n="home.dueLabel">Ημερομηνία λήξης</label>
     <input class="text-input" id="home-date" type="date">
-    <button class="link-btn primary" type="submit">Αποθήκευση</button>
+    <button class="link-btn primary" type="submit" data-i18n="sheet.save">Αποθήκευση</button>
   </form>
 </div>
 
@@ -270,23 +271,23 @@
 <div class="sheet-backdrop" id="vehicle-backdrop" hidden>
   <form class="sheet sheet-scroll" id="vehicle-sheet">
     <div class="sheet-handle"></div>
-    <h3 class="sheet-title" id="vehicle-sheet-title">Νέο όχημα</h3>
+    <h3 class="sheet-title" id="vehicle-sheet-title" data-i18n="vehicle.addTitle">Νέο όχημα</h3>
     <input type="hidden" id="vehicle-id">
-    <label class="field-label" for="vehicle-name">Μοντέλο</label>
-    <input class="text-input" id="vehicle-name" type="text" placeholder="π.χ. Toyota Yaris" required>
-    <label class="field-label" for="vehicle-plate">Πινακίδα</label>
-    <input class="text-input" id="vehicle-plate" type="text" placeholder="π.χ. ΙΧΧ 1234">
-    <label class="field-label" for="vehicle-kteo">ΚΤΕΟ — λήξη</label>
+    <label class="field-label" for="vehicle-name" data-i18n="vehicle.modelLabel">Μοντέλο</label>
+    <input class="text-input" id="vehicle-name" type="text" data-i18n-placeholder="vehicle.modelPlaceholder" placeholder="π.χ. Toyota Yaris" required>
+    <label class="field-label" for="vehicle-plate" data-i18n="vehicle.plateLabel">Πινακίδα</label>
+    <input class="text-input" id="vehicle-plate" type="text" data-i18n-placeholder="vehicle.platePlaceholder" placeholder="π.χ. ΙΧΧ 1234">
+    <label class="field-label" for="vehicle-kteo" data-i18n="vehicle.kteoLabel">ΚΤΕΟ — λήξη</label>
     <input class="text-input" id="vehicle-kteo" type="date">
-    <label class="field-label" for="vehicle-insurance">Ασφάλεια — λήξη</label>
+    <label class="field-label" for="vehicle-insurance" data-i18n="vehicle.insuranceLabel">Ασφάλεια — λήξη</label>
     <input class="text-input" id="vehicle-insurance" type="date">
-    <label class="field-label" for="vehicle-service">Επόμενο service</label>
+    <label class="field-label" for="vehicle-service" data-i18n="vehicle.serviceLabel">Επόμενο service</label>
     <input class="text-input" id="vehicle-service" type="date">
-    <label class="field-label" for="vehicle-fees">Τέλη κυκλοφορίας — προθεσμία</label>
+    <label class="field-label" for="vehicle-fees" data-i18n="vehicle.feesLabel">Τέλη κυκλοφορίας — προθεσμία</label>
     <input class="text-input" id="vehicle-fees" type="date">
-    <label class="field-label" for="vehicle-tires">Ελαστικά — τελευταία αλλαγή</label>
+    <label class="field-label" for="vehicle-tires" data-i18n="vehicle.tiresEditLabel">Ελαστικά — τελευταία αλλαγή</label>
     <input class="text-input" id="vehicle-tires" type="date">
-    <button class="link-btn primary" type="submit">Αποθήκευση</button>
+    <button class="link-btn primary" type="submit" data-i18n="sheet.save">Αποθήκευση</button>
   </form>
 </div>
 
@@ -294,15 +295,16 @@
 <div class="sheet-backdrop" id="shopping-backdrop" hidden>
   <form class="sheet" id="shopping-sheet">
     <div class="sheet-handle"></div>
-    <h3 class="sheet-title" id="shopping-sheet-title">Νέο προϊόν</h3>
+    <h3 class="sheet-title" id="shopping-sheet-title" data-i18n="shopping.addTitle">Νέο προϊόν</h3>
     <input type="hidden" id="shopping-id">
-    <input class="text-input" id="shopping-name" type="text" placeholder="π.χ. Γάλα" required>
-    <label class="checkbox-field"><input type="checkbox" id="shopping-frequent"> Συχνό προϊόν</label>
-    <button class="link-btn primary" type="submit">Αποθήκευση</button>
+    <input class="text-input" id="shopping-name" type="text" data-i18n-placeholder="shopping.namePlaceholder" placeholder="π.χ. Γάλα" required>
+    <label class="checkbox-field"><input type="checkbox" id="shopping-frequent"> <span data-i18n="shopping.frequentCheckbox">Συχνό προϊόν</span></label>
+    <button class="link-btn primary" type="submit" data-i18n="sheet.save">Αποθήκευση</button>
   </form>
 </div>
 
 <script src="storage.js"></script>
+<script src="i18n.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

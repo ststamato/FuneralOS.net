@@ -1,8 +1,9 @@
-const CACHE = 'mera-mou-v4';
+const CACHE = 'mera-mou-v5';
 const ASSETS = [
   './index.html',
   './styles.css',
   './storage.js',
+  './i18n.js',
   './app.js',
   './manifest.webmanifest',
   './icons/icon.svg'
