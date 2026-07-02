@@ -191,6 +191,14 @@ html, body {
 
 .editable-row { cursor: pointer; }
 
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
 .item-delete {
   border: none;
   background: var(--urgent);
@@ -204,11 +212,27 @@ html, body {
   padding: 0;
   cursor: pointer;
   flex-shrink: 0;
-  margin-left: auto;
   opacity: 0.85;
 }
 
 .item-delete:hover, .item-delete:active { opacity: 1; }
+
+.item-edit {
+  border: none;
+  background: var(--accent-soft);
+  color: var(--accent);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.item-edit svg { width: 12px; height: 12px; }
 
 .vehicle-card + .vehicle-card { margin-top: 14px; }
 

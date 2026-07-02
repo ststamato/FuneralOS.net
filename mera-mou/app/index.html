@@ -197,14 +197,15 @@
   </div>
 </div>
 
-<!-- Quick add (Σήμερα) -->
-<div class="sheet-backdrop" id="quickadd-backdrop" hidden>
-  <form class="sheet" id="quickadd-sheet">
+<!-- Add/edit task (Σήμερα) -->
+<div class="sheet-backdrop" id="task-backdrop" hidden>
+  <form class="sheet" id="task-sheet">
     <div class="sheet-handle"></div>
-    <h3 class="sheet-title">Γρήγορη προσθήκη</h3>
-    <input class="text-input" id="quickadd-title" type="text" placeholder="π.χ. Πληρωμή ΟΤΕ" autocomplete="off" required>
-    <label class="field-label" for="quickadd-date">Πότε; (προαιρετικό)</label>
-    <input class="text-input" id="quickadd-date" type="date">
+    <h3 class="sheet-title" id="task-sheet-title">Γρήγορη προσθήκη</h3>
+    <input type="hidden" id="task-id">
+    <input class="text-input" id="task-title" type="text" placeholder="π.χ. Πληρωμή ΟΤΕ" autocomplete="off" required>
+    <label class="field-label" for="task-date">Πότε; (προαιρετικό)</label>
+    <input class="text-input" id="task-date" type="date">
     <button class="link-btn primary" type="submit">Αποθήκευση</button>
   </form>
 </div>
@@ -219,6 +220,8 @@
     <input class="text-input" id="member-name" type="text" placeholder="π.χ. Ελένη" required>
     <label class="field-label" for="member-birthday">Γενέθλια</label>
     <input class="text-input" id="member-birthday" type="date">
+    <label class="field-label" for="member-nameday">Γιορτή ονόματος</label>
+    <input class="text-input" id="member-nameday" type="date">
     <label class="field-label" for="member-meds">Ώρα φαρμάκου (προαιρετικό)</label>
     <input class="text-input" id="member-meds" type="time">
     <label class="field-label" for="member-notes">Σημειώσεις</label>
@@ -227,11 +230,12 @@
   </form>
 </div>
 
-<!-- Add family activity -->
+<!-- Add/edit family activity -->
 <div class="sheet-backdrop" id="activity-backdrop" hidden>
   <form class="sheet" id="activity-sheet">
     <div class="sheet-handle"></div>
-    <h3 class="sheet-title">Νέα δραστηριότητα</h3>
+    <h3 class="sheet-title" id="activity-sheet-title">Νέα δραστηριότητα</h3>
+    <input type="hidden" id="activity-id">
     <label class="field-label" for="activity-title">Τι;</label>
     <input class="text-input" id="activity-title" type="text" placeholder="π.χ. Κολύμπι" required>
     <label class="field-label" for="activity-member">Ποιος;</label>
@@ -286,14 +290,15 @@
   </form>
 </div>
 
-<!-- Add shopping item -->
+<!-- Add/edit shopping item -->
 <div class="sheet-backdrop" id="shopping-backdrop" hidden>
   <form class="sheet" id="shopping-sheet">
     <div class="sheet-handle"></div>
-    <h3 class="sheet-title">Νέο προϊόν</h3>
+    <h3 class="sheet-title" id="shopping-sheet-title">Νέο προϊόν</h3>
+    <input type="hidden" id="shopping-id">
     <input class="text-input" id="shopping-name" type="text" placeholder="π.χ. Γάλα" required>
     <label class="checkbox-field"><input type="checkbox" id="shopping-frequent"> Συχνό προϊόν</label>
-    <button class="link-btn primary" type="submit">Προσθήκη</button>
+    <button class="link-btn primary" type="submit">Αποθήκευση</button>
   </form>
 </div>
 
