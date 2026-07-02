@@ -4,6 +4,7 @@
   function emptyStore() {
     return {
       profile: { name: '', lang: 'el' },
+      meta: { updatedAt: 0 },
       tasks: [],
       family: [],
       activities: [],
@@ -22,6 +23,7 @@
         var base = emptyStore();
         var merged = Object.assign(base, parsed);
         merged.profile = Object.assign({ name: '', lang: 'el' }, merged.profile);
+        merged.meta = Object.assign({ updatedAt: 0 }, merged.meta);
         return merged;
       }
     } catch (e) {}

@@ -142,6 +142,24 @@
         <label class="link-btn add-btn file-btn" for="backup-import-input" data-i18n="backup.import">Εισαγωγή αντιγράφου</label>
         <input type="file" id="backup-import-input" accept="application/json" hidden>
       </div>
+
+      <div class="card" id="account-card">
+        <h2 class="card-title" data-i18n="account.title">Λογαριασμός &amp; Συγχρονισμός</h2>
+
+        <p class="empty-state" id="account-not-configured" data-i18n="account.notConfigured" hidden>Ο συγχρονισμός δεν έχει ρυθμιστεί ακόμα.</p>
+
+        <div id="account-signed-out" hidden>
+          <input class="text-input" id="account-email" type="email" data-i18n-placeholder="account.emailPlaceholder" placeholder="π.χ. you@email.com" autocomplete="email">
+          <button class="link-btn primary" id="account-send-link" data-i18n="account.sendLink">Αποστολή link σύνδεσης</button>
+          <p class="empty-state" id="account-check-email" data-i18n="account.checkEmail" hidden>Έλεγξε το email σου για το link σύνδεσης.</p>
+        </div>
+
+        <div id="account-signed-in" hidden>
+          <p class="card-subtext" id="account-email-display"></p>
+          <p class="empty-state" id="account-sync-status"></p>
+          <button class="link-btn add-btn" id="account-sign-out" data-i18n="account.signOut">Αποσύνδεση</button>
+        </div>
+      </div>
     </section>
 
     <!-- PREMIUM -->
@@ -305,6 +323,9 @@
 
 <script src="storage.js"></script>
 <script src="i18n.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="sync.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

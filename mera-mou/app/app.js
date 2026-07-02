@@ -1,6 +1,7 @@
 (function () {
   var M = window.MeraMou;
   var I = window.I18N;
+  var S = window.MeraMouSync;
   var store = M.load();
 
   I.setLang(store.profile.lang || 'el');
@@ -17,8 +18,28 @@
     });
   }
 
+  function normalizeStore(raw) {
+    var base = { profile: { name: '', lang: 'el' }, meta: { updatedAt: 0 }, tasks: [], family: [], activities: [], home: [], vehicles: [], shopping: [], timeline: [] };
+    var merged = Object.assign(base, raw);
+    merged.profile = Object.assign({ name: '', lang: 'el' }, merged.profile);
+    merged.meta = Object.assign({ updatedAt: 0 }, merged.meta);
+    return merged;
+  }
+
+  var syncTimer = null;
+  function scheduleSync() {
+    if (!S || !S.isConfigured()) return;
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(function () {
+      S.pushData(store).then(function () { setSyncStatus('synced'); }).catch(function () { setSyncStatus('error'); });
+    }, 1200);
+  }
+
   function persist() {
+    store.meta = store.meta || {};
+    store.meta.updatedAt = Date.now();
     M.save(store);
+    scheduleSync();
   }
 
   function logTimeline(key, title) {
@@ -557,8 +578,7 @@
     reader.onload = function () {
       try {
         var imported = JSON.parse(reader.result);
-        store = Object.assign({ profile: { name: '', lang: 'el' }, tasks: [], family: [], activities: [], home: [], vehicles: [], shopping: [], timeline: [] }, imported);
-        store.profile = Object.assign({ name: '', lang: 'el' }, store.profile);
+        store = normalizeStore(imported);
         I.setLang(store.profile.lang);
         persist();
         populateLanguageSelect();
@@ -783,6 +803,89 @@
       }
     }
   });
+
+  // ---------- account & sync ----------
+
+  function setSyncStatus(status) {
+    var el = document.getElementById('account-sync-status');
+    if (!el) return;
+    if (status === 'syncing') el.textContent = I.t('account.syncing');
+    else if (status === 'synced') el.textContent = I.t('account.synced');
+    else if (status === 'error') el.textContent = I.t('account.syncError');
+  }
+
+  function renderAccount() {
+    var notConfigured = document.getElementById('account-not-configured');
+    var signedOut = document.getElementById('account-signed-out');
+    var signedIn = document.getElementById('account-signed-in');
+    if (!S || !S.isConfigured()) {
+      notConfigured.hidden = false;
+      signedOut.hidden = true;
+      signedIn.hidden = true;
+      return;
+    }
+    notConfigured.hidden = true;
+    signedOut.hidden = false;
+    signedIn.hidden = true;
+  }
+
+  function handleSignedIn(session) {
+    document.getElementById('account-not-configured').hidden = true;
+    document.getElementById('account-signed-out').hidden = true;
+    document.getElementById('account-signed-in').hidden = false;
+    document.getElementById('account-email-display').textContent = I.t('account.signedInAs') + ' ' + session.user.email;
+    setSyncStatus('syncing');
+    S.pullData().then(function (remote) {
+      var localUpdated = (store.meta && store.meta.updatedAt) || 0;
+      var remoteUpdated = remote && remote.updated_at ? new Date(remote.updated_at).getTime() : 0;
+      if (remote && remote.data && remoteUpdated > localUpdated) {
+        store = normalizeStore(remote.data);
+        I.setLang(store.profile.lang);
+        M.save(store);
+        populateLanguageSelect();
+        applyStaticTranslations();
+        document.getElementById('settings-name').value = store.profile.name || '';
+        renderAll();
+        setSyncStatus('synced');
+        return null;
+      }
+      return S.pushData(store).then(function () { setSyncStatus('synced'); });
+    }).catch(function () { setSyncStatus('error'); });
+  }
+
+  document.getElementById('account-send-link').addEventListener('click', function () {
+    if (!S) return;
+    var email = document.getElementById('account-email').value.trim();
+    if (!email || email.indexOf('@') === -1) { alert(I.t('account.invalidEmail')); return; }
+    S.sendMagicLink(email).then(function () {
+      document.getElementById('account-check-email').hidden = false;
+    }).catch(function () {
+      alert(I.t('account.syncError'));
+    });
+  });
+
+  document.getElementById('account-sign-out').addEventListener('click', function () {
+    if (S) S.signOut();
+  });
+
+  if (S && S.isConfigured()) {
+    S.getSession().then(function (session) {
+      if (session) handleSignedIn(session);
+      else renderAccount();
+    });
+    S.onAuthStateChange(function (session) {
+      if (session) {
+        handleSignedIn(session);
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      } else {
+        renderAccount();
+      }
+    });
+  } else {
+    renderAccount();
+  }
 
   // ---------- init ----------
 
