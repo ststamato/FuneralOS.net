@@ -1,4 +1,98 @@
 // ================================
+// FuneralOS USA — Demo Seeder
+// Runs before all IIFEs; writes realistic demo data to localStorage
+// only in demo mode and only when keys are empty.
+// ================================
+(function(){
+  if (!window.__DEMO_MODE) return;
+  const todayIso = ()=>new Date().toISOString().slice(0,10);
+  const addDays = (n)=>{ const d=new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); };
+  const CASES_KEY = "funeralos_usa_cases_v1";
+  const STAFF_KEY = "funeralos_usa_staff_v2";
+  const FLEET_KEY = "funeralos_usa_fleet_v2";
+  const USA_DOCS = ["Death Certificate","Burial Permit","Cremation Authorization","Contract","Invoice"];
+
+  function seed(key, data){ if(!(localStorage.getItem(key)||"").includes('"id"')) localStorage.setItem(key, JSON.stringify(data)); }
+
+  function makeDocs(overrides){
+    const d={}; USA_DOCS.forEach(k=>d[k]="Missing");
+    Object.assign(d, overrides); return d;
+  }
+
+  seed(CASES_KEY, [
+    {
+      id:"DEMO-USA-001", createdAt: new Date(Date.now()-3*864e5).toISOString(), caseNumber:"USA-2026-001",
+      decedent:"Miller, John R.", dateOfDeath: addDays(-3), caller:"Susan Miller", relationship:"Daughter",
+      phone:"(555) 210-6542", placeOfDeath:"Hospital", facility:"St. Mary Medical Center",
+      priority:"Urgent", director:"Christine Walsh", driver:"Thomas Anderson", vehicle:"Hearse #1",
+      serviceDate: addDays(2), serviceTime:"10:00", serviceLocation:"Riverside Community Church",
+      viewingDate: addDays(1), viewingRoom:"Chapel A",
+      disposition:"Burial", finalLocation:"Greenwood Cemetery",
+      status:"Documents Pending", balance:4250, caseValue:8500, paymentStatus:"Pending",
+      notes:"⚠️ Death Certificate NOT yet filed — call Dr. Patterson office. Family requesting urgent transfer authorization. 3 out-of-town relatives arriving Fri.",
+      documents: makeDocs({"Contract":"Complete","Cremation Authorization":"Missing","Death Certificate":"Pending","Burial Permit":"Pending"}),
+      timeline:["First Call","Removal Scheduled","Family Meeting","Documents Pending"],
+      cremation:{}
+    },
+    {
+      id:"DEMO-USA-002", createdAt: new Date(Date.now()-1*864e5).toISOString(), caseNumber:"USA-2026-002",
+      decedent:"Thompson, Elizabeth A.", dateOfDeath: addDays(-1), caller:"James Thompson", relationship:"Son",
+      phone:"(555) 382-9104", placeOfDeath:"Hospice", facility:"Serenity Hospice Center",
+      priority:"Normal", director:"Thomas Anderson", driver:"Michael Brown", vehicle:"Removal Van #1",
+      serviceDate: addDays(1), serviceTime:"14:00", serviceLocation:"First Presbyterian Church",
+      viewingDate: todayIso(), viewingRoom:"Chapel B",
+      disposition:"Burial", finalLocation:"Oak Hill Cemetery",
+      status:"Service Scheduled", balance:0, caseValue:6800, paymentStatus:"Paid",
+      notes:"All arrangements confirmed. Flowers by Carter's Florists. Family has pre-paid in full. 12 pallbearers coordinated.",
+      documents: makeDocs({"Death Certificate":"Complete","Burial Permit":"Complete","Contract":"Complete","Invoice":"Complete","Cremation Authorization":"Missing"}),
+      timeline:["First Call","Removal Scheduled","Family Meeting","Documents Pending","Preparation","Viewing","Service Scheduled"],
+      cremation:{}
+    },
+    {
+      id:"DEMO-USA-003", createdAt: new Date(Date.now()-5*864e5).toISOString(), caseNumber:"USA-2026-003",
+      decedent:"Davis, Robert W.", dateOfDeath: addDays(-5), caller:"Linda Davis", relationship:"Wife",
+      phone:"(555) 491-7733", placeOfDeath:"Coroner Case", facility:"County Coroner's Office",
+      priority:"High", director:"Christine Walsh", driver:"Michael Brown", vehicle:"Removal Van #1",
+      serviceDate: addDays(4), serviceTime:"11:00", serviceLocation:"Valley Crematory",
+      viewingDate:"", viewingRoom:"",
+      disposition:"Cremation", finalLocation:"Valley Crematory",
+      status:"Preparation", balance:3800, caseValue:5200, paymentStatus:"Partial",
+      notes:"Coroner hold — pending toxicology report (est. release in 2 days). Cremation cannot proceed until authorization released. Family notified.",
+      documents: makeDocs({"Death Certificate":"Pending","Cremation Authorization":"Pending","Contract":"Complete","Invoice":"Pending"}),
+      timeline:["First Call","Removal Scheduled","Family Meeting","Documents Pending","Preparation"],
+      cremation:{"Cremation Authorization":"Pending","Cremation Permit":"Missing","Crematory Scheduled":"Pending","Urn Selected":"Pending","Ashes Released":"Missing"},
+      crematory:"Valley Crematory", urn:"Silver Companion Urn"
+    },
+    {
+      id:"DEMO-USA-004", createdAt: new Date(Date.now()-18*864e5).toISOString(), caseNumber:"USA-2026-004",
+      decedent:"Garcia, Maria L.", dateOfDeath: addDays(-18), caller:"Carlos Garcia", relationship:"Son",
+      phone:"(555) 603-2281", placeOfDeath:"Residence", facility:"Home Death",
+      priority:"Normal", director:"Thomas Anderson", driver:"Thomas Anderson", vehicle:"Hearse #1",
+      serviceDate: addDays(-14), serviceTime:"09:00", serviceLocation:"St. Joseph Catholic Church",
+      viewingDate: addDays(-15), viewingRoom:"Main Chapel",
+      disposition:"Burial", finalLocation:"Holy Cross Cemetery",
+      status:"Closed", balance:0, caseValue:5200, paymentStatus:"Paid",
+      notes:"Service completed. All documents filed with County. Urn returned to family. Case closed.",
+      documents: makeDocs({"Death Certificate":"Complete","Burial Permit":"Complete","Contract":"Complete","Invoice":"Complete","Cremation Authorization":"Missing"}),
+      timeline:["First Call","Removal Scheduled","Family Meeting","Documents Pending","Preparation","Viewing","Service Scheduled","Burial/Cremation","Closed"],
+      cremation:{}
+    }
+  ]);
+
+  seed(STAFF_KEY, [
+    { id:"DEMO-ST-001", name:"Thomas Anderson", role:"Licensed Funeral Director", shift:"Mon–Fri 8:00–17:00", assignment:"Case USA-2026-002", cert: addDays(180) },
+    { id:"DEMO-ST-002", name:"Christine Walsh", role:"Licensed Funeral Director", shift:"Tue–Sat 9:00–18:00", assignment:"Case USA-2026-001", cert: addDays(22) },
+    { id:"DEMO-ST-003", name:"Michael Brown", role:"Removal Technician", shift:"On-Call", assignment:"Removal Van #1", cert: addDays(310) }
+  ]);
+
+  seed(FLEET_KEY, [
+    { id:"DEMO-FL-001", name:"Hearse #1", type:"Hearse", mileage:84520, service: addDays(12), insurance: addDays(95), status:"Assigned — Case 002" },
+    { id:"DEMO-FL-002", name:"Removal Van #1", type:"Removal Van", mileage:61300, service: addDays(45), insurance: addDays(120), status:"Available" },
+    { id:"DEMO-FL-003", name:"Limousine #1", type:"Limousine", mileage:52800, service: addDays(-5), insurance: addDays(60), status:"Out of Service" }
+  ]);
+})();
+
+// ================================
 // FuneralOS USA v1 — Director Modules
 // Adds: Cases, First Call, Documents, Director Command Center
 // Standalone localStorage layer: does NOT alter Greek Bible data.
