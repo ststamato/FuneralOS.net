@@ -506,7 +506,7 @@ function aiMarkNoteSeen(key) {
   if (!key) return;
   if (!Array.isArray(aiSeenNotes)) aiSeenNotes = [];
   if (!aiSeenNotes.includes(key)) aiSeenNotes.push(key);
-  addChange("ai_note_seen", "AI σημείωση σημειώθηκε ως διαβασμένη");
+  addChange("ai_note_seen", t("AI σημείωση σημειώθηκε ως διαβασμένη","AI note marked as seen"));
   saveData();
   updateHomeDashboard();
   if (aiLastMode === "cloud") aiRunCloud();
@@ -538,7 +538,7 @@ function aiMarkAlertSeen(key) {
   if (!Array.isArray(aiSeenAlerts)) aiSeenAlerts = [];
   if (!Array.isArray(customFields)) customFields = [];
   if (!aiSeenAlerts.includes(key)) aiSeenAlerts.push(key);
-  addChange("ai_alert_seen", "AI ειδοποίηση σημειώθηκε ως διαβασμένη");
+  addChange("ai_alert_seen", t("AI ειδοποίηση σημειώθηκε ως διαβασμένη","AI alert marked as seen"));
   saveData();
   updateHomeDashboard();
   if (aiLastMode === "cloud") aiRunCloud();
@@ -642,15 +642,15 @@ async function sendEdgePushBatch(batch) {
   // Only send push notifications in production to avoid alerting the real office during dev
   if (window.location.hostname !== "funeralos.net") return;
 
-  const me = getDeviceLabel() || "Άγνωστη συσκευή";
-  let title = "Σταυρακάκη — Νέα αλλαγή";
+  const me = getDeviceLabel() || t("Άγνωστη συσκευή", "Unknown device");
+  const title = t("Σταυρακάκη — Νέα αλλαγή", "FuneralOS — New update");
   let body = "";
 
   if (batch.length === 1) {
     const c = batch[0];
-    body = `${c.device || me}: ${c.summary || "Update"}`;
+    body = `${c.device || me}: ${c.summary || t("Αλλαγή", "Update")}`;
   } else {
-    body = `${me}: ${batch.length} αλλαγές`;
+    body = `${me}: ${batch.length} ${t("αλλαγές", "changes")}`;
   }
 
   const payload = {
@@ -746,7 +746,7 @@ function ensureUpdatesUI() {
     content.className = "modal-content";
 
     const h2 = document.createElement("h2");
-    h2.textContent = "Updates / Αλλαγές";
+    h2.textContent = t("Updates / Αλλαγές", "Updates");
 
     const actions = document.createElement("div");
     actions.style.display = "flex";
@@ -1724,7 +1724,7 @@ function saveCeremony(e) {
       adjustCoffinStock(old.coffin || "", payload.coffin);
       adjustSetStock(old.set || "", payload.set);
 
-      addChange("ceremony_edit", `Επεξεργασία τελετής: ${payload.name || "-"} (${payload.date || "χωρίς ημ/νία"} ${payload.time || ""})`);
+      addChange("ceremony_edit", `${t("Επεξεργασία τελετής","Edit case")}: ${payload.name || "-"} (${payload.date || t("χωρίς ημ/νία","no date")} ${payload.time || ""})`);
     }
   } else {
     const id = nowTs().toString();
@@ -1733,7 +1733,7 @@ function saveCeremony(e) {
     adjustCoffinStock("", payload.coffin);
     adjustSetStock("", payload.set);
 
-    addChange("ceremony_add", `Νέα τελετή: ${payload.name || "-"} (${payload.date || "χωρίς ημ/νία"} ${payload.time || ""})`);
+    addChange("ceremony_add", `${t("Νέα τελετή","New case")}: ${payload.name || "-"} (${payload.date || t("χωρίς ημ/νία","no date")} ${payload.time || ""})`);
   }
 
   saveBackup("saveCeremony");
@@ -1749,7 +1749,7 @@ function deleteCeremony(id) {
     adjustCoffinStock(c.coffin || "", "");
     adjustSetStock(c.set || "", "");
     emitOfficeEvent("ceremony_deleted", { ...c, case_id: ensureCeremonyCaseId(c) });
-    addChange("ceremony_delete", `Διαγραφή τελετής: ${c.name || "-"} (${c.date || "χωρίς ημ/νία"} ${c.time || ""})`);
+    addChange("ceremony_delete", `${t("Διαγραφή τελετής","Delete case")}: ${c.name || "-"} (${c.date || t("χωρίς ημ/νία","no date")} ${c.time || ""})`);
   }
   ceremonies = ceremonies.filter(c => c.id !== id);
   saveBackup("deleteCeremony");
@@ -4984,7 +4984,7 @@ function renderCustomFieldsForm(c = {}) {
     return;
   }
   box.classList.remove("hidden");
-  box.innerHTML = `<div class="custom-fields-title">${t("ΕΞΤΡΑ ΠΕΔΙΑ ΑΠΟ ΡΥΘΜΙΣΕΙΣ","CUSTOM FIELDS FROM SETTINGS")}</div>` + active.map(f => {
+  box.innerHTML = active.map(f => {
     const value = customFieldValue(c, f);
     const req = f.required ? "required" : "";
     const ph = esc(f.placeholder || "");
@@ -5069,10 +5069,10 @@ function saveCustomField(e) {
 
   if (customFieldEditingIndex === null) {
     customFields.push(field);
-    addChange("custom_field_add", `Νέο πεδίο ρυθμίσεων: ${label}`);
+    addChange("custom_field_add", `${t("Νέο πεδίο ρυθμίσεων","New custom field")}: ${label}`);
   } else {
     customFields[customFieldEditingIndex] = field;
-    addChange("custom_field_edit", `Αλλαγή πεδίου ρυθμίσεων: ${label}`);
+    addChange("custom_field_edit", `${t("Αλλαγή πεδίου ρυθμίσεων","Edit custom field")}: ${label}`);
   }
 
   saveBackup("saveCustomField");
@@ -5088,7 +5088,7 @@ function deleteCustomField(index) {
   if (!confirm(`Διαγραφή πεδίου "${f.label}"; Θα αφαιρεθεί και η τιμή του από τις τελετές.`)) return;
   customFields.splice(index, 1);
   ceremonies.forEach(c => { if (c.customValues) delete c.customValues[f.key]; });
-  addChange("custom_field_delete", `Διαγραφή πεδίου ρυθμίσεων: ${f.label}`);
+  addChange("custom_field_delete", `${t("Διαγραφή πεδίου ρυθμίσεων","Delete custom field")}: ${f.label}`);
   saveBackup("deleteCustomField");
   saveData();
   renderAll();
@@ -5099,7 +5099,7 @@ function toggleCustomField(index) {
   const f = customFields[index];
   if (!f) return;
   f.enabled = f.enabled === false ? true : false;
-  addChange("custom_field_toggle", `${f.enabled ? "Ενεργό" : "Ανενεργό"} πεδίο: ${f.label}`);
+  addChange("custom_field_toggle", `${f.enabled ? t("Ενεργό","Enabled") : t("Ανενεργό","Disabled")} ${t("πεδίο","field")}: ${f.label}`);
   saveData();
   renderAll();
 }
@@ -5359,7 +5359,7 @@ function saveCeremony(e) {
       emitOfficeEvent("ceremony_updated", updatedCeremony, { payload: { previous_date: old.date || "", previous_place: old.place || "" } });
       adjustCoffinStock(old.coffin || "", payload.coffin);
       adjustSetStock(old.set || "", payload.set);
-      addChange("ceremony_edit", `Επεξεργασία τελετής: ${payload.name || "-"} (${payload.date || "χωρίς ημ/νία"} ${payload.time || ""})`);
+      addChange("ceremony_edit", `${t("Επεξεργασία τελετής","Edit case")}: ${payload.name || "-"} (${payload.date || t("χωρίς ημ/νία","no date")} ${payload.time || ""})`);
     }
   } else {
     const id = nowTs().toString();
@@ -5368,7 +5368,7 @@ function saveCeremony(e) {
     emitOfficeEvent("ceremony_created", newCeremony);
     adjustCoffinStock("", payload.coffin);
     adjustSetStock("", payload.set);
-    addChange("ceremony_add", `Νέα τελετή: ${payload.name || "-"} (${payload.date || "χωρίς ημ/νία"} ${payload.time || ""})`);
+    addChange("ceremony_add", `${t("Νέα τελετή","New case")}: ${payload.name || "-"} (${payload.date || t("χωρίς ημ/νία","no date")} ${payload.time || ""})`);
   }
   saveBackup("saveCeremonyV36");
   saveData();
