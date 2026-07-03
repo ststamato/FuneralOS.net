@@ -5266,7 +5266,9 @@ function openCeremonyModal(id = null) {
   const modal = $("ceremonyModal");
   if (!modal) return alert("Λείπει το ceremonyModal από το index.html");
   const titleEl = $("modalTitle");
-  if (titleEl) titleEl.textContent = id ? t("Επεξεργασία τελετής", "Edit ceremony") : t("Νέα τελετή", "New ceremony");
+  if (titleEl) titleEl.textContent = id
+    ? t("Επεξεργασία τελετής", "Edit Case")
+    : t("Νέα τελετή", "New Case");
   const c = id ? (ceremonies.find(x => x.id === id) || {}) : {};
 
   setVal("ceremonyDate", c.date || "");
@@ -5377,14 +5379,14 @@ function renderCeremonyCard(c, now) {
   card.className = "ceremony-card";
   card.dataset.id = c.id;
   if (shouldHighlightGreen(c, now)) card.classList.add("green-frame");
+
   const header = document.createElement("div"); header.className = "ceremony-header";
   const nm = document.createElement("div"); nm.className = "ceremony-name"; nm.textContent = c.name || "-";
   const dt = document.createElement("div"); dt.className = "ceremony-date"; dt.textContent = (c.date ? formatDate(c.date) : "—") + (c.time ? ` • ${c.time}` : "");
   header.append(nm, dt);
   const place = document.createElement("div"); place.className = "ceremony-place"; place.textContent = c.place || "";
-  const caseBadge = document.createElement("div");
-  caseBadge.className = "case-id-badge";
-  caseBadge.textContent = c.case_id ? `${t("Υπόθεση","Case")}: ${c.case_id}` : "";
+  const caseBadge = document.createElement("div"); caseBadge.className = "case-id-badge";
+  caseBadge.textContent = c.case_id ? `Case: ${c.case_id}` : "";
   const cardAiWarning = document.createElement("div");
   const notePriority = aiNotePriority(c.notes || "");
   if (notePriority === "high") {
@@ -5396,23 +5398,45 @@ function renderCeremonyCard(c, now) {
   const rows = document.createElement("div");
   const makeRow = (label, value) => { if (!value) return; const r = document.createElement("div"); r.className = "ceremony-row"; r.innerHTML = `<span class="ceremony-label">${esc(label)}:</span> ${esc(value)}`; rows.appendChild(r); };
   const btDisplay = bt => bt === "Αποτεφρωση" ? t("Αποτεφρωση","Cremation") : bt === "Μνημόσυνο" ? t("Μνημόσυνο","Memorial") : t("Ταφή","Burial");
-  const gtDisplay = gt => gt === "Οικογενειακός" ? t("Οικογενειακός","Family plot") : gt === "Τριετία" ? t("Τριετία","3-year plot") : (gt || "");
-  if (c.responsible && c.responsible !== "-") makeRow(t("Υπεύθυνος","Coordinator"), c.responsible);
-  if (c.secondPerson && c.secondPerson !== "Κανένας" && c.secondPerson !== "None") makeRow(t("2ο άτομο","2nd person"), c.secondPerson);
-  if (c.suitcase && c.suitcase !== "-") makeRow(t("Βαλίτσα","Suitcase"), c.suitcase);
-  makeRow(t("Τρόπος","Type"), btDisplay(c.burialType || "Ταφή"));
-  if ((c.burialType || "Ταφή") === "Αποτεφρωση") { makeRow(t("Συνοδοί αίθουσας","Cremation escorts"), String(Number(c.cremationEscortCount || 0))); makeRow(t("Ενορία πριν (σημ.)","Parish before (note)"), c.cremationParishNote); }
-  else { makeRow(t("Τάφος","Grave"), gtDisplay(c.graveType)); if (c.graveType === "Οικογενειακός") makeRow(t("Αριθμός τάφου","Grave number"), c.graveNumber); if (c.graveType === "Τριετία") makeRow(t("Ζώνη","Zone"), c.graveZone); }
-  makeRow(t("Φέρετρο","Coffin"), c.coffin); makeRow(t("ΣΕΤ","SET"), c.set); makeRow(t("Στεφάνια / Λουλούδια","Wreaths / Flowers"), c.flowers); makeRow(t("Αγγελτήριο","Announcement"), c.announcementStatus);
-  const decorLine = c.decor ? `${c.decor}${c.decorNote ? ` – ${c.decorNote}` : ""}` : ""; makeRow(t("Στολισμός","Decoration"), decorLine);
-  makeRow(t("Φραγκοφόροι","Pallbearers"), c.pallbearers);
-  if (c.coffee) makeRow(t("Καφές","Wake/Reception"), `${c.coffee}${c.coffeePlace ? ` – ${c.coffeePlace}` : ""}`);
-  makeRow(t("Παραλαβή","Pickup"), c.pickup); makeRow(t("2ο άτομο παραλαβής","2nd pickup person"), c.pickupSecondPerson);
-  if (c.pickupDate) makeRow(t("Ημερομηνία παραλαβής","Pickup date"), formatDate(c.pickupDate));
-  makeRow(t("Ψυκτικός θάλαμος","Cold room"), c.coldRoom);
+
   ensureCustomFields();
-  customFields.filter(f => f.enabled !== false && f.showCard !== false).forEach(f => makeRow(f.label, customFieldValueDisplay(customFieldValue(c, f), f)));
-  makeRow(t("Σημειώσεις","Notes"), c.notes);
+
+  if (window.__appLang === "en") {
+    // EN/USA Edition — show only relevant fields
+    makeRow("Disposition", btDisplay(c.burialType || "Ταφή"));
+    if (c.pickupDate) makeRow("Date of death", formatDate(c.pickupDate));
+    if (c.coldRoom) makeRow("Place of death", c.coldRoom);
+    if (c.flowers) makeRow("Facility", c.flowers);
+    if (c.pickup) makeRow("Caller / NOK", c.pickup);
+    if (c.sheet) makeRow("Phone", c.sheet);
+    if (c.decorNote) makeRow("Embalmer", c.decorNote);
+    if (c.responsible && c.responsible !== "-") makeRow("Director", c.responsible);
+    if ((c.burialType || "") === "Αποτεφρωση") {
+      if (Number(c.cremationEscortCount)) makeRow("Cremation escorts", String(c.cremationEscortCount));
+      if (c.cremationParishNote) makeRow("Chapel note", c.cremationParishNote);
+    }
+    customFields.filter(f => f.enabled !== false && f.showCard !== false && f.section === "ceremony").forEach(f => makeRow(f.label, customFieldValueDisplay(customFieldValue(c, f), f)));
+    if (c.notes) makeRow("Notes", c.notes);
+  } else {
+    // GR Edition
+    const gtDisplay = gt => gt === "Οικογενειακός" ? "Οικογενειακός" : gt === "Τριετία" ? "Τριετία" : (gt || "");
+    if (c.responsible && c.responsible !== "-") makeRow("Υπεύθυνος", c.responsible);
+    if (c.secondPerson && c.secondPerson !== "Κανένας" && c.secondPerson !== "None") makeRow("2ο άτομο", c.secondPerson);
+    if (c.suitcase && c.suitcase !== "-") makeRow("Βαλίτσα", c.suitcase);
+    makeRow("Τρόπος", btDisplay(c.burialType || "Ταφή"));
+    if ((c.burialType || "Ταφή") === "Αποτεφρωση") { makeRow("Συνοδοί αίθουσας", String(Number(c.cremationEscortCount || 0))); makeRow("Ενορία πριν (σημ.)", c.cremationParishNote); }
+    else { makeRow("Τάφος", gtDisplay(c.graveType)); if (c.graveType === "Οικογενειακός") makeRow("Αριθμός τάφου", c.graveNumber); if (c.graveType === "Τριετία") makeRow("Ζώνη", c.graveZone); }
+    makeRow("Φέρετρο", c.coffin); makeRow("ΣΕΤ", c.set); makeRow("Στεφάνια / Λουλούδια", c.flowers); makeRow("Αγγελτήριο", c.announcementStatus);
+    const decorLine = c.decor ? `${c.decor}${c.decorNote ? ` – ${c.decorNote}` : ""}` : ""; makeRow("Στολισμός", decorLine);
+    makeRow("Φραγκοφόροι", c.pallbearers);
+    if (c.coffee) makeRow("Καφές", `${c.coffee}${c.coffeePlace ? ` – ${c.coffeePlace}` : ""}`);
+    makeRow("Παραλαβή", c.pickup); makeRow("2ο άτομο παραλαβής", c.pickupSecondPerson);
+    if (c.pickupDate) makeRow("Ημερομηνία παραλαβής", formatDate(c.pickupDate));
+    makeRow("Ψυκτικός θάλαμος", c.coldRoom);
+    customFields.filter(f => f.enabled !== false && f.showCard !== false && f.section === "ceremony").forEach(f => makeRow(f.label, customFieldValueDisplay(customFieldValue(c, f), f)));
+    makeRow("Σημειώσεις", c.notes);
+  }
+
   const buttons = document.createElement("div"); buttons.className = "card-buttons";
   const editBtn = document.createElement("button"); editBtn.className = "edit"; editBtn.textContent = t("Επεξεργασία", "Edit"); editBtn.dataset.action = "edit";
   const waBtn = document.createElement("button"); waBtn.type = "button"; waBtn.dataset.action = "wa"; waBtn.title = "WhatsApp"; waBtn.style.cssText = "width:36px;height:36px;border-radius:999px;border:none;display:inline-flex;align-items:center;justify-content:center;background:#25d366;cursor:pointer;color:#fff;font-weight:900;"; waBtn.textContent = "WA";
