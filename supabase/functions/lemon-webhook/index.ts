@@ -154,15 +154,19 @@ Deno.serve(async (req: Request) => {
   let payload: Record<string, unknown>;
   try { payload = JSON.parse(body); } catch { return new Response("Invalid JSON", { status: 400 }); }
 
-  const eventName   = (payload.meta as Record<string, unknown>)?.event_name as string || "";
+  const meta        = (payload.meta as Record<string, unknown>) || {};
+  const eventName   = (meta.event_name as string) || "";
+  const customData  = (meta.custom_data as Record<string, unknown>) || {};
+  const customUserId = (customData.user_id as string || "").trim();
+
   const attrs       = ((payload.data as Record<string, unknown>)?.attributes || {}) as Record<string, unknown>;
   const email       = (attrs.user_email as string || "").toLowerCase().trim();
   const productName = (attrs.product_name as string) || "";
   const status      = (attrs.status as string) || "";
 
-  console.log(`Webhook: ${eventName} | product: ${productName} | status: ${status} | email: ${email}`);
+  console.log(`Webhook: ${eventName} | product: ${productName} | status: ${status} | email: ${email} | custom_user_id: ${customUserId || "none"}`);
 
-  if (!email) return new Response("OK", { status: 200 });
+  if (!email && !customUserId) return new Response("OK", { status: 200 });
 
   // Determine target plan
   let targetPlan: string | null = null;
@@ -173,6 +177,9 @@ Deno.serve(async (req: Request) => {
     }
   } else if (["subscription_cancelled", "subscription_expired"].includes(eventName)) {
     targetPlan = "free";
+  } else if (eventName === "order_created") {
+    // One-time purchase fallback — treat as pro upgrade
+    targetPlan = getPlanFromProductName(productName) || "pro";
   }
 
   if (!targetPlan) {
@@ -180,20 +187,46 @@ Deno.serve(async (req: Request) => {
     return new Response("OK", { status: 200 });
   }
 
-  // Find user by email
-  const user = await findUserByEmail(supabaseUrl, serviceKey, email);
-  if (!user) {
-    console.warn(`No Supabase user found for email: ${email}`);
+  // Resolve user — prefer custom_data.user_id (more reliable than email lookup)
+  let userId: string | null = null;
+  let userMeta: Record<string, unknown> = {};
+
+  if (customUserId) {
+    // Direct user ID from checkout custom data
+    const res = await fetch(`${supabaseUrl}/auth/v1/admin/users/${customUserId}`, {
+      headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey },
+    });
+    if (res.ok) {
+      const u = await res.json();
+      userId   = u.id;
+      userMeta = u.user_metadata || {};
+      console.log(`Resolved user by custom_user_id: ${userId}`);
+    } else {
+      console.warn(`custom_user_id ${customUserId} not found, falling back to email lookup`);
+    }
+  }
+
+  if (!userId && email) {
+    const user = await findUserByEmail(supabaseUrl, serviceKey, email);
+    if (user) {
+      userId   = user.id;
+      userMeta = user.user_metadata || {};
+      console.log(`Resolved user by email: ${userId}`);
+    }
+  }
+
+  if (!userId) {
+    console.warn(`No Supabase user found for email: ${email} or user_id: ${customUserId}`);
     return new Response("OK", { status: 200 }); // 200 to prevent LS retries
   }
 
   // Update plan
-  const ok = await setUserPlan(supabaseUrl, serviceKey, user.id, user.user_metadata || {}, targetPlan);
-  console.log(`Plan update → ${targetPlan} for ${email}: ${ok ? "OK" : "FAILED"}`);
+  const ok = await setUserPlan(supabaseUrl, serviceKey, userId, userMeta, targetPlan);
+  console.log(`Plan update → ${targetPlan} for ${email || customUserId}: ${ok ? "OK" : "FAILED"}`);
 
   // Reward referrer on paid upgrade (pending referral becomes rewarded, +1 month)
   if (ok && targetPlan !== "free") {
-    await rewardReferrer(supabaseUrl, serviceKey, user.id);
+    await rewardReferrer(supabaseUrl, serviceKey, userId);
   }
 
   return new Response(JSON.stringify({ ok, plan: targetPlan }), {

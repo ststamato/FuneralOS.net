@@ -11,8 +11,6 @@
   const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJxa2xwbnJncGlwcnR0enNwbG9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMzA2NTgsImV4cCI6MjA5ODYwNjY1OH0.L9kumMt04wy0rlEfE79AwvGD8C2YWAyr_CIh9dDlBZQ";
 
   const FREE_CEREMONY_LIMIT = 5;
-  const STRIPE_PRO_LINK = "https://funeralos.lemonsqueezy.com/checkout/buy/6cdaa45a-02fe-4a51-b4ae-e51633d3b36d";
-  const STRIPE_BUSINESS_LINK = "https://funeralos.lemonsqueezy.com/checkout/buy/3c72881b-2f6b-40be-970c-effe794d8de7";
 
   const { createClient } = window.supabase;
   const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -406,12 +404,26 @@
   document.addEventListener("renderAll", updateMonthCount);
 
   // ── Upgrade Modal ─────────────────────────────────────────────────────────
+  function buildCheckoutUrl(baseUrl) {
+    const user = window.__authUser;
+    if (!user || !user.id) return baseUrl;
+    const u = new URL(baseUrl);
+    u.searchParams.set("checkout[custom][user_id]", user.id);
+    if (user.email) u.searchParams.set("checkout[email]", user.email);
+    return u.toString();
+  }
+
   function showUpgradeModal(title, text) {
     const modal = document.getElementById("upgradeModal");
     const titleEl = document.getElementById("upgradeTitle");
     const textEl = document.getElementById("upgradeText");
     if (titleEl) titleEl.textContent = title || "Upgrade your plan";
     if (textEl) textEl.textContent = text || "";
+    // Inject user_id into checkout links so the webhook can identify the user
+    const btnPro = document.getElementById("upgradeBtnPro");
+    const btnBiz = document.getElementById("upgradeBtnBiz");
+    if (btnPro) btnPro.href = buildCheckoutUrl(btnPro.href.split("?")[0]);
+    if (btnBiz) btnBiz.href = buildCheckoutUrl(btnBiz.href.split("?")[0]);
     if (modal) modal.classList.add("open");
   }
 
