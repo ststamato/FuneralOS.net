@@ -2487,6 +2487,7 @@ function setupTabs() {
       if (tab === "history") $("historyTab")?.classList.add("active");
       if (tab === "settings") $("settingsTab")?.classList.add("active");
       if (tab === "hermes") $("hermesTab")?.classList.add("active");
+      if (String(tab).startsWith("usa")) { $(tab + "Tab")?.classList.add("active"); window.scrollTo(0,0); }
     });
   });
 }
@@ -5561,8 +5562,10 @@ function v38SwitchTab(tabName) {
   if (btn) { btn.click(); return; }
   document.querySelectorAll(".tab-button").forEach(b => b.classList.toggle("active", b.dataset.tab === tabName));
   document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-  const map = { ceremonies:"ceremoniesTab", warehouse:"warehouseTab", stats:"statsTab", history:"historyTab", settings:"settingsTab", hermes:"hermesTab" };
-  if (map[tabName]) $(map[tabName])?.classList.add("active");
+  const map = { ceremonies:"ceremoniesTab", warehouse:"warehouseTab", stats:"statsTab", history:"historyTab", settings:"settingsTab", hermes:"hermesTab",
+    usaDirector:"usaDirectorTab", usaCases:"usaCasesTab", usaFirstCall:"usaFirstCallTab", usaDocuments:"usaDocumentsTab",
+    usaStaff:"usaStaffTab", usaFleet:"usaFleetTab", usaCremation:"usaCremationTab", usaFinance:"usaFinanceTab", usaSchedule:"usaScheduleTab" };
+  if (map[tabName]) { $(map[tabName])?.classList.add("active"); if (String(tabName).startsWith("usa")) window.scrollTo(0,0); }
 }
 
 function v38SearchBlob(parts) {

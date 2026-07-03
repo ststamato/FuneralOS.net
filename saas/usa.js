@@ -207,7 +207,9 @@
     document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
     const section = document.getElementById(tabName + "Tab");
     if(section) section.classList.add("active");
-    document.querySelectorAll(".tab-button").forEach(b => b.classList.remove("active"));
+    // Keep the USA nav button highlighted
+    document.querySelectorAll(".tab-button").forEach(b => b.classList.toggle("active", b.dataset.tab === "usaDirector" || b.dataset.tab === tabName));
+    injectSubNav(tabName);
     window.scrollTo(0,0);
   }
   function patchTabSwitcher(){
@@ -217,20 +219,39 @@
       if(typeof old==="function") return old(tabName);
     };
   }
-  function injectBackButtons(){
+  const USA_MODULES = [
+    {tab:"usaDirector",  icon:"🗂",  label:"Director"},
+    {tab:"usaCases",     icon:"📁",  label:"Cases"},
+    {tab:"usaFirstCall", icon:"📞",  label:"First Call"},
+    {tab:"usaDocuments", icon:"📄",  label:"Docs"},
+    {tab:"usaStaff",     icon:"👥",  label:"Staff"},
+    {tab:"usaFleet",     icon:"🚗",  label:"Fleet"},
+    {tab:"usaCremation", icon:"🔥",  label:"Cremation"},
+    {tab:"usaFinance",   icon:"💰",  label:"Finance"},
+    {tab:"usaSchedule",  icon:"📅",  label:"Schedule"},
+  ];
+  function injectSubNav(activeTab){
     document.querySelectorAll(".usa-module-tab").forEach(section => {
-      if(section.querySelector(".usa-back-btn")) return;
-      const bar = document.createElement("div");
-      bar.style.cssText = "margin-bottom:16px;";
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "usa-back-btn";
-      btn.style.cssText = "background:none;border:none;color:#8899aa;font-size:13px;cursor:pointer;padding:6px 0;display:flex;align-items:center;gap:6px;";
-      btn.innerHTML = "&#8592; Back to Settings";
-      btn.onclick = () => { if(typeof window.v38SwitchTab==="function") window.v38SwitchTab("settings"); };
-      bar.appendChild(btn);
-      section.insertBefore(bar, section.firstChild);
+      const existing = section.querySelector(".usa-subnav");
+      if(existing) existing.remove();
+      const nav = document.createElement("div");
+      nav.className = "usa-subnav";
+      nav.style.cssText = "display:flex;overflow-x:auto;gap:6px;margin-bottom:18px;padding-bottom:4px;scrollbar-width:none;";
+      USA_MODULES.forEach(m => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        const isActive = section.id === m.tab + "Tab";
+        btn.style.cssText = `white-space:nowrap;padding:7px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid rgba(200,169,110,${isActive?'.6':'.2'});background:${isActive?'rgba(200,169,110,.2)':'transparent'};color:${isActive?'#c8a96e':'#8899aa'};`;
+        btn.textContent = m.icon + " " + m.label;
+        btn.onclick = () => { if(typeof window.v38SwitchTab==="function") window.v38SwitchTab(m.tab); };
+        nav.appendChild(btn);
+      });
+      section.insertBefore(nav, section.firstChild);
     });
+  }
+  function injectBackButtons(){
+    // Sub-nav replaces back buttons — injected on each tab switch
+    injectSubNav();
   }
   document.addEventListener("DOMContentLoaded",()=>{ load(); bind(); patchTabSwitcher(); injectBackButtons(); renderUSA(); });
 })();
