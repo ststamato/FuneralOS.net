@@ -50,6 +50,11 @@
         + '<button onclick="document.getElementById(\'__demo_bar\').style.display=\'none\'" style="background:transparent;border:none;color:rgba(255,255,255,.35);cursor:pointer;font-size:20px;padding:0 4px;line-height:1;" title="Close">×</button>'
         + '</div>';
       document.body.appendChild(bar);
+      // Business plan features visible in demo
+      var usaBtn = document.getElementById("usaNavBtn");
+      if (usaBtn) usaBtn.style.display = "";
+      var layoutPanel = document.getElementById("optionalFieldsPanel");
+      if (layoutPanel) layoutPanel.style.display = "";
     });
     return;
   }
