@@ -55,6 +55,7 @@
       if (usaSettings) { usaSettings.style.display = ""; if (typeof window.usaRenderSettings === "function") window.usaRenderSettings(); }
       var layoutPanel = document.getElementById("optionalFieldsPanel");
       if (layoutPanel) layoutPanel.style.display = "";
+      renderBillingPanel();
     });
     return;
   }
@@ -197,9 +198,44 @@
     }
   }
 
+  function renderBillingPanel() {
+    const body = document.getElementById("billingPanelBody");
+    if (!body) return;
+    const plan = window.__authPlan || "free";
+    const planLabel = { free: "Free", pro: "Pro", business: "Business" }[plan] || plan;
+    const planColor = plan === "free" ? "#6b7a99" : "#c8a96e";
+
+    if (plan === "free") {
+      body.innerHTML =
+        '<p style="font-size:13px;color:#6b7a99;margin-bottom:16px;">You are on the <strong style="color:#fff;">Free</strong> plan — up to 5 cases.</p>' +
+        '<a href="https://funeralos.lemonsqueezy.com/checkout/buy/6a2ae60d-2bb0-48e7-acdd-0795f57089be" target="_blank" id="billingBtnPro" style="display:block;padding:12px 18px;background:#c8a96e;color:#0f1523;border-radius:9px;font-weight:800;font-size:14px;text-decoration:none;text-align:center;margin-bottom:8px;">⭐ Upgrade to Pro — $99/month</a>' +
+        '<a href="https://funeralos.lemonsqueezy.com/checkout/buy/8c690de9-aa0d-4b4f-b2c9-6f72a4d262ac" target="_blank" id="billingBtnBiz" style="display:block;padding:12px 18px;background:linear-gradient(135deg,#c8a96e,#a07840);color:#0f1523;border-radius:9px;font-weight:800;font-size:14px;text-decoration:none;text-align:center;">🚀 Upgrade to Business — $199/month</a>';
+      // Inject user_id into upgrade links
+      const user = window.__authUser;
+      if (user && user.id) {
+        ["billingBtnPro", "billingBtnBiz"].forEach(function(id) {
+          const a = document.getElementById(id);
+          if (a) {
+            const u = new URL(a.href);
+            u.searchParams.set("checkout[custom][user_id]", user.id);
+            if (user.email) u.searchParams.set("checkout[email]", user.email);
+            a.href = u.toString();
+          }
+        });
+      }
+    } else {
+      body.innerHTML =
+        '<p style="font-size:13px;color:#6b7a99;margin-bottom:16px;">You are on the <strong style="color:' + planColor + ';">' + planLabel + '</strong> plan.</p>' +
+        '<a href="https://app.lemonsqueezy.com/my-orders" target="_blank" rel="noopener" style="display:inline-block;padding:10px 20px;background:rgba(200,169,110,.1);color:#c8a96e;border:1px solid rgba(200,169,110,.3);border-radius:9px;font-weight:700;font-size:13px;text-decoration:none;">Manage billing / Cancel subscription →</a>' +
+        '<p style="font-size:11px;color:#556677;margin-top:10px;">You\'ll be redirected to the Lemon Squeezy customer portal. Find your order by the email address used at checkout.</p>';
+    }
+  }
+
   function markLockedFeatures() {
     const plan = window.__authPlan;
     const isPaid = plan === "pro" || plan === "business";
+
+    renderBillingPanel();
 
     if (isPaid) {
       const panel = document.getElementById("optionalFieldsPanel");

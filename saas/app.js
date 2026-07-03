@@ -7061,6 +7061,21 @@ document.addEventListener('DOMContentLoaded',seedOfficeKnowledge);
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='funeralos-backup-'+new Date().toISOString().slice(0,10)+'.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   }
 
+  function exportCeremoniesCSV(){
+    const cols = ['case_id','name','date','time','place','burialType','responsible','secondPerson','coffin','set','flowers','graveType','graveNumber','notes'];
+    const header = cols.map(c => JSON.stringify(c)).join(',');
+    const rows = allCeremonies().map(c =>
+      cols.map(k => JSON.stringify(c[k] != null ? String(c[k]) : '')).join(',')
+    );
+    const csv = [header, ...rows].join('\r\n');
+    const blob = new Blob(['﻿' + csv], {type:'text/csv;charset=utf-8;'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = 'funeralos-ceremonies-' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+  }
+  window.exportCeremoniesCSV = exportCeremoniesCSV;
+  window.backupJSON = backupJSON;
+
   function addOwnerBar(){
     if(document.getElementById('v12OwnerBar')) return;
     if(window.__authPlan !== 'pro') return;
@@ -7086,3 +7101,40 @@ document.addEventListener('DOMContentLoaded',seedOfficeKnowledge);
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
+
+// ── JSON Restore ─────────────────────────────────────────────────────────────
+// Runs at top-level scope so it can write directly to module-level let variables.
+window.restoreFromJSON = function() {
+  const input = document.createElement("input");
+  input.type = "file"; input.accept = ".json,application/json";
+  input.onchange = async function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!Array.isArray(data.ceremonies)) {
+        alert("Invalid backup file — no ceremonies array found.");
+        return;
+      }
+      const count = data.ceremonies.length;
+      const wCount = Array.isArray(data.warehouse) ? data.warehouse.length : 0;
+      const confirmed = confirm(
+        "Restore from backup?\n\n" +
+        "  Ceremonies: " + count + "\n" +
+        "  Inventory items: " + wCount + "\n\n" +
+        "This will REPLACE all current data. This cannot be undone.\nContinue?"
+      );
+      if (!confirmed) return;
+      ceremonies = data.ceremonies;
+      if (Array.isArray(data.warehouse)) warehouse = data.warehouse;
+      if (Array.isArray(data.setsWarehouse)) setsWarehouse = data.setsWarehouse;
+      await saveData();
+      renderAll();
+      alert("Restore complete. " + count + " ceremonies loaded.");
+    } catch (err) {
+      alert("Failed to restore: " + err.message);
+    }
+  };
+  input.click();
+};

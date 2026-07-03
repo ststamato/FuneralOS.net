@@ -98,6 +98,7 @@
         <span data-tier="business">BIZ</span>
       </div>
       <span id="planBadge" style="display:none;" aria-hidden="true"></span>
+      <a href="mailto:ststamato@gmail.com?subject=FuneralOS%20Support" class="logout-btn" style="text-decoration:none;" title="Need help? Email us">? Help</a>
       <button class="logout-btn" id="logoutBtn">Sign out</button>
     </div>
   </header>
@@ -254,6 +255,16 @@
           <p style="margin-top:10px;font-size:11px;color:#556677;line-height:1.6;">The code is entered during the new user's registration. Once they activate a Pro or Business plan, you automatically receive 1 free month.</p>
         </div>
       </div>
+      <!-- Subscription management -->
+      <div class="settings-panel" id="billingPanel">
+        <div class="settings-head">
+          <div>
+            <h3>Subscription</h3>
+            <p class="warehouse-hint">Your current plan and billing options.</p>
+          </div>
+        </div>
+        <div id="billingPanelBody" style="margin-top:14px;"></div>
+      </div>
       <!-- Directors panel -->
       <div class="settings-panel">
         <div class="settings-head">
@@ -302,6 +313,20 @@
         <div>
           <p style="font-size:13px;font-weight:600;color:#c8daf0;margin-bottom:6px;">Data backup</p>
           <button onclick="window.usaExportMeta()" style="background:rgba(200,169,110,.1);color:#c8a96e;border:1px solid rgba(200,169,110,.3);padding:10px 18px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">⬇ Export USA data (JSON)</button>
+        </div>
+      </div>
+      <!-- Data Export -->
+      <div class="settings-panel">
+        <div class="settings-head">
+          <div>
+            <h3>Data Export</h3>
+            <p class="warehouse-hint">Download all your data at any time.</p>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">
+          <button onclick="window.exportCeremoniesCSV && window.exportCeremoniesCSV()" style="padding:10px 18px;background:rgba(200,169,110,.1);color:#c8a96e;border:1px solid rgba(200,169,110,.3);border-radius:9px;font-weight:700;font-size:13px;cursor:pointer;">⬇ Ceremonies CSV</button>
+          <button onclick="window.backupJSON && window.backupJSON()" style="padding:10px 18px;background:rgba(200,169,110,.1);color:#c8a96e;border:1px solid rgba(200,169,110,.3);border-radius:9px;font-weight:700;font-size:13px;cursor:pointer;">⬇ Full backup JSON</button>
+          <button onclick="window.restoreFromJSON && window.restoreFromJSON()" style="padding:10px 18px;background:rgba(239,68,68,.08);color:#fca5a5;border:1px solid rgba(239,68,68,.25);border-radius:9px;font-weight:700;font-size:13px;cursor:pointer;">⬆ Restore from JSON</button>
         </div>
       </div>
       <!-- Custom lists -->

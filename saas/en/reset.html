@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FuneralOS — Reset password</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --ink: #0f1523; --gold: #c8a96e; --gold-light: #e8d5b0; --white: #fff; --muted: #6b7a99; --border: rgba(255,255,255,.1); --radius: 12px; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--ink); color: var(--white);
+      min-height: 100dvh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; padding: 24px;
+    }
+    .card { width: 100%; max-width: 420px; background: rgba(255,255,255,.04); border: 1px solid var(--border); border-radius: 20px; padding: 40px 32px; }
+    .logo { text-align: center; margin-bottom: 6px; font-size: 22px; font-weight: 900; color: #fff; letter-spacing: -0.5px; }
+    .logo span { color: var(--gold); }
+    .logo-sub { text-align: center; font-size: 12px; color: var(--muted); margin-bottom: 28px; }
+    h2 { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+    .hint { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+    input {
+      width: 100%; padding: 12px 14px;
+      background: rgba(255,255,255,.06); border: 1px solid var(--border);
+      border-radius: var(--radius); color: var(--white); font-size: 15px;
+      outline: none; transition: border-color .15s; margin-bottom: 16px;
+    }
+    input::placeholder { color: rgba(255,255,255,.25); }
+    input:focus { border-color: var(--gold); }
+    .btn { width: 100%; padding: 14px; background: var(--gold); color: var(--ink); border: none; border-radius: var(--radius); font-size: 15px; font-weight: 800; cursor: pointer; transition: background .15s; }
+    .btn:hover { background: var(--gold-light); }
+    .btn:disabled { opacity: .6; cursor: not-allowed; }
+    .msg { padding: 12px 14px; border-radius: var(--radius); font-size: 13px; font-weight: 600; margin-bottom: 16px; display: none; }
+    .msg.error { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.3); color: #fca5a5; display: block; }
+    .msg.success { background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.3); color: #86efac; display: block; }
+    .back-link { text-align: center; margin-top: 20px; }
+    .back-link a { font-size: 13px; color: var(--muted); text-decoration: none; }
+    .back-link a:hover { color: var(--gold); }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">Funeral<span>OS</span></div>
+  <div class="logo-sub">Funeral home management</div>
+
+  <h2>Set new password</h2>
+  <p class="hint">Enter a new password for your account.</p>
+
+  <div class="msg" id="msg"></div>
+
+  <label>New password (at least 6 characters)</label>
+  <input type="password" id="newPassword" placeholder="••••••••" autocomplete="new-password" />
+
+  <button class="btn" id="saveBtn" onclick="savePassword()">Save password</button>
+
+  <div class="back-link">
+    <a href="login.html">← Back to sign in</a>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = "https://rqklpnrgpiprttzsploe.supabase.co";
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJxa2xwbnJncGlwcnR0enNwbG9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMzA2NTgsImV4cCI6MjA5ODYwNjY1OH0.L9kumMt04wy0rlEfE79AwvGD8C2YWAyr_CIh9dDlBZQ";
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  function showMsg(text, type) {
+    const el = document.getElementById('msg');
+    el.textContent = text; el.className = 'msg ' + type;
+  }
+
+  async function savePassword() {
+    const password = document.getElementById('newPassword').value;
+    if (password.length < 6) { showMsg('Password must be at least 6 characters.', 'error'); return; }
+    const btn = document.getElementById('saveBtn');
+    btn.disabled = true; btn.textContent = 'Saving...';
+    const { error } = await sb.auth.updateUser({ password });
+    if (error) {
+      showMsg(error.message, 'error');
+      btn.disabled = false; btn.textContent = 'Save password';
+    } else {
+      showMsg('Password updated! Redirecting to sign in…', 'success');
+      setTimeout(() => window.location.href = './login.html', 2000);
+    }
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') savePassword();
+  });
+</script>
+</body>
+</html>
