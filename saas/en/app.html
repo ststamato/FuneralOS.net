@@ -112,7 +112,7 @@
     <button class="tab-button usa-tab-button" data-tab="usaCremation">Cremation</button>
     <button class="tab-button usa-tab-button" data-tab="usaFinance">Finance</button>
     <button class="tab-button usa-tab-button" data-tab="usaSchedule">Schedule</button>
-    <button class="new-ceremony" id="newCeremonyBtn">+ New ceremony</button>
+    <button class="new-ceremony" id="newCeremonyBtn">+ New Case</button>
   </nav>
 
   <section class="home-command-center" id="homeCommandCenter" aria-label="Office dashboard">
@@ -138,7 +138,7 @@
       <div class="dash-card danger-soft"><span>PENDING</span><strong id="dashIssuesCount">0</strong><small>AI check</small></div>
     </div>
 
-    <button type="button" class="new-ceremony-hero" id="newCeremonyHeroBtn">+ New Ceremony</button>
+    <button type="button" class="new-ceremony-hero" id="newCeremonyHeroBtn">+ New Case — First Call</button>
   </section>
 
   <main>
@@ -149,18 +149,18 @@
     <section id="warehouseTab" class="tab">
       <h2>Inventory</h2>
       <div class="warehouse-section">
-        <h3>Coffins</h3>
-        <div class="warehouse-controls"><button id="addCoffinBtn">+ Add coffin</button></div>
+        <h3>Caskets</h3>
+        <div class="warehouse-controls"><button id="addCoffinBtn">+ Add casket</button></div>
         <table class="warehouse-table">
-          <thead><tr><th>Coffin</th><th>Qty</th><th></th></tr></thead>
+          <thead><tr><th>Casket</th><th>Qty</th><th></th></tr></thead>
           <tbody id="warehouseBody"></tbody>
         </table>
       </div>
       <div class="warehouse-section">
-        <h3>Burial Sets</h3>
-        <div class="warehouse-controls"><button id="addSetBtn">+ Add set</button></div>
+        <h3>Urns &amp; Vaults</h3>
+        <div class="warehouse-controls"><button id="addSetBtn">+ Add item</button></div>
         <table class="warehouse-table">
-          <thead><tr><th>Set</th><th>Qty</th><th></th></tr></thead>
+          <thead><tr><th>Item</th><th>Qty</th><th></th></tr></thead>
           <tbody id="setsBody"></tbody>
         </table>
         <p class="warehouse-hint">Low stock alert: highlighted when below 5 units</p>
@@ -175,7 +175,7 @@
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
           <div>
             <h3>Custom lists</h3>
-            <p class="warehouse-hint">Create your own lists — items appear as dropdown options in the ceremony form.</p>
+            <p class="warehouse-hint">Create your own lists — items appear as dropdown options in the case form.</p>
           </div>
           <button type="button" id="addCustomListBtn" class="add-option-btn">+ New list</button>
         </div>
@@ -191,7 +191,7 @@
     </section>
 
     <section id="historyTab" class="tab">
-      <h2>Ceremony history</h2>
+      <h2>Case history</h2>
       <div id="historyControls"></div>
       <div id="historyList"></div>
     </section>
@@ -201,8 +201,8 @@
       <div class="settings-panel" id="optionalFieldsPanel" style="display:none;">
         <div class="settings-head">
           <div>
-            <h3>Optional ceremony fields <span style="background:#c8a96e;color:#0f1523;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-left:4px;vertical-align:middle;">PRO</span></h3>
-            <p class="warehouse-hint">Toggle which extra fields appear in the ceremony form.</p>
+            <h3>Optional case fields <span style="background:#c8a96e;color:#0f1523;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-left:4px;vertical-align:middle;">PRO</span></h3>
+            <p class="warehouse-hint">Toggle which extra fields appear in the case form.</p>
           </div>
         </div>
         <div id="optFieldsToggleList" class="opt-fields-toggle-list"></div>
@@ -485,79 +485,83 @@
 
   </main>
 
-  <!-- CEREMONY MODAL -->
+  <!-- CASE MODAL (USA Edition — First Call) -->
   <div id="ceremonyModal" class="modal hidden">
     <div class="modal-content">
-      <h2 id="modalTitle">New ceremony</h2>
+      <h2 id="modalTitle">New Case — First Call</h2>
       <form id="ceremonyForm">
+
+        <!-- Decedent -->
+        <label>Decedent full name<input type="text" id="deceasedName" placeholder="Last, First M." /></label>
         <div class="form-grid-2">
-          <label>Date<input type="date" id="ceremonyDate" /></label>
-          <label>Time<input type="time" id="ceremonyTime" /></label>
-        </div>
-        <label>Deceased name<input type="text" id="deceasedName" /></label>
-        <label>Ceremony location (Parish / Cemetery / Church)<input type="text" id="ceremonyPlace" placeholder="e.g. St Nicholas Church / Forest Hill" /></label>
-        <label>Type
-          <select id="burialType">
-            <option value="Ταφή">Burial</option>
-            <option value="Αποτεφρωση">Cremation</option>
-          </select>
-        </label>
-        <div class="opt-field" data-opt="cremation">
-          <div id="cremationBox" class="hint-box hidden">
-            <div class="form-grid-2">
-              <label>Attendees at crematorium<input type="number" id="cremationEscortCount" min="0" value="0" /></label>
-              <label>Church service before<input type="text" id="cremationParishNote" placeholder="e.g. St Nicholas 11:00" /></label>
-            </div>
-            <p class="mini-muted">Cremation: no grave / zone / plot needed.</p>
-          </div>
-        </div>
-        <label>Ceremony coordinator<select id="responsiblePerson"></select></label>
-        <div class="opt-field" data-opt="secondPerson"><label>2nd assistant<select id="secondPerson"></select></label></div>
-        <div class="opt-field" data-opt="suitcase"><label>Luggage<select id="suitcase"></select></label></div>
-        <label>Coffin<select id="ceremonyCoffin"></select></label>
-        <label>Shroud<input type="text" id="ceremonySheet" placeholder="e.g. white cotton" /></label>
-        <div class="opt-field" data-opt="set"><label>Burial set<select id="ceremonySet"></select></label></div>
-        <div class="opt-field" data-opt="flowers"><label>Flowers / Wreaths<input type="text" id="ceremonyFlowers" placeholder="e.g. 2 wreaths, 1 bouquet" /></label></div>
-        <div class="opt-field" data-opt="announcement">
-          <label>Obituary
-            <select id="ceremonyAnnouncementStatus">
-              <option value="Δεν χρειάζεται">Not needed</option>
-              <option value="Εκκρεμεί">Pending</option>
-              <option value="Ολοκληρώθηκε">Completed</option>
+          <label>Date of death<input type="date" id="pickupDate" /></label>
+          <label>Disposition
+            <select id="burialType">
+              <option value="Ταφή">Burial</option>
+              <option value="Αποτεφρωση">Cremation</option>
+              <option value="Εντομβισμός">Entombment</option>
             </select>
           </label>
         </div>
-        <div class="opt-field" data-opt="decor">
-          <label>Decoration<select id="ceremonyDecor"><option value="">-</option></select></label>
-          <label>Decoration notes<input type="text" id="ceremonyDecorNote" placeholder="e.g. simple / additional..." /></label>
-        </div>
-        <div class="opt-field" data-opt="pallbearers"><label>Pallbearers<select id="ceremonyPallbearers"><option value="">-</option></select></label></div>
-        <div class="opt-field" data-opt="coffee">
-          <label>Wake / Reception<select id="ceremonyCoffee"><option value="">-</option><option value="Ναι">Yes</option><option value="Όχι">No</option></select></label>
-          <label>Reception location<input type="text" id="ceremonyCoffeePlace" placeholder="e.g. Hall / Café near church" /></label>
-        </div>
-        <label>Pickup from<input type="text" id="ceremonyPickup" placeholder="e.g. Hospital / Home / Care home" /></label>
-        <div class="opt-field" data-opt="pickupSecond"><label>2nd pickup person<select id="pickupSecondPerson"></select></label></div>
-        <label>Pickup date<input type="date" id="pickupDate" /></label>
-        <div class="opt-field" data-opt="coldRoom"><label>Cold storage<input type="text" id="ceremonyColdRoom" placeholder="e.g. Yes / No / Where" /></label></div>
-        <div class="opt-field" data-opt="grave">
-          <div id="graveBox">
-            <label>Grave type</label>
-            <div class="grave-row">
-              <label class="grave-option"><input type="radio" name="graveType" id="graveTypeFamily" value="Οικογενειακός" />Family plot</label>
-              <label class="grave-option"><input type="radio" name="graveType" id="graveTypeTriennial" value="Τριετία" checked />3-year plot</label>
-            </div>
-            <div class="grave-fields">
-              <input type="text" id="ceremonyGraveNumber" placeholder="Grave number (family plot)" />
-              <select id="ceremonyGraveZone"><option value="">Zone (3-year plot)</option></select>
-            </div>
+        <div id="cremationBox" class="hint-box hidden">
+          <div class="form-grid-2">
+            <label>Family attendees at crematory<input type="number" id="cremationEscortCount" min="0" value="0" /></label>
+            <label>Chapel/church service note<input type="text" id="cremationParishNote" placeholder="e.g. chapel 10:00 before transfer" /></label>
           </div>
         </div>
-        <div id="customFieldsFormBox" class="custom-fields-form-box"></div>
-        <label>Notes<textarea id="ceremonyNotes" rows="2" placeholder="Anything important..."></textarea></label>
+
+        <!-- Place of death -->
+        <div class="form-grid-2">
+          <label>Place of death
+            <select id="ceremonyColdRoom">
+              <option value="">— select —</option>
+              <option value="Hospital">Hospital</option>
+              <option value="Hospice">Hospice</option>
+              <option value="Nursing Facility">Nursing Facility</option>
+              <option value="Residence">Residence</option>
+              <option value="Coroner's Office">Coroner's Office</option>
+              <option value="Other">Other</option>
+            </select>
+          </label>
+          <label>Facility name<input type="text" id="ceremonyFlowers" placeholder="e.g. St. Mary Medical Center" /></label>
+        </div>
+
+        <!-- Caller -->
+        <div class="form-grid-2">
+          <label>Caller / Next of kin<input type="text" id="ceremonyPickup" placeholder="Full name" /></label>
+          <label>Phone<input type="text" id="ceremonySheet" placeholder="(555) 000-0000" /></label>
+        </div>
+
+        <!-- Service -->
+        <p style="font-size:11px;font-weight:700;letter-spacing:.8px;color:rgba(200,169,110,.7);text-transform:uppercase;margin:12px 0 6px;">Service</p>
+        <div class="form-grid-2">
+          <label>Service date<input type="date" id="ceremonyDate" /></label>
+          <label>Service time<input type="time" id="ceremonyTime" /></label>
+        </div>
+        <label>Service location<input type="text" id="ceremonyPlace" placeholder="e.g. Riverside Church / Greenwood Cemetery" /></label>
+        <label>Assigned director<select id="responsiblePerson"></select></label>
+
+        <!-- Hidden fields kept for app.js compatibility -->
+        <select id="secondPerson" style="display:none"></select>
+        <select id="pickupSecondPerson" style="display:none"></select>
+        <select id="suitcase" style="display:none"><option value="-">-</option></select>
+        <select id="ceremonyCoffin" style="display:none"></select>
+        <select id="ceremonySet" style="display:none"></select>
+        <select id="ceremonyDecor" style="display:none"><option value="">-</option></select>
+        <input type="text" id="ceremonyDecorNote" style="display:none" />
+        <select id="ceremonyPallbearers" style="display:none"><option value="">-</option></select>
+        <select id="ceremonyCoffee" style="display:none"><option value="">-</option></select>
+        <input type="text" id="ceremonyCoffeePlace" style="display:none" />
+        <select id="ceremonyAnnouncementStatus" style="display:none"><option value="Δεν χρειάζεται">Not needed</option></select>
+        <input type="radio" name="graveType" id="graveTypeFamily" value="Οικογενειακός" style="display:none" />
+        <input type="radio" name="graveType" id="graveTypeTriennial" value="Τριετία" style="display:none" />
+        <input type="text" id="ceremonyGraveNumber" style="display:none" />
+        <select id="ceremonyGraveZone" style="display:none"></select>
+
+        <label>Notes<textarea id="ceremonyNotes" rows="2" placeholder="Coroner hold, family requests, urgent items..."></textarea></label>
         <div class="modal-actions">
           <button type="button" id="cancelModalBtn">Cancel</button>
-          <button type="submit" id="saveCeremonyBtn">Save</button>
+          <button type="submit" id="saveCeremonyBtn">Save Case</button>
         </div>
       </form>
     </div>
@@ -565,7 +569,7 @@
 
   <div id="warehouseModal" class="modal hidden">
     <div class="modal-content">
-      <h2 id="warehouseModalTitle">New coffin</h2>
+      <h2 id="warehouseModalTitle">New casket</h2>
       <form id="warehouseForm">
         <label>Name<input type="text" id="warehouseName" required /></label>
         <div class="form-grid-2"><label>Quantity<input type="number" id="warehouseQty" min="0" value="0" /></label></div>
@@ -579,9 +583,9 @@
 
   <div id="setModal" class="modal hidden">
     <div class="modal-content">
-      <h2 id="setModalTitle">New burial set</h2>
+      <h2 id="setModalTitle">New urn / vault</h2>
       <form id="setForm">
-        <label>Set name<input type="text" id="setName" required /></label>
+        <label>Item name<input type="text" id="setName" required /></label>
         <div class="form-grid-2"><label>Quantity<input type="number" id="setQty" min="0" value="0" /></label></div>
         <div class="modal-actions">
           <button type="button" id="cancelSetBtn">Cancel</button>
