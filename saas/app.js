@@ -636,6 +636,8 @@ function queueEdgePush(changeEntry) {
 
 async function sendEdgePushBatch(batch) {
   if (!Array.isArray(batch) || batch.length === 0) return;
+  // Only send push notifications in production to avoid alerting the real office during dev
+  if (window.location.hostname !== "funeralos.net") return;
 
   const me = getDeviceLabel() || "Άγνωστη συσκευή";
   let title = "Σταυρακάκη — Νέα αλλαγή";
@@ -4742,6 +4744,20 @@ function bindAIAssistantActions() {
 
 // ---------------- Dropdowns από Προσαρμοσμένες Λίστες ----------------
 function fillDynamicDropdowns(c = {}) {
+  if (window.__appLang === "en") {
+    // EN/USA app: populate responsiblePerson from USA staff; clear hidden GR dropdowns
+    const usaStaff = (() => {
+      try { return JSON.parse(localStorage.getItem("funeralos_usa_staff_v2") || "[]"); } catch { return []; }
+    })();
+    const directorNames = usaStaff.filter(s => s && s.name).map(s => s.name);
+    fillSelect($("responsiblePerson"), ["-", ...directorNames], c.responsible ?? "-");
+    // Clear hidden dropdowns so iOS native picker never shows Greek options
+    ["secondPerson","pickupSecondPerson","suitcase","ceremonyDecor","ceremonyPallbearers","ceremonyCoffee","ceremonyGraveZone"].forEach(id => {
+      const el = $(id);
+      if (el && el.tagName === "SELECT") el.innerHTML = '<option value="">-</option>';
+    });
+    return;
+  }
   const items = getAllCustomListItems();
   fillSelect($("responsiblePerson"), ["-", ...items], c.responsible ?? "-");
   fillSelect($("secondPerson"), [t("Κανένας", "None"), ...items], c.secondPerson ?? t("Κανένας", "None"));
