@@ -116,6 +116,7 @@
   </nav>
 
   <section class="home-command-center" id="homeCommandCenter" aria-label="Office dashboard">
+    <div id="sectionPanel_home" class="section-custom-panel hidden"></div>
     <button type="button" id="aiAssistantBtn" class="ai-assistant-btn hero-ai-btn">🤖 AI Assistant</button>
 
     <div class="hermes-mini-brief" id="hermesMiniBrief">
@@ -147,6 +148,7 @@
     </section>
 
     <section id="warehouseTab" class="tab">
+      <div id="sectionPanel_inventory" class="section-custom-panel hidden"></div>
       <h2>Inventory</h2>
       <div class="warehouse-section">
         <h3>Caskets</h3>
@@ -184,6 +186,7 @@
     </section>
 
     <section id="statsTab" class="tab">
+      <div id="sectionPanel_stats" class="section-custom-panel hidden"></div>
       <h2>Statistics</h2>
       <div id="statsContent">
         <div id="statsMore"></div>
@@ -191,6 +194,7 @@
     </section>
 
     <section id="historyTab" class="tab">
+      <div id="sectionPanel_history" class="section-custom-panel hidden"></div>
       <h2>Case history</h2>
       <div id="historyControls"></div>
       <div id="historyList"></div>
@@ -266,12 +270,19 @@
       <div class="settings-panel">
         <div class="settings-head">
           <div>
-            <h3>Custom ceremony fields</h3>
-            <p class="warehouse-hint">Add your own fields to the ceremony card — text, dropdowns, dates and more.</p>
+            <h3>Custom app fields</h3>
+            <p class="warehouse-hint">Add your own fields to any section — case form, dashboard, inventory, stats, and history.</p>
           </div>
           <button type="button" id="addCustomFieldBtn" class="add-option-btn">+ New field</button>
         </div>
-        <div class="settings-note">Core fields stay untouched. Add extra fields here without breaking anything.</div>
+        <div class="cs-section-filter" id="csSectionFilter">
+          <button data-cs-section="ceremony" class="active" onclick="setCsSection('ceremony')">📋 Case form</button>
+          <button data-cs-section="home" onclick="setCsSection('home')">🏠 Dashboard</button>
+          <button data-cs-section="inventory" onclick="setCsSection('inventory')">📦 Inventory</button>
+          <button data-cs-section="stats" onclick="setCsSection('stats')">📊 Stats</button>
+          <button data-cs-section="history" onclick="setCsSection('history')">📜 History</button>
+        </div>
+        <div class="settings-note" id="csSectionNote">Case form fields — also shown on the case card.</div>
         <table class="warehouse-table compact-table">
           <thead><tr><th>Field</th><th>Type</th><th>Display</th><th></th></tr></thead>
           <tbody id="customFieldsBody"></tbody>
@@ -558,6 +569,7 @@
         <input type="text" id="ceremonyGraveNumber" style="display:none" />
         <select id="ceremonyGraveZone" style="display:none"></select>
 
+        <div id="customFieldsFormBox" class="custom-fields-form-box"></div>
         <label>Notes<textarea id="ceremonyNotes" rows="2" placeholder="Coroner hold, family requests, urgent items..."></textarea></label>
         <div class="modal-actions">
           <button type="button" id="cancelModalBtn">Cancel</button>
@@ -612,7 +624,16 @@
     <div class="modal-content">
       <h2 id="customFieldModalTitle">New field</h2>
       <form id="customFieldForm">
-        <label>Field name<input type="text" id="customFieldLabel" placeholder="e.g. Outstanding payment" required /></label>
+        <label>Field name<input type="text" id="customFieldLabel" placeholder="e.g. Outstanding balance" required /></label>
+        <label>App section
+          <select id="customFieldSection">
+            <option value="ceremony">📋 Case form</option>
+            <option value="home">🏠 Dashboard (above AI)</option>
+            <option value="inventory">📦 Inventory</option>
+            <option value="stats">📊 Stats</option>
+            <option value="history">📜 History</option>
+          </select>
+        </label>
         <div class="form-grid-2">
           <label>Field type
             <select id="customFieldType">
@@ -623,6 +644,7 @@
               <option value="date">Date</option>
               <option value="time">Time</option>
               <option value="number">Number</option>
+              <option value="checkbox">Checkbox ✓</option>
             </select>
           </label>
           <label>Placeholder<input type="text" id="customFieldPlaceholder" placeholder="optional" /></label>
@@ -635,7 +657,7 @@
         </div>
         <div class="modal-actions">
           <button type="button" id="cancelCustomFieldBtn">Cancel</button>
-          <button type="submit" id="saveCustomFieldBtn">Save</button>
+          <button type="submit" id="saveCustomFieldBtn">Save field</button>
         </div>
       </form>
     </div>

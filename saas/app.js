@@ -205,6 +205,7 @@ let aiSeenAlerts = [];
 let aiChatHistory = [];
 let customFields = [];
 let customLists = [];
+let sectionData = {};
 
 // ---------------- LocalStorage Keys ----------------
 const CEREMONIES_KEY = "staurakaki_ceremonies_v8";
@@ -221,6 +222,7 @@ const AI_SEEN_ALERTS_KEY = "staurakaki_ai_seen_alerts_v1";
 const AI_CHAT_HISTORY_KEY = "staurakaki_ai_chat_history_v1";
 const CUSTOM_FIELDS_KEY = "staurakaki_custom_fields_v36";
 const CUSTOM_LISTS_KEY = "staurakaki_custom_lists_v1";
+const SECTION_DATA_KEY = "funeralos_section_data_v1";
 const OFFICE_EVENTS_LOCAL_KEY = "staurakaki_office_events_v1";
 const OFFICE_DNA_LOCAL_KEY = "staurakaki_office_dna_v1";
 
@@ -1250,6 +1252,7 @@ async function loadData() {
       try { aiChatHistory = JSON.parse(localStorage.getItem(AI_CHAT_HISTORY_KEY)) || []; } catch { aiChatHistory = []; }
       try { customFields = JSON.parse(localStorage.getItem(CUSTOM_FIELDS_KEY)) || []; } catch { customFields = []; }
       try { customLists = JSON.parse(localStorage.getItem(CUSTOM_LISTS_KEY)) || []; } catch { customLists = []; }
+      try { sectionData = JSON.parse(localStorage.getItem(SECTION_DATA_KEY)) || {}; } catch { sectionData = {}; }
     }
   } else {
     try { ceremonies = JSON.parse(localStorage.getItem(CEREMONIES_KEY)) || []; } catch { ceremonies = []; }
@@ -1263,6 +1266,7 @@ async function loadData() {
     try { aiSeenAlerts = JSON.parse(localStorage.getItem(AI_SEEN_ALERTS_KEY)) || []; } catch { aiSeenAlerts = []; }
     try { customFields = JSON.parse(localStorage.getItem(CUSTOM_FIELDS_KEY)) || []; } catch { customFields = []; }
     try { customLists = JSON.parse(localStorage.getItem(CUSTOM_LISTS_KEY)) || []; } catch { customLists = []; }
+    try { sectionData = JSON.parse(localStorage.getItem(SECTION_DATA_KEY)) || {}; } catch { sectionData = {}; }
   }
 
   ceremonies = (ceremonies || []).map((c) => ({
@@ -1332,6 +1336,7 @@ async function saveData() {
   localStorage.setItem(AI_CHAT_HISTORY_KEY, JSON.stringify(aiChatHistory || []));
   localStorage.setItem(CUSTOM_FIELDS_KEY, JSON.stringify(customFields || []));
   localStorage.setItem(CUSTOM_LISTS_KEY, JSON.stringify(customLists || []));
+  localStorage.setItem(SECTION_DATA_KEY, JSON.stringify(sectionData || {}));
   if (USE_CLOUD) cloudSaveAll().catch((e) => console.error("Cloud save error (ignored)", e));
 }
 
@@ -3400,6 +3405,7 @@ function renderAll() {
   renderSecondHelpers();
   renderCustomLists();
   renderCustomFieldsSettings();
+  renderAllSectionPanels();
   renderHistory();
   try { renderHermesDashboard(); } catch (e) { console.warn("Hermes render skipped", e); }
   updateStats();
@@ -4908,7 +4914,7 @@ function normalizeCustomFieldsList(list) {
     key = key.replace(/[^a-zA-Z0-9_\-]/g, "_");
     if (seen.has(key)) key = `${key}_${idx}`;
     seen.add(key);
-    const type = ["text","textarea","select","yesno","date","time","number"].includes(f?.type) ? f.type : "text";
+    const type = ["text","textarea","select","yesno","date","time","number","checkbox"].includes(f?.type) ? f.type : "text";
     const options = Array.isArray(f?.options) ? f.options.map(x => String(x || "").trim()).filter(Boolean) : [];
     return {
       key,
@@ -4920,7 +4926,8 @@ function normalizeCustomFieldsList(list) {
       showCard: f?.showCard !== false,
       showShare: f?.showShare !== false,
       enabled: f?.enabled !== false,
-      ts: Number(f?.ts || nowTs()) || nowTs()
+      ts: Number(f?.ts || nowTs()) || nowTs(),
+      section: ["ceremony","home","inventory","stats","history"].includes(f?.section) ? f.section : "ceremony"
     };
   }).filter(Boolean);
 }
@@ -4933,7 +4940,7 @@ function ensureCustomFields() {
 }
 
 function customFieldTypeLabel(type) {
-  return ({ text:"Κείμενο", textarea:"Μεγάλο κείμενο", select:"Λίστα", yesno:"Ναι/Όχι", date:"Ημερομηνία", time:"Ώρα", number:"Αριθμός" })[type] || "Κείμενο";
+  return ({ text:"Κείμενο", textarea:"Μεγάλο κείμενο", select:"Λίστα", yesno:"Ναι/Όχι", date:"Ημερομηνία", time:"Ώρα", number:"Αριθμός", checkbox:"Τικ ✓" })[type] || "Κείμενο";
 }
 
 function customFieldValue(c, field) {
@@ -4943,6 +4950,7 @@ function customFieldValue(c, field) {
 function customFieldValueDisplay(value, field) {
   if (value === null || value === undefined || String(value).trim() === "") return "";
   if (field.type === "date") return formatDate(String(value));
+  if (field.type === "checkbox") return value === "true" ? "✓" : "✗";
   return String(value);
 }
 
@@ -4950,14 +4958,14 @@ function renderCustomFieldsForm(c = {}) {
   ensureCustomFields();
   const box = $("customFieldsFormBox");
   if (!box) return;
-  const active = customFields.filter(f => f.enabled !== false);
+  const active = customFields.filter(f => f.enabled !== false && (f.section || "ceremony") === "ceremony");
   if (!active.length) {
     box.classList.add("hidden");
     box.innerHTML = "";
     return;
   }
   box.classList.remove("hidden");
-  box.innerHTML = `<div class="custom-fields-title">ΕΞΤΡΑ ΠΕΔΙΑ ΑΠΟ ΡΥΘΜΙΣΕΙΣ</div>` + active.map(f => {
+  box.innerHTML = `<div class="custom-fields-title">${t("ΕΞΤΡΑ ΠΕΔΙΑ ΑΠΟ ΡΥΘΜΙΣΕΙΣ","CUSTOM FIELDS FROM SETTINGS")}</div>` + active.map(f => {
     const value = customFieldValue(c, f);
     const req = f.required ? "required" : "";
     const ph = esc(f.placeholder || "");
@@ -4967,10 +4975,12 @@ function renderCustomFieldsForm(c = {}) {
       control = `<textarea data-custom-field="${esc(f.key)}" rows="2" placeholder="${ph}" ${req}>${esc(value)}</textarea>`;
     } else if (f.type === "select") {
       const opts = ["", ...(f.options || [])];
-      control = `<select data-custom-field="${esc(f.key)}" ${req}>${opts.map(o => `<option value="${esc(o)}" ${String(value) === String(o) ? "selected" : ""}>${esc(o || "-")}</option>`).join("")}</select>`;
+      control = `<select data-custom-field="${esc(f.key)}" ${req}>${opts.map(o => `<option value="${esc(o)}" ${String(value) === String(o) ? "selected" : ""}>${esc(o || "—")}</option>`).join("")}</select>`;
     } else if (f.type === "yesno") {
-      const opts = ["", "Ναι", "Όχι", "Άλλο"];
-      control = `<select data-custom-field="${esc(f.key)}" ${req}>${opts.map(o => `<option value="${esc(o)}" ${String(value) === String(o) ? "selected" : ""}>${esc(o || "-")}</option>`).join("")}</select>`;
+      const opts = ["", t("Ναι","Yes"), t("Όχι","No"), t("Άλλο","Other")];
+      control = `<select data-custom-field="${esc(f.key)}" ${req}>${opts.map(o => `<option value="${esc(o)}" ${String(value) === String(o) ? "selected" : ""}>${esc(o || "—")}</option>`).join("")}</select>`;
+    } else if (f.type === "checkbox") {
+      control = `<input type="checkbox" data-custom-field="${esc(f.key)}" ${value === "true" ? "checked" : ""} style="width:auto;margin-top:4px;" />`;
     } else {
       const inputType = f.type === "number" ? "number" : f.type === "date" ? "date" : f.type === "time" ? "time" : "text";
       control = `<input type="${inputType}" data-custom-field="${esc(f.key)}" value="${esc(value)}" placeholder="${ph}" ${req} />`;
@@ -4985,7 +4995,7 @@ function collectCustomFieldValues() {
   document.querySelectorAll("[data-custom-field]").forEach(el => {
     const key = el.dataset.customField;
     if (!key) return;
-    values[key] = el.value || "";
+    values[key] = el.type === "checkbox" ? (el.checked ? "true" : "false") : (el.value || "");
   });
   return values;
 }
@@ -4996,11 +5006,13 @@ function openCustomFieldModal(index = null) {
   const modal = $("customFieldModal");
   if (!modal) return;
   const f = index === null ? {} : (customFields[index] || {});
-  setText("customFieldModalTitle", index === null ? "Νέο πεδίο" : "Επεξεργασία πεδίου");
+  setText("customFieldModalTitle", index === null ? t("Νέο πεδίο","New field") : t("Επεξεργασία πεδίου","Edit field"));
   setVal("customFieldLabel", f.label || "");
   setVal("customFieldType", f.type || "text");
   setVal("customFieldPlaceholder", f.placeholder || "");
   setVal("customFieldOptions", Array.isArray(f.options) ? f.options.join("\n") : "");
+  const sectionSel = $("customFieldSection");
+  if (sectionSel) sectionSel.value = f.section || currentCsSection || "ceremony";
   const req = $("customFieldRequired"); if (req) req.checked = !!f.required;
   const showCard = $("customFieldShowCard"); if (showCard) showCard.checked = f.showCard !== false;
   const showShare = $("customFieldShowShare"); if (showShare) showShare.checked = f.showShare !== false;
@@ -5032,7 +5044,8 @@ function saveCustomField(e) {
     showCard: !!$("customFieldShowCard")?.checked,
     showShare: !!$("customFieldShowShare")?.checked,
     enabled: existing?.enabled !== false,
-    ts: existing?.ts || nowTs()
+    ts: existing?.ts || nowTs(),
+    section: val("customFieldSection") || "ceremony"
   };
 
   if (customFieldEditingIndex === null) {
@@ -5046,7 +5059,7 @@ function saveCustomField(e) {
   saveBackup("saveCustomField");
   saveData();
   closeCustomFieldModal();
-  renderAll();
+  renderAll(); // includes renderCustomFieldsSettings + renderAllSectionPanels
 }
 
 function deleteCustomField(index) {
@@ -5075,38 +5088,160 @@ function toggleCustomField(index) {
 function moveCustomField(fromIdx, toIdx) {
   ensureCustomFields();
   moveItem(customFields, fromIdx, toIdx);
-  addChange("custom_field_reorder", "Αλλαγή σειράς πεδίων ρυθμίσεων");
+  addChange("custom_field_reorder", t("Αλλαγή σειράς πεδίων ρυθμίσεων", "Reordered custom fields"));
   saveData();
   renderCustomFieldsSettings();
+  renderAllSectionPanels();
 }
+
+let currentCsSection = “ceremony”;
 
 function renderCustomFieldsSettings() {
   ensureCustomFields();
-  const body = $("customFieldsBody");
+  const body = $(“customFieldsBody”);
   if (!body) return;
-  body.innerHTML = "";
-  if (!customFields.length) {
-    body.innerHTML = `<tr><td colspan="4" class="custom-field-muted">Δεν υπάρχουν έξτρα πεδία ακόμα. Πάτα “+ Νέο πεδίο”.</td></tr>`;
+  body.innerHTML = “”;
+
+  const sectionFields = customFields
+    .map((f, i) => ({ f, i }))
+    .filter(({ f }) => (f.section || “ceremony”) === currentCsSection);
+
+  if (!sectionFields.length) {
+    const msg = t(“Δεν υπάρχουν πεδία για αυτήν την ενότητα. Πάτα \”+ Νέο πεδίο\”.”, “No fields for this section yet. Click \”+ New field\”.”);
+    body.innerHTML = `<tr><td colspan=”4” class=”custom-field-muted”>${msg}</td></tr>`;
     return;
   }
-  customFields.forEach((f, idx) => {
-    const tr = document.createElement("tr");
-    if (f.enabled === false) tr.className = "custom-field-disabled";
-    const show = [f.showCard ? "Κάρτα" : "", f.showShare ? "Share" : "", f.required ? "Υποχρεωτικό" : ""].filter(Boolean);
+
+  sectionFields.forEach(({ f, i: idx }, sIdx) => {
+    const prevIdx = sIdx > 0 ? sectionFields[sIdx - 1].i : -1;
+    const nextIdx = sIdx < sectionFields.length - 1 ? sectionFields[sIdx + 1].i : -1;
+    const tr = document.createElement(“tr”);
+    if (f.enabled === false) tr.className = “custom-field-disabled”;
+    const show = [f.showCard !== false ? t(“Κάρτα”,”Card”) : “”, f.showShare !== false ? “Share” : “”, f.required ? t(“Υποχρ.”,”Req.”) : “”].filter(Boolean);
     tr.innerHTML = `
-      <td><b>${esc(f.label)}</b><div class="custom-field-muted">${esc(f.placeholder || "")}</div></td>
+      <td><b>${esc(f.label)}</b><div class=”custom-field-muted”>${esc(f.placeholder || “”)}</div></td>
       <td>${esc(customFieldTypeLabel(f.type))}</td>
-      <td>${show.length ? show.map(x => `<span class="custom-field-badge">${esc(x)}</span>`).join("") : "—"}</td>
-      <td><div class="warehouse-actions compact-actions">
-        <button type="button" onclick="moveCustomField(${idx}, ${idx - 1})">↑</button>
-        <button type="button" onclick="moveCustomField(${idx}, ${idx + 1})">↓</button>
-        <button type="button" class="edit" onclick="openCustomFieldModal(${idx})">${t("Επεξεργασία", "Edit")}</button>
-        <button type="button" onclick="toggleCustomField(${idx})">${f.enabled === false ? "Ενεργό" : "Κρύψε"}</button>
-        <button type="button" class="delete" onclick="deleteCustomField(${idx})">×</button>
+      <td>${show.length ? show.map(x => `<span class=”custom-field-badge”>${esc(x)}</span>`).join(“”) : “—“}</td>
+      <td><div class=”warehouse-actions compact-actions”>
+        <button type=”button” onclick=”moveCustomField(${idx}, ${prevIdx})” ${prevIdx === -1 ? “disabled” : “”}>↑</button>
+        <button type=”button” onclick=”moveCustomField(${idx}, ${nextIdx})” ${nextIdx === -1 ? “disabled” : “”}>↓</button>
+        <button type=”button” class=”edit” onclick=”openCustomFieldModal(${idx})”>${t(“Επεξεργασία”,”Edit”)}</button>
+        <button type=”button” onclick=”toggleCustomField(${idx})”>${f.enabled === false ? t(“Ενεργό”,”Enable”) : t(“Κρύψε”,”Hide”)}</button>
+        <button type=”button” class=”delete” onclick=”deleteCustomField(${idx})”>×</button>
       </div></td>
     `;
     body.appendChild(tr);
   });
+}
+
+// ========================
+// SECTION PANELS
+// ========================
+const CS_SECTION_NOTES_GR = {
+  ceremony: "Πεδία φόρμας τελετής — εμφανίζονται και στην κάρτα.",
+  home: "Πεδία που εμφανίζονται στο Dashboard πάνω από τον AI Βοηθό.",
+  inventory: "Πεδία που εμφανίζονται στην ενότητα Αποθήκης.",
+  stats: "Πεδία που εμφανίζονται στα Στατιστικά.",
+  history: "Πεδία που εμφανίζονται στο Ιστορικό."
+};
+const CS_SECTION_NOTES_EN = {
+  ceremony: "Case form fields — also shown on the case card.",
+  home: "Fields shown in the dashboard above the AI Assistant.",
+  inventory: "Fields shown in the Inventory section.",
+  stats: "Fields shown in the Stats section.",
+  history: "Fields shown in History."
+};
+
+function setCsSection(section) {
+  currentCsSection = section;
+  document.querySelectorAll("#csSectionFilter button").forEach(b => {
+    b.classList.toggle("active", (b.dataset.csSection || "") === section);
+  });
+  const noteEl = $("csSectionNote");
+  if (noteEl) {
+    const notes = window.__appLang === "en" ? CS_SECTION_NOTES_EN : CS_SECTION_NOTES_GR;
+    noteEl.textContent = notes[section] || notes.ceremony;
+  }
+  renderCustomFieldsSettings();
+}
+
+function setCsSectionAndSettings(sectionId) {
+  v38SwitchTab ? v38SwitchTab("settings") : (document.querySelector('[data-tab="settings"]')?.click());
+  setTimeout(() => setCsSection(sectionId), 50);
+}
+
+function renderSectionPanel(sectionId) {
+  const panel = $(`sectionPanel_${sectionId}`);
+  if (!panel) return;
+
+  const fields = (customFields || []).filter(f => (f.section || "ceremony") === sectionId && f.enabled !== false);
+  if (!fields.length) {
+    panel.classList.add("hidden");
+    panel.innerHTML = "";
+    return;
+  }
+
+  panel.classList.remove("hidden");
+  const data = (sectionData[sectionId] || {});
+  const isEn = window.__appLang === "en";
+
+  const fieldsHtml = fields.map(f => {
+    const value = String(data[f.key] ?? "");
+    const req = f.required ? "required" : "";
+    const ph = esc(f.placeholder || "");
+    const labelText = `${esc(f.label)}${f.required ? " *" : ""}`;
+    let control = "";
+    if (f.type === "textarea") {
+      control = `<textarea data-sp-field="${esc(f.key)}" rows="2" placeholder="${ph}" ${req}>${esc(value)}</textarea>`;
+    } else if (f.type === "select") {
+      const opts = ["", ...(f.options || [])];
+      control = `<select data-sp-field="${esc(f.key)}" ${req}>${opts.map(o => `<option value="${esc(o)}" ${value === o ? "selected" : ""}>${esc(o || "—")}</option>`).join("")}</select>`;
+    } else if (f.type === "yesno") {
+      const opts = ["", isEn ? "Yes" : "Ναι", isEn ? "No" : "Όχι", isEn ? "Other" : "Άλλο"];
+      control = `<select data-sp-field="${esc(f.key)}" ${req}>${opts.map(o => `<option value="${esc(o)}" ${value === o ? "selected" : ""}>${esc(o || "—")}</option>`).join("")}</select>`;
+    } else if (f.type === "checkbox") {
+      control = `<input type="checkbox" data-sp-field="${esc(f.key)}" ${value === "true" ? "checked" : ""} />`;
+    } else {
+      const inputType = f.type === "number" ? "number" : f.type === "date" ? "date" : f.type === "time" ? "time" : "text";
+      control = `<input type="${inputType}" data-sp-field="${esc(f.key)}" value="${esc(value)}" placeholder="${ph}" ${req} />`;
+    }
+    return `<label>${labelText}${control}</label>`;
+  }).join("");
+
+  const editLabel = isEn ? "Edit fields" : "Επεξεργασία";
+  const saveLabel = isEn ? "Save" : "Αποθήκευση";
+  const panelTitle = isEn ? "CUSTOM FIELDS" : "ΕΠΙΠΛΕΟΝ ΣΤΟΙΧΕΙΑ";
+
+  panel.innerHTML = `
+    <div class="section-panel-head">
+      <span class="section-panel-title">${panelTitle}</span>
+      <button type="button" class="section-panel-edit-btn" onclick="setCsSectionAndSettings('${esc(sectionId)}')">${editLabel}</button>
+    </div>
+    <div class="section-panel-fields">${fieldsHtml}</div>
+    <button type="button" class="section-panel-save" onclick="saveSectionPanelData('${esc(sectionId)}')">${saveLabel}</button>
+  `;
+}
+
+function saveSectionPanelData(sectionId) {
+  const panel = $(`sectionPanel_${sectionId}`);
+  if (!panel) return;
+  if (!sectionData[sectionId]) sectionData[sectionId] = {};
+  panel.querySelectorAll("[data-sp-field]").forEach(el => {
+    const key = el.dataset.spField;
+    if (!key) return;
+    sectionData[sectionId][key] = el.type === "checkbox" ? (el.checked ? "true" : "false") : (el.value || "");
+  });
+  localStorage.setItem(SECTION_DATA_KEY, JSON.stringify(sectionData));
+  const btn = panel.querySelector(".section-panel-save");
+  if (btn) {
+    const orig = btn.textContent;
+    btn.textContent = window.__appLang === "en" ? "✓ Saved" : "✓ Αποθηκεύτηκε";
+    setTimeout(() => { if (btn) btn.textContent = orig; }, 1500);
+  }
+}
+
+function renderAllSectionPanels() {
+  ["home", "inventory", "stats", "history"].forEach(s => renderSectionPanel(s));
 }
 
 // Override v36: γεμίζει φόρμα + δυναμικά πεδία

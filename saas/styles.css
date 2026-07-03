@@ -1019,6 +1019,102 @@ h2 { margin-top: 8px; }
 #cancelCustomFieldBtn { background: #e5e7eb; }
 #saveCustomFieldBtn { background: #111827; color: #f9fafb; }
 
+/* Section Custom Panels */
+.section-custom-panel {
+  margin: 0 12px 10px;
+  padding: 12px 14px;
+  background: rgba(200,169,110,.05);
+  border: 1px solid rgba(200,169,110,.18);
+  border-radius: 12px;
+}
+.section-custom-panel.hidden { display: none; }
+.section-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.section-panel-title {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .6px;
+  color: rgba(200,169,110,.6);
+  text-transform: uppercase;
+}
+.section-panel-edit-btn {
+  font-size: 11px;
+  background: transparent;
+  border: 1px solid rgba(200,169,110,.25);
+  color: rgba(200,169,110,.65);
+  border-radius: 6px;
+  padding: 3px 9px;
+  cursor: pointer;
+  transition: all .15s;
+}
+.section-panel-edit-btn:hover { color: #c8a96e; border-color: rgba(200,169,110,.6); }
+.section-panel-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  color: rgba(255,255,255,.55);
+  margin-bottom: 8px;
+}
+.section-panel-fields input,
+.section-panel-fields select,
+.section-panel-fields textarea {
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 8px;
+  padding: 7px 10px;
+  color: #e8e8e8;
+  font-size: 13px;
+  font-family: inherit;
+}
+.section-panel-fields input[type="checkbox"] {
+  width: auto !important;
+  height: 16px;
+  margin-top: 4px;
+}
+.section-panel-save {
+  margin-top: 6px;
+  padding: 6px 14px;
+  background: rgba(200,169,110,.12);
+  border: 1px solid rgba(200,169,110,.28);
+  color: #c8a96e;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .15s;
+}
+.section-panel-save:hover { background: rgba(200,169,110,.22); }
+
+/* Section filter tabs in Settings */
+.cs-section-filter {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.cs-section-filter button {
+  padding: 5px 11px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: 1px solid rgba(200,169,110,.18);
+  background: transparent;
+  color: rgba(200,169,110,.45);
+  cursor: pointer;
+  transition: all .15s;
+}
+.cs-section-filter button.active,
+.cs-section-filter button:hover {
+  background: rgba(200,169,110,.12);
+  border-color: rgba(200,169,110,.45);
+  color: #c8a96e;
+}
+
 /* V38 Premium Apple Edition */
 :root{
  --glass-bg:rgba(255,255,255,.65);

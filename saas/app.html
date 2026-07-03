@@ -145,6 +145,7 @@
   </nav>
 
   <section class="home-command-center" id="homeCommandCenter" aria-label="Πίνακας γραφείου">
+    <div id="sectionPanel_home" class="section-custom-panel hidden"></div>
     <button type="button" id="aiAssistantBtn" class="ai-assistant-btn hero-ai-btn">🤖 AI Βοηθός</button>
 
     <div class="hermes-mini-brief" id="hermesMiniBrief">
@@ -192,6 +193,7 @@
     </section>
 
     <section id="warehouseTab" class="tab">
+      <div id="sectionPanel_inventory" class="section-custom-panel hidden"></div>
       <h2>Αποθήκη</h2>
       <div class="warehouse-section">
         <h3>Φέρετρα</h3>
@@ -229,6 +231,7 @@
     </section>
 
     <section id="statsTab" class="tab">
+      <div id="sectionPanel_stats" class="section-custom-panel hidden"></div>
       <h2>Στατιστικά</h2>
       <div id="statsContent">
         <div id="statsMore"></div>
@@ -236,6 +239,7 @@
     </section>
 
     <section id="historyTab" class="tab">
+      <div id="sectionPanel_history" class="section-custom-panel hidden"></div>
       <h2>Ιστορικό τελετών</h2>
       <div id="historyControls"></div>
       <div id="historyList"></div>
@@ -255,12 +259,19 @@
       <div class="settings-panel">
         <div class="settings-head">
           <div>
-            <h3>Πεδία καρτέλας τελετής</h3>
-            <p class="warehouse-hint">Προσθέτεις δικά σου πεδία στην επεξεργασία τελετής.</p>
+            <h3>Προσαρμοσμένα πεδία εφαρμογής</h3>
+            <p class="warehouse-hint">Πρόσθεσε δικά σου πεδία σε κάθε ενότητα — φόρμα τελετής, αποθήκη, στατιστικά κ.ά.</p>
           </div>
           <button type="button" id="addCustomFieldBtn" class="add-option-btn">+ Νέο πεδίο</button>
         </div>
-        <div class="settings-note">Τα βασικά πεδία μένουν άθικτα. Εδώ προσθέτουμε έξτρα πεδία.</div>
+        <div class="cs-section-filter" id="csSectionFilter">
+          <button data-cs-section="ceremony" class="active" onclick="setCsSection('ceremony')">📋 Τελετή</button>
+          <button data-cs-section="home" onclick="setCsSection('home')">🏠 Dashboard</button>
+          <button data-cs-section="inventory" onclick="setCsSection('inventory')">📦 Αποθήκη</button>
+          <button data-cs-section="stats" onclick="setCsSection('stats')">📊 Στατιστικά</button>
+          <button data-cs-section="history" onclick="setCsSection('history')">📜 Ιστορικό</button>
+        </div>
+        <div class="settings-note" id="csSectionNote">Πεδία φόρμας τελετής — εμφανίζονται και στην κάρτα.</div>
         <table class="warehouse-table compact-table">
           <thead><tr><th>Πεδίο</th><th>Τύπος</th><th>Εμφάνιση</th><th></th></tr></thead>
           <tbody id="customFieldsBody"></tbody>
@@ -495,6 +506,15 @@
       <h2 id="customFieldModalTitle">Νέο πεδίο</h2>
       <form id="customFieldForm">
         <label>Όνομα πεδίου<input type="text" id="customFieldLabel" placeholder="π.χ. Οικονομική εκκρεμότητα" required /></label>
+        <label>Ενότητα εφαρμογής
+          <select id="customFieldSection">
+            <option value="ceremony">📋 Φόρμα τελετής</option>
+            <option value="home">🏠 Dashboard (πάνω από AI)</option>
+            <option value="inventory">📦 Αποθήκη</option>
+            <option value="stats">📊 Στατιστικά</option>
+            <option value="history">📜 Ιστορικό</option>
+          </select>
+        </label>
         <div class="form-grid-2">
           <label>Τύπος πεδίου
             <select id="customFieldType">
@@ -505,6 +525,7 @@
               <option value="date">Ημερομηνία</option>
               <option value="time">Ώρα</option>
               <option value="number">Αριθμός</option>
+              <option value="checkbox">Τικ ✓</option>
             </select>
           </label>
           <label>Placeholder<input type="text" id="customFieldPlaceholder" placeholder="προαιρετικό" /></label>
