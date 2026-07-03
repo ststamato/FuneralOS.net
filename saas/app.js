@@ -6965,11 +6965,14 @@ document.addEventListener('DOMContentLoaded',seedOfficeKnowledge);
 /* FuneralOS v1.2 commercial polish — pricing config, WhatsApp to family, team/admin, referral, export backup */
 (function(){
   const cfg = window.FUNERALOS_CONFIG || {};
-  const PRO_PRICE = cfg.proPrice || 39;
-  const TEAM_PRICE = cfg.teamPrice || 79;
-  const proUrl = cfg.stripeProUrl || "https://buy.stripe.com/PLACEHOLDER_PRO";
-  const teamUrl = cfg.stripeTeamUrl || "https://buy.stripe.com/PLACEHOLDER_TEAM";
-  const demoUrl = cfg.demoBookingUrl || "https://wa.me/306987171717?text=Hello%20FuneralOS%2C%20I%20would%20like%20a%20live%20demo";
+  const isEN = window.__appLang === "en";
+  const PRO_PRICE      = cfg.proPrice      || (isEN ? 99  : 79);
+  const BUSINESS_PRICE = cfg.businessPrice || cfg.teamPrice || (isEN ? 199 : 129);
+  const currency       = "$";
+  const monthLabel     = isEN ? "month" : "μήνα";
+  const proUrl    = cfg.stripeProUrl    || "https://buy.stripe.com/PLACEHOLDER_PRO";
+  const teamUrl   = cfg.stripeTeamUrl   || "https://buy.stripe.com/PLACEHOLDER_TEAM";
+  const demoUrl   = cfg.demoBookingUrl  || "https://wa.me/306987171717?text=Hello%20FuneralOS%2C%20I%20would%20like%20a%20live%20demo";
 
   function safeEsc(s){ try { return typeof esc === 'function' ? esc(s) : String(s||'').replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); } catch(e){ return String(s||''); } }
   function allCeremonies(){ return Array.isArray(window.ceremonies) ? window.ceremonies : (typeof ceremonies !== 'undefined' ? ceremonies : []); }
@@ -6977,8 +6980,8 @@ document.addEventListener('DOMContentLoaded',seedOfficeKnowledge);
   function allSets(){ return Array.isArray(window.setsWarehouse) ? window.setsWarehouse : (typeof setsWarehouse !== 'undefined' ? setsWarehouse : []); }
 
   function patchPrices(){
-    document.querySelectorAll('a[href*="PLACEHOLDER_PRO"], a[href*="PLACEHOLDER"], #upgradeBtn').forEach(a=>{ if(proUrl && !proUrl.includes('PLACEHOLDER')) { a.href = proUrl; a.textContent = a.textContent.replace(/€\d+\/month|€\d+\/μήνα/g, `€${PRO_PRICE}/month`); } });
-    document.querySelectorAll('a[href*="PLACEHOLDER_TEAM"]').forEach(a=>{ if(teamUrl && !teamUrl.includes('PLACEHOLDER')) { a.href = teamUrl; a.textContent = a.textContent.replace(/€\d+\/month|€\d+\/μήνα/g, `€${TEAM_PRICE}/month`); } });
+    document.querySelectorAll('a[href*="PLACEHOLDER_PRO"], a[href*="PLACEHOLDER"], #upgradeBtn').forEach(a=>{ if(proUrl && !proUrl.includes('PLACEHOLDER')) { a.href = proUrl; } });
+    document.querySelectorAll('a[href*="PLACEHOLDER_TEAM"]').forEach(a=>{ if(teamUrl && !teamUrl.includes('PLACEHOLDER')) { a.href = teamUrl; } });
     document.querySelectorAll('[data-book-demo], a[href="#demo"], a[href="#contact"]').forEach(a=>{ if(!a.dataset.keepHref) a.href = demoUrl; });
   }
 
@@ -7045,7 +7048,7 @@ document.addEventListener('DOMContentLoaded',seedOfficeKnowledge);
     const top=document.querySelector('.top-bar') || document.querySelector('.tabs') || document.body;
     const bar=document.createElement('div'); bar.id='v12OwnerBar';
     bar.style.cssText='display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center;padding:10px 12px;background:rgba(15,23,42,.92);color:#fff;border-bottom:1px solid rgba(255,255,255,.08)';
-    bar.innerHTML=`<b style="margin-right:8px">Owner tools</b><button id="v12ExportBackup" type="button">Export backup</button><a href="${demoUrl}" target="_blank" rel="noopener" style="text-decoration:none">Book demo link</a><span>Pro €${PRO_PRICE}/month · Team €${TEAM_PRICE}/month</span>`;
+    bar.innerHTML=`<b style="margin-right:8px">Owner tools</b><button id="v12ExportBackup" type="button">Export backup</button><a href="${demoUrl}" target="_blank" rel="noopener" style="text-decoration:none">Book demo link</a><span>Pro ${currency}${PRO_PRICE}/${monthLabel} · Business ${currency}${BUSINESS_PRICE}/${monthLabel}</span>`;
     bar.querySelectorAll('button,a').forEach(el=>el.style.cssText+=';border:1px solid rgba(255,255,255,.22);border-radius:999px;background:rgba(255,255,255,.08);color:#fff;padding:7px 11px;font-weight:800;cursor:pointer');
     top.insertAdjacentElement('afterend', bar);
     document.getElementById('v12ExportBackup').onclick=backupJSON;
@@ -7054,7 +7057,7 @@ document.addEventListener('DOMContentLoaded',seedOfficeKnowledge);
   function enhanceAdmin(){
     const admin=document.getElementById('adminTab'); if(!admin || document.getElementById('v12SaasChecklist')) return;
     const box=document.createElement('div'); box.id='v12SaasChecklist'; box.className='section-card';
-    box.innerHTML=`<h2>SaaS launch checklist</h2><p class="muted">Before taking real money, finish these items. No romance here: without them, support will become a small civil war.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px"><div><b>Payments</b><br><small>Stripe Payment Links: Pro €${PRO_PRICE}, Team €${TEAM_PRICE}. Webhook file included.</small></div><div><b>Privacy / Terms</b><br><small>Pages included. Review with a legal professional before launch.</small></div><div><b>Team users</b><br><small>Team plan up to 5 users. Real invitations need Supabase profile table.</small></div><div><b>Native app</b><br><small>Capacitor starter files included for later App Store / Play Store step.</small></div></div>`;
+    box.innerHTML=`<h2>SaaS launch checklist</h2><p class="muted">Before taking real money, finish these items. No romance here: without them, support will become a small civil war.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px"><div><b>Payments</b><br><small>Lemon Squeezy: Pro ${currency}${PRO_PRICE}, Business ${currency}${BUSINESS_PRICE}. Webhook configured.</small></div><div><b>Privacy / Terms</b><br><small>Pages included. Review with a legal professional before launch.</small></div><div><b>Team users</b><br><small>Team plan up to 5 users. Real invitations need Supabase profile table.</small></div><div><b>Native app</b><br><small>Capacitor starter files included for later App Store / Play Store step.</small></div></div>`;
     admin.appendChild(box);
   }
 
