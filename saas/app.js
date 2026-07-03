@@ -676,7 +676,7 @@ function addChange(action, summary) {
     ts: nowTs(),
     action: action || "update",
     summary: summary || "",
-    device: getDeviceLabel() || "Άγνωστη συσκευή"
+    device: getDeviceLabel() || t("Άγνωστη συσκευή", "Unknown device")
   };
   ensureOptionWarehouse();
 
@@ -789,7 +789,10 @@ function ensureUpdatesUI() {
     note.style.color = "#6b7280";
     note.style.marginBottom = "8px";
     note.innerHTML = `
-      <div><b>Σημείωση:</b> Για να έρθει push στο iPhone όταν η εφαρμογή είναι κλειστή, πρέπει να είναι εγκατεστημένη (Add to Home Screen).</div>
+      <div><b>${t("Σημείωση","Note")}:</b> ${t(
+        "Για να έρθει push στο iPhone όταν η εφαρμογή είναι κλειστή, πρέπει να είναι εγκατεστημένη (Add to Home Screen).",
+        "To receive push notifications on iPhone when the app is closed, it must be installed (Add to Home Screen)."
+      )}</div>
     `;
 
     const list = document.createElement("div");
@@ -3456,7 +3459,7 @@ function compactSubscription(sub) {
     return {
       endpoint: j.endpoint,
       keys: j.keys || {},
-      device: getDeviceLabel() || "Άγνωστη συσκευή",
+      device: getDeviceLabel() || t("Άγνωστη συσκευή", "Unknown device"),
       ts: nowTs()
     };
   } catch {
@@ -3537,7 +3540,7 @@ async function setupPushOptB() {
     }
 
     if (!isStandalonePWA()) {
-      alert("Σημείωση: Στο iPhone για push όταν είναι κλειστή, πρέπει Add to Home Screen.");
+      alert(t("Σημείωση: Στο iPhone για push όταν είναι κλειστή, πρέπει Add to Home Screen.", "Note: On iPhone, to receive push when the app is closed, you need Add to Home Screen."));
     }
 
     await subscribePush(reg);

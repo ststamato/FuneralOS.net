@@ -381,10 +381,17 @@
         sb.from("profiles").select("referral_code, referral_credits, referral_plan_until").eq("id", userId).single(),
         sb.from("referrals").select("id", { count: "exact" }).eq("referrer_id", userId).eq("status", "rewarded")
       ]);
-      const code      = profileRes.data?.referral_code     || "";
+      let code      = profileRes.data?.referral_code     || "";
       const credits   = profileRes.data?.referral_credits  || 0;
       const planUntil = profileRes.data?.referral_plan_until || null;
       const count     = referralsRes.count || 0;
+
+      // Auto-create profile row if trigger didn't fire on signup
+      if (!code) {
+        const autoCode = userId.toLowerCase().replace(/-/g, "").slice(0, 8);
+        await sb.from("profiles").upsert({ id: userId, referral_code: autoCode }, { onConflict: "id" });
+        code = autoCode;
+      }
 
       window.__referralCode       = code;
       window.__referralCredits    = credits;
