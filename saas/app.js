@@ -560,7 +560,10 @@ function setDeviceLabel(label) {
 function ensureDeviceLabel() {
   let label = getDeviceLabel();
   if (!label) {
-    label = window.prompt("Δώσε όνομα συσκευής (π.χ. iPhone Σταύρου, iMac γραφείου):", "");
+    const msg = window.__appLang === "en"
+      ? "Enter a device name (e.g. Office iPhone, Front Desk Mac):"
+      : "Δώσε όνομα συσκευής (π.χ. iPhone Σταύρου, iMac γραφείου):";
+    label = window.prompt(msg, "");
     if (label) setDeviceLabel(label);
   }
 }

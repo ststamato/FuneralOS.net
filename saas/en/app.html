@@ -77,8 +77,6 @@
       <span>Statistics</span>
       <span>History</span>
       <span>Settings</span>
-      <span>Hermes</span>
-      <span>🇺🇸 USA</span>
     </div>
     <div class="user-chip">
       <div class="lang-app">
@@ -102,16 +100,6 @@
     <button class="tab-button" data-tab="stats">Statistics</button>
     <button class="tab-button" data-tab="history">History</button>
     <button class="tab-button" data-tab="settings">Settings</button>
-    <button class="tab-button" data-tab="hermes">Hermes</button>
-    <button class="tab-button usa-tab-button" data-tab="usaDirector">🇺🇸 Director</button>
-    <button class="tab-button usa-tab-button" data-tab="usaCases">Cases</button>
-    <button class="tab-button usa-tab-button" data-tab="usaFirstCall">First Call</button>
-    <button class="tab-button usa-tab-button" data-tab="usaDocuments">Documents</button>
-    <button class="tab-button usa-tab-button" data-tab="usaStaff">Staff</button>
-    <button class="tab-button usa-tab-button" data-tab="usaFleet">Fleet</button>
-    <button class="tab-button usa-tab-button" data-tab="usaCremation">Cremation</button>
-    <button class="tab-button usa-tab-button" data-tab="usaFinance">Finance</button>
-    <button class="tab-button usa-tab-button" data-tab="usaSchedule">Schedule</button>
     <button class="new-ceremony" id="newCeremonyBtn">+ New Case</button>
   </nav>
 
@@ -267,6 +255,27 @@
           <p style="margin-top:10px;font-size:11px;color:#556677;line-height:1.6;">The code is entered during the new user's registration. Once they activate a Pro or Business plan, you automatically receive 1 free month.</p>
         </div>
       </div>
+      <!-- USA Modules — moved from nav -->
+      <div class="settings-panel">
+        <div class="settings-head">
+          <div>
+            <h3>🇺🇸 USA Modules</h3>
+            <p class="warehouse-hint">Advanced workflow modules for US funeral homes.</p>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-top:12px;">
+          <button onclick="v38SwitchTab('usaDirector')" style="padding:12px 10px;border-radius:10px;border:1px solid rgba(200,169,110,.25);background:rgba(200,169,110,.07);color:#c8a96e;font-size:12px;font-weight:700;cursor:pointer;text-align:center;">🗂 Director</button>
+          <button onclick="v38SwitchTab('usaCases')" style="padding:12px 10px;border-radius:10px;border:1px solid rgba(200,169,110,.25);background:rgba(200,169,110,.07);color:#c8a96e;font-size:12px;font-weight:700;cursor:pointer;text-align:center;">📁 Cases</button>
+          <button onclick="v38SwitchTab('usaFirstCall')" style="padding:12px 10px;border-radius:10px;border:1px solid rgba(200,169,110,.25);background:rgba(200,169,110,.07);color:#c8a96e;font-size:12px;font-weight:700;cursor:pointer;text-align:center;">📞 First Call</button>
+          <button onclick="v38SwitchTab('usaDocuments')" style="padding:12px 10px;border-radius:10px;border:1px solid rgba(200,169,110,.25);background:rgba(200,169,110,.07);color:#c8a96e;font-size:12px;font-weight:700;cursor:pointer;text-align:center;">📄 Documents</button>
+          <button onclick="v38SwitchTab('usaStaff')" style="padding:12px 10px;border-radius:10px;border:1px solid rgba(200,169,110,.25);background:rgba(200,169,110,.07);color:#c8a96e;font-size:12px;font-weight:700;cursor:pointer;text-align:center;">👥 Staff</button>
+          <button onclick="v38SwitchTab('usaFleet')" style="padding:12px 10px;border-radius:10px;border:1px solid rgba(200,169,110,.25);background:rgba(200,169,110,.07);color:#c8a96e;font-size:12px;font-weight:700;cursor:pointer;text-align:center;">🚗 Fleet</button>
+          <button onclick="v38SwitchTab('usaCremation')" style="padding:12px 10px;border-radius:10px;border:1px solid rgba(200,169,110,.25);background:rgba(200,169,110,.07);color:#c8a96e;font-size:12px;font-weight:700;cursor:pointer;text-align:center;">🔥 Cremation</button>
+          <button onclick="v38SwitchTab('usaFinance')" style="padding:12px 10px;border-radius:10px;border:1px solid rgba(200,169,110,.25);background:rgba(200,169,110,.07);color:#c8a96e;font-size:12px;font-weight:700;cursor:pointer;text-align:center;">💰 Finance</button>
+          <button onclick="v38SwitchTab('usaSchedule')" style="padding:12px 10px;border-radius:10px;border:1px solid rgba(200,169,110,.25);background:rgba(200,169,110,.07);color:#c8a96e;font-size:12px;font-weight:700;cursor:pointer;text-align:center;">📅 Schedule</button>
+        </div>
+      </div>
+
       <div class="settings-panel">
         <div class="settings-head">
           <div>
