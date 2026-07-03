@@ -198,7 +198,7 @@
 
     if (isPaid) {
       const panel = document.getElementById("optionalFieldsPanel");
-      if (panel) { panel.style.display = ""; renderOptFieldsToggles(); }
+      if (panel) { panel.style.display = ""; renderFormLayoutPanel(); }
     }
 
     if (plan !== "business") {
@@ -250,92 +250,135 @@
     }
   }
 
-  var OPT_FIELD_LABELS = {
-    cremation: "Cremation details",
-    secondPerson: "2nd assistant",
-    suitcase: "Luggage",
-    set: "Burial set",
-    flowers: "Flowers / Wreaths",
-    announcement: "Obituary status",
-    decor: "Decoration",
-    pallbearers: "Pallbearers",
-    coffee: "Wake / Reception",
-    pickupSecond: "2nd pickup person",
-    coldRoom: "Cold storage",
-    grave: "Grave details"
-  };
+  // ── Form Layout System (order + visibility) ────────────────────────────────
+  var FORM_FIELD_DEFS = [
+    { key: "name",         label: "Decedent full name",      required: true },
+    { key: "pickupDate",   label: "Date of death",           required: true },
+    { key: "burialType",   label: "Disposition",             required: false },
+    { key: "cremation",    label: "Cremation details",       required: false },
+    { key: "placeOfDeath", label: "Place of death",          required: false },
+    { key: "caller",       label: "Caller / Next of kin",    required: false },
+    { key: "service",      label: "Service date & time",     required: false },
+    { key: "servicePlace", label: "Service location",        required: false },
+    { key: "embalmer",     label: "Embalmer",                required: false },
+    { key: "responsible",  label: "Assigned director",       required: false },
+    { key: "notes",        label: "Notes",                   required: false },
+  ];
 
-  var LS_OPT_KEY = "funeralos_en_opt_fields_v1";
+  var LS_LAYOUT_KEY = "funeralos_en_form_layout_v2";
 
-  function getOptFieldState() {
+  function getFormLayoutState() {
     try {
-      var raw = localStorage.getItem(LS_OPT_KEY);
+      var raw = localStorage.getItem(LS_LAYOUT_KEY);
       if (raw) return JSON.parse(raw);
     } catch (e) {}
-    // Default: all enabled
-    var defaults = {};
-    Object.keys(OPT_FIELD_LABELS).forEach(function (k) { defaults[k] = true; });
-    return defaults;
+    return { order: FORM_FIELD_DEFS.map(function (d) { return d.key; }), hidden: {} };
   }
 
-  function saveOptFieldState(state) {
-    try { localStorage.setItem(LS_OPT_KEY, JSON.stringify(state)); } catch (e) {}
+  function saveFormLayoutState(state) {
+    try { localStorage.setItem(LS_LAYOUT_KEY, JSON.stringify(state)); } catch (e) {}
   }
 
-  function applyOptFieldVisibility() {
-    var state = getOptFieldState();
-    document.querySelectorAll(".opt-field[data-opt]").forEach(function (el) {
-      var key = el.getAttribute("data-opt");
-      el.style.display = (state[key] === false) ? "none" : "";
+  function applyFormLayout() {
+    var form = document.getElementById("ceremonyForm");
+    if (!form) return;
+    var state = getFormLayoutState();
+    var hidden = state.hidden || {};
+    form.querySelectorAll("[data-field-key]").forEach(function (el) {
+      var key = el.getAttribute("data-field-key");
+      var def = FORM_FIELD_DEFS.find(function (d) { return d.key === key; });
+      if (def && !def.required && hidden[key] === true) {
+        el.style.display = "none";
+      } else {
+        el.style.display = "";
+      }
     });
   }
 
-  function renderOptFieldsToggles() {
+  function renderFormLayoutPanel() {
     var container = document.getElementById("optFieldsToggleList");
     if (!container) return;
-    var state = getOptFieldState();
+    var state = getFormLayoutState();
+    var order = state.order || FORM_FIELD_DEFS.map(function (d) { return d.key; });
+    var hidden = state.hidden || {};
+    FORM_FIELD_DEFS.forEach(function (def) {
+      if (order.indexOf(def.key) === -1) order.push(def.key);
+    });
     container.innerHTML = "";
-    container.style.cssText = "display:flex;flex-direction:column;gap:8px;padding:4px 0;";
-    Object.keys(OPT_FIELD_LABELS).forEach(function (key) {
-      var enabled = state[key] !== false;
+    container.style.cssText = "display:flex;flex-direction:column;gap:0;padding:4px 0;";
+    order.forEach(function (key, idx) {
+      var def = FORM_FIELD_DEFS.find(function (d) { return d.key === key; });
+      if (!def) return;
+      var isHidden = !def.required && hidden[key] === true;
       var row = document.createElement("div");
-      row.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);";
-      var label = document.createElement("span");
-      label.textContent = OPT_FIELD_LABELS[key];
-      label.style.cssText = "font-size:13px;color:#c8daf0;";
-      var toggle = document.createElement("label");
-      toggle.style.cssText = "position:relative;display:inline-block;width:36px;height:20px;cursor:pointer;";
-      var input = document.createElement("input");
-      input.type = "checkbox";
-      input.checked = enabled;
-      input.style.cssText = "opacity:0;width:0;height:0;";
-      var slider = document.createElement("span");
-      slider.style.cssText = "position:absolute;inset:0;background:" + (enabled ? "#c8a96e" : "#2a3350") + ";border-radius:20px;transition:.2s;";
-      var knob = document.createElement("span");
-      knob.style.cssText = "position:absolute;top:3px;left:" + (enabled ? "19px" : "3px") + ";width:14px;height:14px;background:#fff;border-radius:50%;transition:.2s;";
-      slider.appendChild(knob);
-      toggle.appendChild(input);
-      toggle.appendChild(slider);
-      input.addEventListener("change", function () {
-        var s = getOptFieldState();
-        s[key] = input.checked;
-        saveOptFieldState(s);
-        slider.style.background = input.checked ? "#c8a96e" : "#2a3350";
-        knob.style.left = input.checked ? "19px" : "3px";
-        applyOptFieldVisibility();
+      row.style.cssText = "display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);";
+
+      var btnUp = document.createElement("button");
+      btnUp.type = "button"; btnUp.textContent = "↑";
+      btnUp.style.cssText = "background:none;border:1px solid rgba(255,255,255,.2);color:#c8daf0;border-radius:4px;width:26px;height:26px;cursor:pointer;font-size:13px;padding:0;flex-shrink:0;" + (idx === 0 ? "opacity:.25;pointer-events:none;" : "");
+
+      var btnDown = document.createElement("button");
+      btnDown.type = "button"; btnDown.textContent = "↓";
+      btnDown.style.cssText = "background:none;border:1px solid rgba(255,255,255,.2);color:#c8daf0;border-radius:4px;width:26px;height:26px;cursor:pointer;font-size:13px;padding:0;flex-shrink:0;" + (idx === order.length - 1 ? "opacity:.25;pointer-events:none;" : "");
+
+      var labelEl = document.createElement("span");
+      labelEl.textContent = def.label;
+      labelEl.style.cssText = "font-size:13px;color:" + (isHidden ? "#4a5a70" : "#c8daf0") + ";flex:1;";
+
+      btnUp.addEventListener("click", function () {
+        var s = getFormLayoutState();
+        var i = s.order.indexOf(key);
+        if (i > 0) { s.order.splice(i, 1); s.order.splice(i - 1, 0, key); saveFormLayoutState(s); renderFormLayoutPanel(); }
       });
-      row.appendChild(label);
-      row.appendChild(toggle);
+      btnDown.addEventListener("click", function () {
+        var s = getFormLayoutState();
+        var i = s.order.indexOf(key);
+        if (i < s.order.length - 1) { s.order.splice(i, 1); s.order.splice(i + 1, 0, key); saveFormLayoutState(s); renderFormLayoutPanel(); }
+      });
+
+      row.appendChild(btnUp);
+      row.appendChild(btnDown);
+      row.appendChild(labelEl);
+
+      if (def.required) {
+        var badge = document.createElement("span");
+        badge.textContent = "required";
+        badge.style.cssText = "font-size:10px;background:rgba(200,169,110,.15);color:#c8a96e;border-radius:4px;padding:2px 6px;flex-shrink:0;";
+        row.appendChild(badge);
+      } else {
+        var toggle = document.createElement("label");
+        toggle.style.cssText = "position:relative;display:inline-block;width:36px;height:20px;cursor:pointer;flex-shrink:0;";
+        var input = document.createElement("input");
+        input.type = "checkbox"; input.checked = !isHidden;
+        input.style.cssText = "opacity:0;width:0;height:0;";
+        var slider = document.createElement("span");
+        slider.style.cssText = "position:absolute;inset:0;background:" + (!isHidden ? "#c8a96e" : "#2a3350") + ";border-radius:20px;transition:.2s;";
+        var knob = document.createElement("span");
+        knob.style.cssText = "position:absolute;top:3px;left:" + (!isHidden ? "19px" : "3px") + ";width:14px;height:14px;background:#fff;border-radius:50%;transition:.2s;";
+        slider.appendChild(knob);
+        toggle.appendChild(input); toggle.appendChild(slider);
+        input.addEventListener("change", function () {
+          var s = getFormLayoutState();
+          if (!s.hidden) s.hidden = {};
+          s.hidden[key] = !input.checked;
+          saveFormLayoutState(s);
+          slider.style.background = input.checked ? "#c8a96e" : "#2a3350";
+          knob.style.left = input.checked ? "19px" : "3px";
+          labelEl.style.color = input.checked ? "#c8daf0" : "#4a5a70";
+          applyFormLayout();
+        });
+        row.appendChild(toggle);
+      }
       container.appendChild(row);
     });
   }
 
-  // Re-apply visibility whenever the ceremony modal opens
+  // Re-apply layout whenever ceremony modal opens
   document.addEventListener("click", function (e) {
     if (e.target.closest("#addCeremonyBtn") || e.target.closest("[data-editid]")) {
       setTimeout(function () {
-        const plan = window.__authPlan;
-        if (plan === "pro" || plan === "business") applyOptFieldVisibility();
+        var plan = window.__authPlan;
+        if (plan === "pro" || plan === "business") applyFormLayout();
       }, 50);
     }
   });

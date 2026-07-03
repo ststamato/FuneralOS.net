@@ -155,93 +155,147 @@
     }
   }
 
-  // ── Optional fields system ──────────────────────────────────────────────────
-  var OPT_FIELD_LABELS = {
-    cremation: "Αποτέφρωση (λεπτομέρειες)",
-    secondPerson: "2ο άτομο βοήθειας",
-    suitcase: "Βαλίτσα",
-    set: "ΣΕΤ",
-    flowers: "Στεφάνια / Λουλούδια",
-    announcement: "Αγγελτήριο",
-    decor: "Στολισμός",
-    pallbearers: "Φραγκοφόροι",
-    coffee: "Καφές",
-    pickupSecond: "2ο άτομο παραλαβής",
-    coldRoom: "Ψυκτικός θάλαμος",
-    grave: "Τόπος ταφής"
-  };
+  // ── Form Layout System (order + visibility) ────────────────────────────────
+  var FORM_FIELD_DEFS = [
+    { key: "datetime",     label: "Ημερομηνία & Ώρα",            required: true },
+    { key: "name",         label: "Όνομα θανόντα",               required: true },
+    { key: "place",        label: "Τοποθεσία τελετής",           required: false },
+    { key: "burialType",   label: "Τρόπος (Ταφή / Αποτεφρωση)", required: false },
+    { key: "cremation",    label: "Αποτέφρωση (λεπτομέρειες)",  required: false },
+    { key: "responsible",  label: "Υπεύθυνος τελετής",           required: false },
+    { key: "secondPerson", label: "2ο άτομο βοήθειας",          required: false },
+    { key: "suitcase",     label: "Βαλίτσα",                    required: false },
+    { key: "coffin",       label: "Φέρετρο",                    required: false },
+    { key: "set",          label: "ΣΕΤ",                        required: false },
+    { key: "flowers",      label: "Στεφάνια / Λουλούδια",       required: false },
+    { key: "announcement", label: "Αγγελτήριο",                 required: false },
+    { key: "decor",        label: "Στολισμός",                  required: false },
+    { key: "pallbearers",  label: "Φραγκοφόροι",                required: false },
+    { key: "coffee",       label: "Καφές",                      required: false },
+    { key: "pickup",       label: "Παραλαβή",                   required: false },
+    { key: "pickupDate",   label: "Ημερομηνία παραλαβής",       required: false },
+    { key: "pickupSecond", label: "2ο άτομο παραλαβής",         required: false },
+    { key: "coldRoom",     label: "Ψυκτικός θάλαμος",           required: false },
+    { key: "grave",        label: "Τόπος ταφής",                required: false },
+    { key: "notes",        label: "Σημειώσεις",                 required: false },
+  ];
 
-  var LS_OPT_KEY = "funeralos_gr_opt_fields_v1";
+  var LS_LAYOUT_KEY = "funeralos_gr_form_layout_v2";
 
-  function getOptFieldState() {
+  function getFormLayoutState() {
     try {
-      var raw = localStorage.getItem(LS_OPT_KEY);
+      var raw = localStorage.getItem(LS_LAYOUT_KEY);
       if (raw) return JSON.parse(raw);
     } catch (e) {}
-    var defaults = {};
-    Object.keys(OPT_FIELD_LABELS).forEach(function (k) { defaults[k] = true; });
-    return defaults;
+    return { order: FORM_FIELD_DEFS.map(function (d) { return d.key; }), hidden: {} };
   }
 
-  function saveOptFieldState(state) {
-    try { localStorage.setItem(LS_OPT_KEY, JSON.stringify(state)); } catch (e) {}
+  function saveFormLayoutState(state) {
+    try { localStorage.setItem(LS_LAYOUT_KEY, JSON.stringify(state)); } catch (e) {}
   }
 
-  function applyOptFieldVisibility() {
-    var state = getOptFieldState();
-    document.querySelectorAll(".opt-field[data-opt]").forEach(function (el) {
-      var key = el.getAttribute("data-opt");
-      el.style.display = (state[key] === false) ? "none" : "";
+  function applyFormLayout() {
+    var form = document.getElementById("ceremonyForm");
+    if (!form) return;
+    var state = getFormLayoutState();
+    var order = state.order || FORM_FIELD_DEFS.map(function (d) { return d.key; });
+    var hidden = state.hidden || {};
+    var anchor = form.querySelector("#customFieldsFormBox");
+    if (!anchor) return;
+    order.forEach(function (key) {
+      var el = form.querySelector('[data-field-key="' + key + '"]');
+      if (!el) return;
+      var def = FORM_FIELD_DEFS.find(function (d) { return d.key === key; });
+      el.style.display = (def && !def.required && hidden[key] === true) ? "none" : "";
+      form.insertBefore(el, anchor);
     });
   }
 
-  function renderOptFieldsToggles() {
+  function renderFormLayoutPanel() {
     var container = document.getElementById("optFieldsToggleList");
     if (!container) return;
-    var state = getOptFieldState();
+    var state = getFormLayoutState();
+    var order = state.order || FORM_FIELD_DEFS.map(function (d) { return d.key; });
+    var hidden = state.hidden || {};
+    FORM_FIELD_DEFS.forEach(function (def) {
+      if (order.indexOf(def.key) === -1) order.push(def.key);
+    });
     container.innerHTML = "";
-    container.style.cssText = "display:flex;flex-direction:column;gap:8px;padding:4px 0;";
-    Object.keys(OPT_FIELD_LABELS).forEach(function (key) {
-      var enabled = state[key] !== false;
+    container.style.cssText = "display:flex;flex-direction:column;gap:0;padding:4px 0;";
+    order.forEach(function (key, idx) {
+      var def = FORM_FIELD_DEFS.find(function (d) { return d.key === key; });
+      if (!def) return;
+      var isHidden = !def.required && hidden[key] === true;
       var row = document.createElement("div");
-      row.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);";
-      var label = document.createElement("span");
-      label.textContent = OPT_FIELD_LABELS[key];
-      label.style.cssText = "font-size:13px;color:#c8daf0;";
-      var toggle = document.createElement("label");
-      toggle.style.cssText = "position:relative;display:inline-block;width:36px;height:20px;cursor:pointer;";
-      var input = document.createElement("input");
-      input.type = "checkbox";
-      input.checked = enabled;
-      input.style.cssText = "opacity:0;width:0;height:0;";
-      var slider = document.createElement("span");
-      slider.style.cssText = "position:absolute;inset:0;background:" + (enabled ? "#c8a96e" : "#2a3350") + ";border-radius:20px;transition:.2s;";
-      var knob = document.createElement("span");
-      knob.style.cssText = "position:absolute;top:3px;left:" + (enabled ? "19px" : "3px") + ";width:14px;height:14px;background:#fff;border-radius:50%;transition:.2s;";
-      slider.appendChild(knob);
-      toggle.appendChild(input);
-      toggle.appendChild(slider);
-      input.addEventListener("change", function () {
-        var s = getOptFieldState();
-        s[key] = input.checked;
-        saveOptFieldState(s);
-        slider.style.background = input.checked ? "#c8a96e" : "#2a3350";
-        knob.style.left = input.checked ? "19px" : "3px";
-        applyOptFieldVisibility();
+      row.style.cssText = "display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);";
+
+      var btnUp = document.createElement("button");
+      btnUp.type = "button"; btnUp.textContent = "↑";
+      btnUp.style.cssText = "background:none;border:1px solid rgba(255,255,255,.2);color:#c8daf0;border-radius:4px;width:26px;height:26px;cursor:pointer;font-size:13px;padding:0;flex-shrink:0;" + (idx === 0 ? "opacity:.25;pointer-events:none;" : "");
+
+      var btnDown = document.createElement("button");
+      btnDown.type = "button"; btnDown.textContent = "↓";
+      btnDown.style.cssText = "background:none;border:1px solid rgba(255,255,255,.2);color:#c8daf0;border-radius:4px;width:26px;height:26px;cursor:pointer;font-size:13px;padding:0;flex-shrink:0;" + (idx === order.length - 1 ? "opacity:.25;pointer-events:none;" : "");
+
+      var labelEl = document.createElement("span");
+      labelEl.textContent = def.label;
+      labelEl.style.cssText = "font-size:13px;color:" + (isHidden ? "#4a5a70" : "#c8daf0") + ";flex:1;";
+
+      btnUp.addEventListener("click", function () {
+        var s = getFormLayoutState();
+        var i = s.order.indexOf(key);
+        if (i > 0) { s.order.splice(i, 1); s.order.splice(i - 1, 0, key); saveFormLayoutState(s); applyFormLayout(); renderFormLayoutPanel(); }
       });
-      row.appendChild(label);
-      row.appendChild(toggle);
+      btnDown.addEventListener("click", function () {
+        var s = getFormLayoutState();
+        var i = s.order.indexOf(key);
+        if (i < s.order.length - 1) { s.order.splice(i, 1); s.order.splice(i + 1, 0, key); saveFormLayoutState(s); applyFormLayout(); renderFormLayoutPanel(); }
+      });
+
+      row.appendChild(btnUp);
+      row.appendChild(btnDown);
+      row.appendChild(labelEl);
+
+      if (def.required) {
+        var badge = document.createElement("span");
+        badge.textContent = "βασικό";
+        badge.style.cssText = "font-size:10px;background:rgba(200,169,110,.15);color:#c8a96e;border-radius:4px;padding:2px 6px;flex-shrink:0;";
+        row.appendChild(badge);
+      } else {
+        var toggle = document.createElement("label");
+        toggle.style.cssText = "position:relative;display:inline-block;width:36px;height:20px;cursor:pointer;flex-shrink:0;";
+        var input = document.createElement("input");
+        input.type = "checkbox"; input.checked = !isHidden;
+        input.style.cssText = "opacity:0;width:0;height:0;";
+        var slider = document.createElement("span");
+        slider.style.cssText = "position:absolute;inset:0;background:" + (!isHidden ? "#c8a96e" : "#2a3350") + ";border-radius:20px;transition:.2s;";
+        var knob = document.createElement("span");
+        knob.style.cssText = "position:absolute;top:3px;left:" + (!isHidden ? "19px" : "3px") + ";width:14px;height:14px;background:#fff;border-radius:50%;transition:.2s;";
+        slider.appendChild(knob);
+        toggle.appendChild(input); toggle.appendChild(slider);
+        input.addEventListener("change", function () {
+          var s = getFormLayoutState();
+          if (!s.hidden) s.hidden = {};
+          s.hidden[key] = !input.checked;
+          saveFormLayoutState(s);
+          slider.style.background = input.checked ? "#c8a96e" : "#2a3350";
+          knob.style.left = input.checked ? "19px" : "3px";
+          labelEl.style.color = input.checked ? "#c8daf0" : "#4a5a70";
+          applyFormLayout();
+        });
+        row.appendChild(toggle);
+      }
       container.appendChild(row);
     });
   }
 
-  // Re-apply visibility whenever ceremony modal opens
+  // Re-apply layout whenever ceremony modal opens
   document.addEventListener("click", function (e) {
     if (e.target.closest("#addCeremonyBtn") || e.target.closest("#newCeremonyBtn") ||
         e.target.closest("#newCeremonyHeroBtn") || e.target.closest("[data-editid]")) {
       setTimeout(function () {
-        const plan = window.__authPlan;
-        if (plan === "pro" || plan === "business") applyOptFieldVisibility();
+        var plan = window.__authPlan;
+        if (plan === "pro" || plan === "business") applyFormLayout();
       }, 50);
     }
   });
@@ -320,7 +374,7 @@
 
     if (isPaid) {
       const panel = document.getElementById("optionalFieldsPanel");
-      if (panel) { panel.style.display = ""; renderOptFieldsToggles(); }
+      if (panel) { panel.style.display = ""; renderFormLayoutPanel(); }
     }
 
     if (plan !== "business") {
