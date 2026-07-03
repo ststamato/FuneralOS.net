@@ -502,6 +502,61 @@
     });
   };
 
+  // ── Directors management (Settings panel) ────────────────────────────────────
+  var DIRECTORS_KEY = "funeralos_en_directors_v1";
+
+  function getDirectors() {
+    try { return JSON.parse(localStorage.getItem(DIRECTORS_KEY) || "[]"); } catch (e) { return []; }
+  }
+
+  function saveDirectors(list) {
+    try { localStorage.setItem(DIRECTORS_KEY, JSON.stringify(list)); } catch (e) {}
+  }
+
+  function renderDirectorsList() {
+    var box = document.getElementById("directorsList");
+    if (!box) return;
+    var list = getDirectors();
+    if (!list.length) {
+      box.innerHTML = '<p style="font-size:13px;color:#5a6a80;margin:0;">No directors added yet. Use the field below to add.</p>';
+      return;
+    }
+    box.innerHTML = list.map(function (name, i) {
+      return '<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:8px;">' +
+        '<span style="flex:1;font-size:14px;color:#c8daf0;">' + name + '</span>' +
+        '<button data-dir-del="' + i + '" style="background:none;border:none;color:#e05a5a;cursor:pointer;font-size:18px;line-height:1;padding:0 4px;">✕</button>' +
+        '</div>';
+    }).join("");
+  }
+
+  window.addDirectorEntry = function () {
+    var input = document.getElementById("directorNameInput");
+    var name = (input ? input.value : "").trim();
+    if (!name) return;
+    var list = getDirectors();
+    list.push(name);
+    saveDirectors(list);
+    if (input) input.value = "";
+    renderDirectorsList();
+  };
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && document.activeElement && document.activeElement.id === "directorNameInput") {
+      window.addDirectorEntry();
+    }
+  });
+
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-dir-del]");
+    if (!btn) return;
+    var list = getDirectors();
+    list.splice(Number(btn.dataset.dirDel), 1);
+    saveDirectors(list);
+    renderDirectorsList();
+  });
+
+  document.addEventListener("DOMContentLoaded", renderDirectorsList);
+
   // ── Admin plan switcher (owner only) ─────────────────────────────────────────
   window.ownerSwitchPlan = function (plan) {
     if (plan === "business") {

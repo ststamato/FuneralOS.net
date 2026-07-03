@@ -263,6 +263,20 @@
           <p style="margin-top:10px;font-size:11px;color:#556677;line-height:1.6;">The code is entered during the new user's registration. Once they activate a Pro or Business plan, you automatically receive 1 free month.</p>
         </div>
       </div>
+      <!-- Directors panel -->
+      <div class="settings-panel">
+        <div class="settings-head">
+          <div>
+            <h3>Assigned Directors</h3>
+            <p class="warehouse-hint">Funeral directors that appear in the case form dropdown.</p>
+          </div>
+        </div>
+        <div id="directorsList" style="display:flex;flex-direction:column;gap:8px;margin-top:12px;"></div>
+        <div style="display:flex;gap:8px;margin-top:12px;">
+          <input id="directorNameInput" type="text" placeholder="Director full name" style="flex:1;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:#0f1a2e;color:#c8daf0;font-size:14px;" />
+          <button onclick="addDirectorEntry()" style="background:#c8a96e;color:#0f1523;border:none;padding:10px 18px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;white-space:nowrap;">+ Add</button>
+        </div>
+      </div>
       <!-- USA Modules — moved from nav -->
       <div class="settings-panel">
         <div class="settings-head">

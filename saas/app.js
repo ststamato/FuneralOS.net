@@ -4757,12 +4757,11 @@ function bindAIAssistantActions() {
 // ---------------- Dropdowns από Προσαρμοσμένες Λίστες ----------------
 function fillDynamicDropdowns(c = {}) {
   if (window.__appLang === "en") {
-    // EN/USA app: populate responsiblePerson from USA staff; clear hidden GR dropdowns
-    const usaStaff = (() => {
-      try { return JSON.parse(localStorage.getItem("funeralos_usa_staff_v2") || "[]"); } catch { return []; }
+    // EN app: populate responsiblePerson from directors list (Settings → Directors)
+    const directors = (() => {
+      try { return JSON.parse(localStorage.getItem("funeralos_en_directors_v1") || "[]"); } catch { return []; }
     })();
-    const directorNames = usaStaff.filter(s => s && s.name).map(s => s.name);
-    fillSelect($("responsiblePerson"), ["-", ...directorNames], c.responsible ?? "-");
+    fillSelect($("responsiblePerson"), ["-", ...directors], c.responsible ?? "-");
     // Clear hidden dropdowns so iOS native picker never shows Greek options
     ["secondPerson","pickupSecondPerson","suitcase","ceremonyDecor","ceremonyPallbearers","ceremonyCoffee","ceremonyGraveZone"].forEach(id => {
       const el = $(id);

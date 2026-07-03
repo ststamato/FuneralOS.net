@@ -79,11 +79,7 @@
     }
   ]);
 
-  seed(STAFF_KEY, [
-    { id:"DEMO-ST-001", name:"Thomas Anderson", role:"Licensed Funeral Director", shift:"Mon–Fri 8:00–17:00", assignment:"Case USA-2026-002", cert: addDays(180) },
-    { id:"DEMO-ST-002", name:"Christine Walsh", role:"Licensed Funeral Director", shift:"Tue–Sat 9:00–18:00", assignment:"Case USA-2026-001", cert: addDays(22) },
-    { id:"DEMO-ST-003", name:"Michael Brown", role:"Removal Technician", shift:"On-Call", assignment:"Removal Van #1", cert: addDays(310) }
-  ]);
+  // Staff list intentionally not pre-seeded — users add their own staff from Settings
 
   seed(FLEET_KEY, [
     { id:"DEMO-FL-001", name:"Hearse #1", type:"Hearse", mileage:84520, service: addDays(12), insurance: addDays(95), status:"Assigned — Case 002" },
