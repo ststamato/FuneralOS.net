@@ -194,6 +194,9 @@ const DEFAULT_SETS = ["ΓΚΡΙ", "ΛΕΥΚΟ", "ΚΟΚΚΙΝΟ", "ΜΠΛΕ"];
 
 // ---------------- State ----------------
 let ceremonies = [];
+// Ceremony bridge — available immediately so USA modules can read live data
+window.__fosGetCeremonies = () => ceremonies;
+window.__fosPushCeremony = (c) => { ceremonies.unshift(c); saveData(); renderAll(); };
 let warehouse = [];
 let setsWarehouse = [];
 let secondHelpers = [];
