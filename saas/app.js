@@ -221,7 +221,7 @@ const AI_SEEN_NOTES_KEY = "staurakaki_ai_seen_notes_v1";
 const AI_SEEN_ALERTS_KEY = "staurakaki_ai_seen_alerts_v1";
 const AI_CHAT_HISTORY_KEY = "staurakaki_ai_chat_history_v1";
 const CUSTOM_FIELDS_KEY = "staurakaki_custom_fields_v36";
-const CUSTOM_LISTS_KEY = "staurakaki_custom_lists_v1";
+const CUSTOM_LISTS_KEY = window.__appLang === "en" ? "funeralos_en_custom_lists_v1" : "staurakaki_custom_lists_v1";
 const SECTION_DATA_KEY = "funeralos_section_data_v1";
 const OFFICE_EVENTS_LOCAL_KEY = "staurakaki_office_events_v1";
 const OFFICE_DNA_LOCAL_KEY = "staurakaki_office_dna_v1";
@@ -912,7 +912,15 @@ async function cloudLoadData() {
     if (Array.isArray(p.aiSeenAlerts)) aiSeenAlerts = p.aiSeenAlerts;
     if (Array.isArray(p.aiChatHistory)) aiChatHistory = p.aiChatHistory;
     if (Array.isArray(p.customFields)) customFields = p.customFields;
-    if (Array.isArray(p.customLists)) customLists = p.customLists;
+    if (window.__appLang === "en") {
+      if (Array.isArray(p.enCustomLists)) customLists = p.enCustomLists;
+      // Preserve GR custom lists in localStorage so cloud save can restore them
+      if (Array.isArray(p.customLists)) {
+        try { localStorage.setItem("staurakaki_custom_lists_v1", JSON.stringify(p.customLists)); } catch {}
+      }
+    } else {
+      if (Array.isArray(p.customLists)) customLists = p.customLists;
+    }
   }
 }
 
@@ -921,7 +929,13 @@ async function cloudSaveAll() {
   const base = `${SUPABASE_URL}/rest/v1`;
   const session = await getCloudSession();
   if (!session) { console.error("No authenticated user for cloud save"); return; }
-  const payload = { ceremonies, warehouse, setsWarehouse, secondHelpers, optionWarehouse, changeLog, pushSubs, aiSeenNotes, aiSeenAlerts, aiChatHistory, customFields, customLists };
+  let grCustomLists = customLists;
+  let enCustomLists = [];
+  if (window.__appLang === "en") {
+    enCustomLists = customLists;
+    try { grCustomLists = JSON.parse(localStorage.getItem("staurakaki_custom_lists_v1") || "[]"); } catch { grCustomLists = []; }
+  }
+  const payload = { ceremonies, warehouse, setsWarehouse, secondHelpers, optionWarehouse, changeLog, pushSubs, aiSeenNotes, aiSeenAlerts, aiChatHistory, customFields, customLists: grCustomLists, enCustomLists };
   try {
     await fetch(`${base}/app_state`, {
       method: "POST",
