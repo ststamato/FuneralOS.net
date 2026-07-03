@@ -392,10 +392,8 @@
     const modal = document.getElementById("upgradeModal");
     const titleEl = document.getElementById("upgradeTitle");
     const textEl = document.getElementById("upgradeText");
-    const btn = document.getElementById("upgradeBtn");
-    if (titleEl) titleEl.textContent = title || "Αναβάθμιση σε Pro";
+    if (titleEl) titleEl.textContent = title || "Αναβάθμιση πλάνου";
     if (textEl) textEl.textContent = text || "";
-    if (btn) btn.href = STRIPE_PRO_LINK;
     if (modal) modal.classList.add("open");
   }
 
