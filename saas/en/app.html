@@ -61,9 +61,17 @@
 <div id="upgradeModal">
   <div class="upgrade-box">
     <div class="up-icon">🔒</div>
-    <h2 id="upgradeTitle">Upgrade to Pro</h2>
+    <h2 id="upgradeTitle">Upgrade your plan</h2>
     <p id="upgradeText">You've reached the free plan limit.</p>
-    <a href="https://buy.stripe.com/PLACEHOLDER" target="_blank" class="up-btn" id="upgradeBtn">Upgrade to Pro — $99/month →</a>
+    <div style="display:flex;flex-direction:column;gap:10px;margin:16px 0 6px;">
+      <a href="https://funeralos.net/en/#plans" target="_blank" class="up-btn" id="upgradeBtnPro" style="text-align:center;">
+        ⭐ Pro Plan — $99/month →
+      </a>
+      <a href="https://funeralos.net/en/#plans" target="_blank" class="up-btn" id="upgradeBtnBiz" style="text-align:center;background:linear-gradient(135deg,#c8a96e,#a07840);">
+        🚀 Business Plan — $199/month →
+      </a>
+    </div>
+    <p style="font-size:11px;color:#8899aa;margin:0 0 12px;text-align:center;">Pro: unlimited cases · Business: Pro + AI Assistant + Hermes</p>
     <button class="up-close" onclick="closeUpgradeModal()">Close</button>
   </div>
 </div>

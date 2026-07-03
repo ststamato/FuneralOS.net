@@ -773,7 +773,7 @@ function ensureUpdatesUI() {
     btnRead.onclick = () => { markAllChangesRead(); renderUpdatesList(); };
 
     const btnClose = document.createElement("button");
-    btnClose.textContent = "Κλείσιμο";
+    btnClose.textContent = t("Κλείσιμο", "Close");
     btnClose.style.borderRadius = "999px";
     btnClose.style.border = "none";
     btnClose.style.padding = "7px 14px";
@@ -840,21 +840,27 @@ function renderUpdatesList() {
     .slice(0, 60);
 
   if (!items.length) {
-    el.innerHTML = `<p style="color:#6b7280;">Δεν υπάρχουν καταγεγραμμένες αλλαγές.</p>`;
+    el.innerHTML = `<p style="color:#6b7280;">${t("Δεν υπάρχουν καταγεγραμμένες αλλαγές.", "No recorded changes yet.")}</p>`;
     return;
   }
+
+  const GR_UNKNOWN = "Άγνωστη συσκευή";
+  const GR_OTHER   = "Άλλη συσκευή";
 
   el.innerHTML = items.map(c => {
     const unread = (c.ts || 0) > seen && (c.device || "") !== me;
     const dot = unread ? "🟢" : "⚪️";
-    const t = formatTimestamp(c.ts);
+    const ts = formatTimestamp(c.ts);
     const summary = esc(c.summary || "");
-    const dev = esc(c.device || "");
+    let rawDev = c.device || "";
+    if (rawDev === GR_UNKNOWN) rawDev = t(GR_UNKNOWN, "Unknown device");
+    if (rawDev === GR_OTHER)   rawDev = t(GR_OTHER, "Other device");
+    const dev = esc(rawDev);
     return `
       <div style="padding:8px 0;border-bottom:1px solid #e5e7eb;">
         <div style="display:flex;justify-content:space-between;gap:10px;">
           <div><b>${dot} ${dev}</b></div>
-          <div style="color:#6b7280;font-size:12px;">${t}</div>
+          <div style="color:#6b7280;font-size:12px;">${ts}</div>
         </div>
         <div style="margin-top:4px;">${summary || "<span style='color:#6b7280;'>—</span>"}</div>
       </div>
@@ -3576,8 +3582,8 @@ function maybeNotifyForChanges_LocalOnly() {
     const nts = Number(newest.ts) || 0;
     if (nts <= last) return;
 
-    const title = "Σταυρακάκη — Νέα αλλαγή";
-    const body = `${newest.device || "Άλλη συσκευή"}: ${newest.summary || "Update"}`;
+    const title = t("Σταυρακάκη — Νέα αλλαγή", "FuneralOS — New update");
+    const body = `${newest.device || t("Άλλη συσκευή", "Another device")}: ${newest.summary || t("Αλλαγή", "Update")}`;
     new Notification(title, { body });
 
     setLastPushTs(nts);

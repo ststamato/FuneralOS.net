@@ -227,7 +227,7 @@
           nudge.id = "upgradeNudge";
           nudge.style.cssText = "margin-top:12px;padding:12px 16px;background:rgba(200,169,110,.1);border:1px solid rgba(200,169,110,.25);border-radius:10px;font-size:13px;color:#c8a96e;display:flex;align-items:center;justify-content:space-between;gap:12px;";
           nudge.innerHTML = '<span>🔒 Free plan · <b id="monthCeremonyCount">0</b>/' + FREE_CEREMONY_LIMIT + " ceremonies this month</span>" +
-            '<a href="./login.html" style="background:#c8a96e;color:#0f1523;padding:6px 14px;border-radius:7px;font-size:12px;font-weight:700;text-decoration:none;">See plans →</a>';
+            '<a href="javascript:void(0)" onclick="window.__showUpgrade && window.__showUpgrade(\'Upgrade your plan\',\'\')" style="background:#c8a96e;color:#0f1523;padding:6px 14px;border-radius:7px;font-size:12px;font-weight:700;text-decoration:none;cursor:pointer;">See plans →</a>';
           heroGrid.after(nudge);
           updateMonthCount();
         }
@@ -356,10 +356,8 @@
     const modal = document.getElementById("upgradeModal");
     const titleEl = document.getElementById("upgradeTitle");
     const textEl = document.getElementById("upgradeText");
-    const btn = document.getElementById("upgradeBtn");
-    if (titleEl) titleEl.textContent = title || "Upgrade to Pro";
+    if (titleEl) titleEl.textContent = title || "Upgrade your plan";
     if (textEl) textEl.textContent = text || "";
-    if (btn) { btn.textContent = "See plans →"; btn.href = "../en/"; }
     if (modal) modal.classList.add("open");
   }
 
