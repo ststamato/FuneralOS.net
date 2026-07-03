@@ -53,6 +53,8 @@
       // Business plan features visible in demo
       var usaBtn = document.getElementById("usaNavBtn");
       if (usaBtn) usaBtn.style.display = "";
+      var usaSettings = document.getElementById("usaSettingsPanel");
+      if (usaSettings) { usaSettings.style.display = ""; if (typeof window.usaRenderSettings === "function") window.usaRenderSettings(); }
       var layoutPanel = document.getElementById("optionalFieldsPanel");
       if (layoutPanel) layoutPanel.style.display = "";
     });
@@ -206,6 +208,8 @@
       if (panel) { panel.style.display = ""; renderFormLayoutPanel(); }
       const usaBtn = document.getElementById("usaNavBtn");
       if (usaBtn) usaBtn.style.display = "";
+      const usaSettings = document.getElementById("usaSettingsPanel");
+      if (usaSettings) { usaSettings.style.display = ""; if (typeof window.usaRenderSettings === "function") window.usaRenderSettings(); }
     }
 
     if (plan !== "business") {

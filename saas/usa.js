@@ -5,8 +5,21 @@
 // ================================
 (function(){
   const USA_META_KEY = "funeralos_en_usa_meta_v1";
+  const USA_SETTINGS_KEY = "funeralos_en_usa_settings_v1";
   const USA_DOCS = ["Death Certificate","Burial Permit","Cremation Authorization","Contract","Invoice"];
   const USA_STEPS = ["First Call","Removal Scheduled","Family Meeting","Documents Pending","Preparation","Viewing","Service Scheduled","Burial/Cremation","Closed"];
+  const USA_MODULES_LIST = [
+    {tab:"usaDirector",  icon:"🗂",  label:"Director"},
+    {tab:"usaCases",     icon:"📁",  label:"Cases"},
+    {tab:"usaFirstCall", icon:"📞",  label:"First Call"},
+    {tab:"usaDocuments", icon:"📄",  label:"Docs"},
+    {tab:"usaStaff",     icon:"👥",  label:"Staff"},
+    {tab:"usaFleet",     icon:"🚗",  label:"Fleet"},
+    {tab:"usaCremation", icon:"🔥",  label:"Cremation"},
+    {tab:"usaFinance",   icon:"💰",  label:"Finance"},
+    {tab:"usaSchedule",  icon:"📅",  label:"Schedule"},
+  ];
+  const DEFAULT_MODULES = Object.fromEntries(USA_MODULES_LIST.map(m=>[m.tab, true]));
   const addDays = (n)=>{ const d=new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); };
 
   function readCeremonies(){
@@ -31,7 +44,75 @@
     saveMeta(meta);
   }
 
-  function blankDocs(){ return Object.fromEntries(USA_DOCS.map(d => [d, "Missing"])); }
+  function getSettings(){
+    const defaults = {modules: Object.assign({}, DEFAULT_MODULES), customDocs: [], defaultPriority: "Normal"};
+    if (window.__DEMO_MODE) return Object.assign({}, defaults, window.__usaSettings || {});
+    try { return Object.assign({}, defaults, JSON.parse(localStorage.getItem(USA_SETTINGS_KEY) || "{}")); } catch { return defaults; }
+  }
+
+  function saveSettings(s){
+    if (window.__DEMO_MODE) { window.__usaSettings = s; return; }
+    localStorage.setItem(USA_SETTINGS_KEY, JSON.stringify(s));
+  }
+
+  function allDocs(){
+    const s = getSettings();
+    return [...USA_DOCS, ...(s.customDocs || [])];
+  }
+
+  function blankDocs(){ return Object.fromEntries(allDocs().map(d => [d, "Missing"])); }
+
+  const safe = (s)=>String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+  function renderUsaSettings(){
+    const panel = document.getElementById("usaSettingsPanel");
+    if (!panel || panel.style.display === "none") return;
+    const s = getSettings();
+
+    const togglesEl = document.getElementById("usaModuleToggles");
+    if (togglesEl) {
+      togglesEl.innerHTML = USA_MODULES_LIST.map(m=>`
+        <label style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06);cursor:pointer;">
+          <input type="checkbox" data-usa-module="${m.tab}" ${s.modules[m.tab]!==false?'checked':''} onchange="window.usaToggleModule(this)" style="width:16px;height:16px;accent-color:#c8a96e;cursor:pointer;" />
+          <span style="font-size:14px;">${m.icon} ${m.label}</span>
+        </label>`).join("");
+    }
+
+    const docsEl = document.getElementById("usaCustomDocsList");
+    if (docsEl) {
+      docsEl.innerHTML = (s.customDocs || []).length
+        ? s.customDocs.map(d=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(255,255,255,.04);border-radius:8px;"><span style="font-size:14px;color:#c8daf0;">📄 ${safe(d)}</span><button onclick="window.usaRemoveCustomDoc('${safe(d).replace(/'/g,"&#39;")}')" style="background:none;border:none;color:#667788;cursor:pointer;font-size:16px;padding:0 4px;">✕</button></div>`).join("")
+        : `<p style="font-size:12px;color:#556677;margin:0;">No custom documents added.</p>`;
+    }
+
+    const prioEl = document.getElementById("usaDefaultPriority");
+    if (prioEl) prioEl.value = s.defaultPriority || "Normal";
+  }
+
+  window.usaToggleModule = function(checkbox){
+    const s = getSettings(); s.modules[checkbox.dataset.usaModule] = checkbox.checked; saveSettings(s);
+  };
+  window.usaSavePriority = function(value){
+    const s = getSettings(); s.defaultPriority = value; saveSettings(s);
+  };
+  window.usaAddCustomDoc = function(){
+    const input = document.getElementById("usaCustomDocInput");
+    const name = (input?.value || "").trim(); if(!name) return;
+    const s = getSettings();
+    if(!s.customDocs.includes(name)){ s.customDocs.push(name); saveSettings(s); }
+    if(input) input.value = ""; renderUsaSettings();
+  };
+  window.usaRemoveCustomDoc = function(name){
+    const s = getSettings(); s.customDocs = s.customDocs.filter(d=>d!==name); saveSettings(s); renderUsaSettings();
+  };
+  window.usaExportMeta = function(){
+    const data = {meta: getMeta(), settings: getSettings(), exportDate: new Date().toISOString()};
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = "funeralos-usa-export.json"; a.click();
+    URL.revokeObjectURL(url);
+  };
+  window.usaRenderSettings = renderUsaSettings;
 
   function mergeCase(ceremony){
     const meta = getMeta()[ceremony.id] || {};
@@ -232,9 +313,12 @@
     if (window.__DEMO_MODE) {
       window.__usaDemoMeta = Object.assign({}, DEMO_META);
     }
+    // Re-render settings panel whenever the Settings tab is opened
+    const settingsBtn = document.querySelector('.tab-button[data-tab="settings"]');
+    if (settingsBtn) settingsBtn.addEventListener("click", ()=>setTimeout(renderUsaSettings, 50));
   });
 
-  window.__usaLib = { cases, updateMeta, getMeta, saveMeta, blankDocs, USA_DOCS, USA_STEPS, readCeremonies };
+  window.__usaLib = { cases, updateMeta, getMeta, saveMeta, blankDocs, allDocs, getSettings, saveSettings, renderUsaSettings, USA_DOCS, USA_STEPS, USA_MODULES_LIST, readCeremonies };
 })();
 
 
@@ -245,7 +329,7 @@
 // metadata in funeralos_en_usa_meta_v1.
 // ================================
 (function(){
-  const USA_DOCS = ()=>window.__usaLib.USA_DOCS;
+  const USA_DOCS = ()=>window.__usaLib.allDocs();
   const USA_STEPS = ()=>window.__usaLib.USA_STEPS;
   let usaFilter = "active";
 
@@ -296,7 +380,7 @@
       caseNumber: data.caseNumber || ("EN-" + new Date().getFullYear() + "-" + newId.slice(-4).toUpperCase()),
       caller: data.caller || "", relationship: data.relationship || "",
       phone: data.phone || "", placeOfDeath: data.placeOfDeath || "",
-      facility: data.facility || "", priority: data.priority || "Normal",
+      facility: data.facility || "", priority: data.priority || window.__usaLib.getSettings().defaultPriority || "Normal",
       driver: data.driver || "", vehicle: data.vehicle || "",
       status: "First Call", balance: 0, caseValue: 0, paymentStatus: "Pending",
       notes: data.notes || "",
@@ -430,26 +514,17 @@
     };
   }
 
-  const USA_MODULES = [
-    {tab:"usaDirector",  icon:"🗂",  label:"Director"},
-    {tab:"usaCases",     icon:"📁",  label:"Cases"},
-    {tab:"usaFirstCall", icon:"📞",  label:"First Call"},
-    {tab:"usaDocuments", icon:"📄",  label:"Docs"},
-    {tab:"usaStaff",     icon:"👥",  label:"Staff"},
-    {tab:"usaFleet",     icon:"🚗",  label:"Fleet"},
-    {tab:"usaCremation", icon:"🔥",  label:"Cremation"},
-    {tab:"usaFinance",   icon:"💰",  label:"Finance"},
-    {tab:"usaSchedule",  icon:"📅",  label:"Schedule"},
-  ];
-
   function injectSubNav(activeTab){
+    const modules = window.__usaLib.USA_MODULES_LIST;
+    const settings = window.__usaLib.getSettings();
+    const visible = modules.filter(m => settings.modules[m.tab] !== false);
     document.querySelectorAll(".usa-module-tab").forEach(section => {
       const existing = section.querySelector(".usa-subnav");
       if(existing) existing.remove();
       const nav = document.createElement("div");
       nav.className = "usa-subnav";
       nav.style.cssText = "display:flex;overflow-x:auto;gap:6px;margin-bottom:18px;padding-bottom:4px;scrollbar-width:none;";
-      USA_MODULES.forEach(m => {
+      visible.forEach(m => {
         const btn = document.createElement("button");
         btn.type = "button";
         const isActive = section.id === m.tab + "Tab";
