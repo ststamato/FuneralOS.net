@@ -5131,9 +5131,16 @@ function renderCustomFieldsSettings() {
     return;
   }
 
+  const reorderHint = sectionFields.length < 2
+    ? t("Πρόσθεσε τουλάχιστον 2 πεδία για να ενεργοποιηθεί η αναδιάταξη ↑↓.",
+        "Add at least 2 fields to enable ↑↓ reordering.")
+    : "";
+
   sectionFields.forEach(({ f, i: idx }, sIdx) => {
     const prevIdx = sIdx > 0 ? sectionFields[sIdx - 1].i : -1;
     const nextIdx = sIdx < sectionFields.length - 1 ? sectionFields[sIdx + 1].i : -1;
+    const upTitle  = prevIdx === -1 ? t("Χρειάζονται τουλάχιστον 2 πεδία", "Need at least 2 fields") : t("Μετακίνηση πάνω","Move up");
+    const dnTitle  = nextIdx === -1 ? t("Χρειάζονται τουλάχιστον 2 πεδία", "Need at least 2 fields") : t("Μετακίνηση κάτω","Move down");
     const tr = document.createElement("tr");
     if (f.enabled === false) tr.className = "custom-field-disabled";
     const show = [f.showCard !== false ? t("Κάρτα","Card") : "", f.showShare !== false ? "Share" : "", f.required ? t("Υποχρ.","Req.") : ""].filter(Boolean);
@@ -5142,8 +5149,8 @@ function renderCustomFieldsSettings() {
       <td>${esc(customFieldTypeLabel(f.type))}</td>
       <td>${show.length ? show.map(x => `<span class="custom-field-badge">${esc(x)}</span>`).join("") : "—"}</td>
       <td><div class="warehouse-actions compact-actions">
-        <button type="button" onclick="moveCustomField(${idx}, ${prevIdx})" ${prevIdx === -1 ? "disabled" : ""}>↑</button>
-        <button type="button" onclick="moveCustomField(${idx}, ${nextIdx})" ${nextIdx === -1 ? "disabled" : ""}>↓</button>
+        <button type="button" title="${esc(upTitle)}" onclick="moveCustomField(${idx}, ${prevIdx})" ${prevIdx === -1 ? "disabled" : ""}>↑</button>
+        <button type="button" title="${esc(dnTitle)}" onclick="moveCustomField(${idx}, ${nextIdx})" ${nextIdx === -1 ? "disabled" : ""}>↓</button>
         <button type="button" class="edit" onclick="openCustomFieldModal(${idx})">${t("Επεξεργασία","Edit")}</button>
         <button type="button" onclick="toggleCustomField(${idx})">${f.enabled === false ? t("Ενεργό","Enable") : t("Κρύψε","Hide")}</button>
         <button type="button" class="delete" onclick="deleteCustomField(${idx})">×</button>
@@ -5151,6 +5158,12 @@ function renderCustomFieldsSettings() {
     `;
     body.appendChild(tr);
   });
+
+  if (reorderHint) {
+    const hintRow = document.createElement("tr");
+    hintRow.innerHTML = `<td colspan="4" class="custom-field-muted" style="font-size:0.82em;padding:6px 4px;">${esc(reorderHint)}</td>`;
+    body.appendChild(hintRow);
+  }
 }
 
 // ========================
