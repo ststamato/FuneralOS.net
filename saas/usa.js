@@ -203,14 +203,36 @@
     document.addEventListener("click",(e)=>{ const b=e.target.closest("[data-usa-status]"); if(b) setStatus(b.dataset.id,b.dataset.usaStatus); });
     document.addEventListener("change",(e)=>{ const s=e.target.closest(".usa-doc-status[data-id]"); if(s) setDoc(s.dataset.id,s.dataset.doc,s.value); });
   }
+  function showUsaTab(tabName){
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    const section = document.getElementById(tabName + "Tab");
+    if(section) section.classList.add("active");
+    document.querySelectorAll(".tab-button").forEach(b => b.classList.remove("active"));
+    window.scrollTo(0,0);
+  }
   function patchTabSwitcher(){
     const old = window.v38SwitchTab;
     window.v38SwitchTab = function(tabName){
-      if(String(tabName||"").startsWith("usa")){ document.querySelector(`.tab-button[data-tab="${tabName}"]`)?.click(); renderUSA(); return; }
+      if(String(tabName||"").startsWith("usa")){ showUsaTab(tabName); renderUSA(); return; }
       if(typeof old==="function") return old(tabName);
     };
   }
-  document.addEventListener("DOMContentLoaded",()=>{ load(); bind(); patchTabSwitcher(); renderUSA(); });
+  function injectBackButtons(){
+    document.querySelectorAll(".usa-module-tab").forEach(section => {
+      if(section.querySelector(".usa-back-btn")) return;
+      const bar = document.createElement("div");
+      bar.style.cssText = "margin-bottom:16px;";
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "usa-back-btn";
+      btn.style.cssText = "background:none;border:none;color:#8899aa;font-size:13px;cursor:pointer;padding:6px 0;display:flex;align-items:center;gap:6px;";
+      btn.innerHTML = "&#8592; Back to Settings";
+      btn.onclick = () => { if(typeof window.v38SwitchTab==="function") window.v38SwitchTab("settings"); };
+      bar.appendChild(btn);
+      section.insertBefore(bar, section.firstChild);
+    });
+  }
+  document.addEventListener("DOMContentLoaded",()=>{ load(); bind(); patchTabSwitcher(); injectBackButtons(); renderUSA(); });
 })();
 
 

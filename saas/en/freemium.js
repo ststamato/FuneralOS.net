@@ -199,6 +199,8 @@
     if (isPaid) {
       const panel = document.getElementById("optionalFieldsPanel");
       if (panel) { panel.style.display = ""; renderFormLayoutPanel(); }
+      const usaPanel = document.getElementById("usaModulesPanel");
+      if (usaPanel) usaPanel.style.display = "";
     }
 
     if (plan !== "business") {
