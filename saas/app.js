@@ -5094,40 +5094,40 @@ function moveCustomField(fromIdx, toIdx) {
   renderAllSectionPanels();
 }
 
-let currentCsSection = “ceremony”;
+let currentCsSection = "ceremony";
 
 function renderCustomFieldsSettings() {
   ensureCustomFields();
-  const body = $(“customFieldsBody”);
+  const body = $("customFieldsBody");
   if (!body) return;
-  body.innerHTML = “”;
+  body.innerHTML = "";
 
   const sectionFields = customFields
     .map((f, i) => ({ f, i }))
-    .filter(({ f }) => (f.section || “ceremony”) === currentCsSection);
+    .filter(({ f }) => (f.section || "ceremony") === currentCsSection);
 
   if (!sectionFields.length) {
-    const msg = t(“Δεν υπάρχουν πεδία για αυτήν την ενότητα. Πάτα \”+ Νέο πεδίο\”.”, “No fields for this section yet. Click \”+ New field\”.”);
-    body.innerHTML = `<tr><td colspan=”4” class=”custom-field-muted”>${msg}</td></tr>`;
+    const msg = t("Δεν υπάρχουν πεδία για αυτήν την ενότητα. Πάτα \"+ Νέο πεδίο\".", "No fields for this section yet. Click \"+ New field\".");
+    body.innerHTML = `<tr><td colspan="4" class="custom-field-muted">${msg}</td></tr>`;
     return;
   }
 
   sectionFields.forEach(({ f, i: idx }, sIdx) => {
     const prevIdx = sIdx > 0 ? sectionFields[sIdx - 1].i : -1;
     const nextIdx = sIdx < sectionFields.length - 1 ? sectionFields[sIdx + 1].i : -1;
-    const tr = document.createElement(“tr”);
-    if (f.enabled === false) tr.className = “custom-field-disabled”;
-    const show = [f.showCard !== false ? t(“Κάρτα”,”Card”) : “”, f.showShare !== false ? “Share” : “”, f.required ? t(“Υποχρ.”,”Req.”) : “”].filter(Boolean);
+    const tr = document.createElement("tr");
+    if (f.enabled === false) tr.className = "custom-field-disabled";
+    const show = [f.showCard !== false ? t("Κάρτα","Card") : "", f.showShare !== false ? "Share" : "", f.required ? t("Υποχρ.","Req.") : ""].filter(Boolean);
     tr.innerHTML = `
-      <td><b>${esc(f.label)}</b><div class=”custom-field-muted”>${esc(f.placeholder || “”)}</div></td>
+      <td><b>${esc(f.label)}</b><div class="custom-field-muted">${esc(f.placeholder || "")}</div></td>
       <td>${esc(customFieldTypeLabel(f.type))}</td>
-      <td>${show.length ? show.map(x => `<span class=”custom-field-badge”>${esc(x)}</span>`).join(“”) : “—“}</td>
-      <td><div class=”warehouse-actions compact-actions”>
-        <button type=”button” onclick=”moveCustomField(${idx}, ${prevIdx})” ${prevIdx === -1 ? “disabled” : “”}>↑</button>
-        <button type=”button” onclick=”moveCustomField(${idx}, ${nextIdx})” ${nextIdx === -1 ? “disabled” : “”}>↓</button>
-        <button type=”button” class=”edit” onclick=”openCustomFieldModal(${idx})”>${t(“Επεξεργασία”,”Edit”)}</button>
-        <button type=”button” onclick=”toggleCustomField(${idx})”>${f.enabled === false ? t(“Ενεργό”,”Enable”) : t(“Κρύψε”,”Hide”)}</button>
-        <button type=”button” class=”delete” onclick=”deleteCustomField(${idx})”>×</button>
+      <td>${show.length ? show.map(x => `<span class="custom-field-badge">${esc(x)}</span>`).join("") : "—"}</td>
+      <td><div class="warehouse-actions compact-actions">
+        <button type="button" onclick="moveCustomField(${idx}, ${prevIdx})" ${prevIdx === -1 ? "disabled" : ""}>↑</button>
+        <button type="button" onclick="moveCustomField(${idx}, ${nextIdx})" ${nextIdx === -1 ? "disabled" : ""}>↓</button>
+        <button type="button" class="edit" onclick="openCustomFieldModal(${idx})">${t("Επεξεργασία","Edit")}</button>
+        <button type="button" onclick="toggleCustomField(${idx})">${f.enabled === false ? t("Ενεργό","Enable") : t("Κρύψε","Hide")}</button>
+        <button type="button" class="delete" onclick="deleteCustomField(${idx})">×</button>
       </div></td>
     `;
     body.appendChild(tr);
