@@ -72,6 +72,65 @@ async function setUserPlan(
   return res.ok;
 }
 
+async function rewardReferrer(
+  supabaseUrl: string,
+  serviceKey: string,
+  referredUserId: string
+): Promise<void> {
+  const headers = {
+    Authorization: `Bearer ${serviceKey}`,
+    apikey: serviceKey,
+    "Content-Type": "application/json",
+  };
+
+  // Find a pending referral where this user was referred
+  const refRes = await fetch(
+    `${supabaseUrl}/rest/v1/referrals?referred_id=eq.${referredUserId}&status=eq.pending&select=id,referrer_id`,
+    { headers }
+  );
+  if (!refRes.ok) return;
+  const refs = await refRes.json();
+  if (!refs.length) return;
+
+  const { id: referralId, referrer_id: referrerId } = refs[0];
+
+  // Mark as rewarded (idempotent — next events won't find it)
+  await fetch(`${supabaseUrl}/rest/v1/referrals?id=eq.${referralId}`, {
+    method: "PATCH",
+    headers: { ...headers, Prefer: "return=minimal" },
+    body: JSON.stringify({ status: "rewarded" }),
+  });
+
+  // Load referrer's current credits & plan_until
+  const profRes = await fetch(
+    `${supabaseUrl}/rest/v1/profiles?id=eq.${referrerId}&select=referral_credits,referral_plan_until`,
+    { headers }
+  );
+  if (!profRes.ok) return;
+  const profs = await profRes.json();
+  if (!profs.length) return;
+
+  const currentCredits: number = profs[0].referral_credits || 0;
+  const currentUntil: string | null = profs[0].referral_plan_until;
+
+  // Extend plan_until by 1 month (stack on existing future date if any)
+  const base = currentUntil && new Date(currentUntil) > new Date()
+    ? new Date(currentUntil)
+    : new Date();
+  base.setMonth(base.getMonth() + 1);
+
+  await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${referrerId}`, {
+    method: "PATCH",
+    headers: { ...headers, Prefer: "return=minimal" },
+    body: JSON.stringify({
+      referral_credits: currentCredits + 1,
+      referral_plan_until: base.toISOString(),
+    }),
+  });
+
+  console.log(`Referral rewarded: referrer=${referrerId} credits=${currentCredits + 1} until=${base.toISOString()}`);
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
@@ -131,6 +190,11 @@ Deno.serve(async (req: Request) => {
   // Update plan
   const ok = await setUserPlan(supabaseUrl, serviceKey, user.id, user.user_metadata || {}, targetPlan);
   console.log(`Plan update → ${targetPlan} for ${email}: ${ok ? "OK" : "FAILED"}`);
+
+  // Reward referrer on paid upgrade (pending referral becomes rewarded, +1 month)
+  if (ok && targetPlan !== "free") {
+    await rewardReferrer(supabaseUrl, serviceKey, user.id);
+  }
 
   return new Response(JSON.stringify({ ok, plan: targetPlan }), {
     status: 200,
