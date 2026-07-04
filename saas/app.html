@@ -78,7 +78,7 @@
     }
     .logout-btn:hover { border-color: rgba(255,255,255,.4); color: #fff; }
     .lang-app { display: flex; align-items: center; border: 1px solid rgba(255,255,255,.1); border-radius: 6px; overflow: hidden; }
-    .lang-app a, .lang-app span { font-size: 11px; font-weight: 600; padding: 4px 8px; text-decoration: none; color: rgba(255,255,255,.4); }
+    .lang-app a, .lang-app span { font-size: 10px; font-weight: 700; padding: 4px 6px; text-decoration: none; color: rgba(255,255,255,.4); letter-spacing: .3px; }
     .lang-app a:hover { color: #fff; background: rgba(255,255,255,.06); }
     .lang-app span { color: #c8a96e; background: rgba(200,169,110,.1); }
     .lang-app-sep { color: rgba(255,255,255,.15); padding: 0 !important; }
@@ -100,9 +100,17 @@
 <div id="upgradeModal">
   <div class="upgrade-box">
     <div class="up-icon">🔒</div>
-    <h2 id="upgradeTitle">Αναβάθμιση σε Pro</h2>
-    <p id="upgradeText">Ξεπέρασες το όριο του δωρεάν πλάνου (10 τελετές/μήνα).<br>Αναβάθμισε σε Pro για απεριόριστες τελετές.</p>
-    <a href="https://buy.stripe.com/PLACEHOLDER" target="_blank" class="up-btn" id="upgradeBtn">Αναβάθμιση σε Pro — €39/μήνα →</a>
+    <h2 id="upgradeTitle">Αναβάθμιση πλάνου</h2>
+    <p id="upgradeText">Ξεπέρασες το όριο του δωρεάν πλάνου.</p>
+    <div style="display:flex;flex-direction:column;gap:10px;margin:16px 0 6px;">
+      <a href="https://funeralos.lemonsqueezy.com/checkout/buy/6cdaa45a-02fe-4a51-b4ae-e51633d3b36d" target="_blank" class="up-btn" id="upgradeBtnPro" style="text-align:center;">
+        ⭐ Pro — $79/μήνα →
+      </a>
+      <a href="https://funeralos.lemonsqueezy.com/checkout/buy/3c72881b-2f6b-40be-970c-effe794d8de7" target="_blank" class="up-btn" id="upgradeBtnBiz" style="text-align:center;background:linear-gradient(135deg,#c8a96e,#a07840);">
+        🚀 Business — $129/μήνα →
+      </a>
+    </div>
+    <p style="font-size:11px;color:#8899aa;margin:0 0 12px;text-align:center;">Pro: απεριόριστες τελετές &nbsp;·&nbsp; Business: Pro + AI Assistant + Hermes</p>
     <button class="up-close" onclick="closeUpgradeModal()">Κλείσιμο</button>
   </div>
 </div>
@@ -120,9 +128,9 @@
     </div>
     <div class="user-chip">
       <div class="lang-app">
-        <a href="en/app.html">🇬🇧 EN</a>
+        <a href="en/app.html">🇺🇸 USA EDITION</a>
         <span class="lang-app-sep">|</span>
-        <span>🇬🇷 GR</span>
+        <span>🇬🇷 GREEK EDITION</span>
       </div>
       <div class="plan-tiers" id="planTiers" title="Το τρέχον πλάνο σου">
         <span data-tier="free">FREE</span>
@@ -145,6 +153,7 @@
   </nav>
 
   <section class="home-command-center" id="homeCommandCenter" aria-label="Πίνακας γραφείου">
+    <div id="sectionPanel_home" class="section-custom-panel hidden"></div>
     <button type="button" id="aiAssistantBtn" class="ai-assistant-btn hero-ai-btn">🤖 AI Βοηθός</button>
 
     <div class="hermes-mini-brief" id="hermesMiniBrief">
@@ -192,6 +201,7 @@
     </section>
 
     <section id="warehouseTab" class="tab">
+      <div id="sectionPanel_inventory" class="section-custom-panel hidden"></div>
       <h2>Αποθήκη</h2>
       <div class="warehouse-section">
         <h3>Φέρετρα</h3>
@@ -229,6 +239,7 @@
     </section>
 
     <section id="statsTab" class="tab">
+      <div id="sectionPanel_stats" class="section-custom-panel hidden"></div>
       <h2>Στατιστικά</h2>
       <div id="statsContent">
         <div id="statsMore"></div>
@@ -236,6 +247,7 @@
     </section>
 
     <section id="historyTab" class="tab">
+      <div id="sectionPanel_history" class="section-custom-panel hidden"></div>
       <h2>Ιστορικό τελετών</h2>
       <div id="historyControls"></div>
       <div id="historyList"></div>
@@ -246,21 +258,39 @@
       <div class="settings-panel" id="optionalFieldsPanel" style="display:none;">
         <div class="settings-head">
           <div>
-            <h3>Προαιρετικά πεδία τελετής <span style="background:#c8a96e;color:#0f1523;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-left:4px;vertical-align:middle;">PRO</span></h3>
-            <p class="warehouse-hint">Επίλεξε ποια επιπλέον πεδία εμφανίζονται στη φόρμα τελετής.</p>
+            <h3>Διάταξη φόρμας τελετής <span style="background:#c8a96e;color:#0f1523;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-left:4px;vertical-align:middle;">PRO</span></h3>
+            <p class="warehouse-hint">Άλλαξε σειρά ↑↓ και ορατότητα των πεδίων στη φόρμα τελετής.</p>
           </div>
         </div>
         <div id="optFieldsToggleList" class="opt-fields-toggle-list"></div>
       </div>
+      <!-- Trash / Soft Delete -->
+      <div class="settings-panel" id="trashPanel">
+        <div class="settings-head">
+          <div>
+            <h3>🗑 Κάδος Ανακύκλωσης <span id="trashCount" style="font-size:12px;background:rgba(220,80,80,.15);color:#e07070;border-radius:10px;padding:2px 7px;margin-left:6px;"></span></h3>
+            <p class="warehouse-hint">Οι διαγραμμένες τελετές φυλάσσονται εδώ. Μπορείς να τις επαναφέρεις ή να τις διαγράψεις μόνιμα.</p>
+          </div>
+          <button onclick="emptyTrash()" style="padding:6px 14px;border-radius:7px;border:1px solid rgba(220,80,80,.35);background:transparent;color:#e07070;font-size:12px;cursor:pointer;white-space:nowrap;">Άδειασμα κάδου</button>
+        </div>
+        <div id="trashList" style="margin-top:10px;"></div>
+      </div>
       <div class="settings-panel">
         <div class="settings-head">
           <div>
-            <h3>Πεδία καρτέλας τελετής</h3>
-            <p class="warehouse-hint">Προσθέτεις δικά σου πεδία στην επεξεργασία τελετής.</p>
+            <h3>Προσαρμοσμένα πεδία εφαρμογής</h3>
+            <p class="warehouse-hint">Πρόσθεσε δικά σου πεδία σε κάθε ενότητα — φόρμα τελετής, αποθήκη, στατιστικά κ.ά.</p>
           </div>
           <button type="button" id="addCustomFieldBtn" class="add-option-btn">+ Νέο πεδίο</button>
         </div>
-        <div class="settings-note">Τα βασικά πεδία μένουν άθικτα. Εδώ προσθέτουμε έξτρα πεδία.</div>
+        <div class="cs-section-filter" id="csSectionFilter">
+          <button data-cs-section="ceremony" class="active" onclick="setCsSection('ceremony')">📋 Τελετή</button>
+          <button data-cs-section="home" onclick="setCsSection('home')">🏠 Dashboard</button>
+          <button data-cs-section="inventory" onclick="setCsSection('inventory')">📦 Αποθήκη</button>
+          <button data-cs-section="stats" onclick="setCsSection('stats')">📊 Στατιστικά</button>
+          <button data-cs-section="history" onclick="setCsSection('history')">📜 Ιστορικό</button>
+        </div>
+        <div class="settings-note" id="csSectionNote">Πεδία φόρμας τελετής — εμφανίζονται και στην κάρτα.</div>
         <table class="warehouse-table compact-table">
           <thead><tr><th>Πεδίο</th><th>Τύπος</th><th>Εμφάνιση</th><th></th></tr></thead>
           <tbody id="customFieldsBody"></tbody>
@@ -382,14 +412,14 @@
     <div class="modal-content">
       <h2 id="modalTitle">Νέα τελετή</h2>
       <form id="ceremonyForm">
-        <div class="form-grid-2">
+        <div data-field-key="datetime"><div class="form-grid-2">
           <label>Ημερομηνία<input type="date" id="ceremonyDate" /></label>
           <label>Ώρα<input type="time" id="ceremonyTime" /></label>
-        </div>
-        <label>Όνομα θανόντα<input type="text" id="deceasedName" /></label>
-        <label>Τοποθεσία τελετής<input type="text" id="ceremonyPlace" placeholder="π.χ. Ι.Ν. Αγ. Νικολάου" /></label>
-        <label>Τρόπος<select id="burialType"><option value="Ταφή">Ταφή</option><option value="Αποτεφρωση">Αποτεφρωση</option></select></label>
-        <div class="opt-field" data-opt="cremation">
+        </div></div>
+        <div data-field-key="name"><label>Όνομα θανόντα<input type="text" id="deceasedName" /></label></div>
+        <div data-field-key="place"><label>Τοποθεσία τελετής<input type="text" id="ceremonyPlace" placeholder="π.χ. Ι.Ν. Αγ. Νικολάου" /></label></div>
+        <div data-field-key="burialType"><label>Τρόπος<select id="burialType"><option value="Ταφή">Ταφή</option><option value="Αποτεφρωση">Αποτεφρωση</option></select></label></div>
+        <div class="opt-field" data-opt="cremation" data-field-key="cremation">
           <div id="cremationBox" class="hint-box hidden">
             <div class="form-grid-2">
               <label>Συνοδοί στην ΑΙΘΟΥΣΑ<input type="number" id="cremationEscortCount" min="0" value="0" /></label>
@@ -398,13 +428,13 @@
             <p class="mini-muted">Με "Αποτεφρωση" δεν ζητάμε τάφο/ζώνη/τριετία.</p>
           </div>
         </div>
-        <label>Υπεύθυνος τελετής<select id="responsiblePerson"></select></label>
-        <div class="opt-field" data-opt="secondPerson"><label>2ο άτομο (βοήθεια)<select id="secondPerson"></select></label></div>
-        <div class="opt-field" data-opt="suitcase"><label>Βαλίτσα<select id="suitcase"></select></label></div>
-        <label>Φέρετρο<select id="ceremonyCoffin"></select></label>
-        <div class="opt-field" data-opt="set"><label>ΣΕΤ<select id="ceremonySet"></select></label></div>
-        <div class="opt-field" data-opt="flowers"><label>Στεφάνια / Λουλούδια<input type="text" id="ceremonyFlowers" placeholder="π.χ. 2 στεφάνια" /></label></div>
-        <div class="opt-field" data-opt="announcement">
+        <div data-field-key="responsible"><label>Υπεύθυνος τελετής<select id="responsiblePerson"></select></label></div>
+        <div class="opt-field" data-opt="secondPerson" data-field-key="secondPerson"><label>2ο άτομο (βοήθεια)<select id="secondPerson"></select></label></div>
+        <div class="opt-field" data-opt="suitcase" data-field-key="suitcase"><label>Βαλίτσα<select id="suitcase"></select></label></div>
+        <div data-field-key="coffin"><label>Φέρετρο<select id="ceremonyCoffin"></select></label></div>
+        <div class="opt-field" data-opt="set" data-field-key="set"><label>ΣΕΤ<select id="ceremonySet"></select></label></div>
+        <div class="opt-field" data-opt="flowers" data-field-key="flowers"><label>Στεφάνια / Λουλούδια<input type="text" id="ceremonyFlowers" placeholder="π.χ. 2 στεφάνια" /></label></div>
+        <div class="opt-field" data-opt="announcement" data-field-key="announcement">
           <label>Αγγελτήριο
             <select id="ceremonyAnnouncementStatus">
               <option value="Δεν χρειάζεται">Δεν χρειάζεται</option>
@@ -413,20 +443,20 @@
             </select>
           </label>
         </div>
-        <div class="opt-field" data-opt="decor">
+        <div class="opt-field" data-opt="decor" data-field-key="decor">
           <label>Στολισμός<select id="ceremonyDecor"><option value="">-</option></select></label>
           <label>Λεπτομέρεια στολισμού<input type="text" id="ceremonyDecorNote" placeholder="π.χ. απλό" /></label>
         </div>
-        <div class="opt-field" data-opt="pallbearers"><label>Φραγκοφόροι<select id="ceremonyPallbearers"><option value="">-</option></select></label></div>
-        <div class="opt-field" data-opt="coffee">
+        <div class="opt-field" data-opt="pallbearers" data-field-key="pallbearers"><label>Φραγκοφόροι<select id="ceremonyPallbearers"><option value="">-</option></select></label></div>
+        <div class="opt-field" data-opt="coffee" data-field-key="coffee">
           <label>Καφές<select id="ceremonyCoffee"><option value="">-</option><option value="Ναι">Ναι</option><option value="Όχι">Όχι</option></select></label>
           <label>Καφές - Τοποθεσία<input type="text" id="ceremonyCoffeePlace" placeholder="π.χ. Αίθουσα" /></label>
         </div>
-        <label>Παραλαβή<input type="text" id="ceremonyPickup" placeholder="π.χ. Νοσοκομείο / Οικία" /></label>
-        <div class="opt-field" data-opt="pickupSecond"><label>2ο άτομο παραλαβής<select id="pickupSecondPerson"></select></label></div>
-        <label>Ημερομηνία παραλαβής<input type="date" id="pickupDate" /></label>
-        <div class="opt-field" data-opt="coldRoom"><label>Ψυκτικός θάλαμος<input type="text" id="ceremonyColdRoom" placeholder="π.χ. Ναι / Όχι / Πού" /></label></div>
-        <div class="opt-field" data-opt="grave">
+        <div data-field-key="pickup"><label>Παραλαβή<input type="text" id="ceremonyPickup" placeholder="π.χ. Νοσοκομείο / Οικία" /></label></div>
+        <div class="opt-field" data-opt="pickupSecond" data-field-key="pickupSecond"><label>2ο άτομο παραλαβής<select id="pickupSecondPerson"></select></label></div>
+        <div data-field-key="pickupDate"><label>Ημερομηνία παραλαβής<input type="date" id="pickupDate" /></label></div>
+        <div class="opt-field" data-opt="coldRoom" data-field-key="coldRoom"><label>Ψυκτικός θάλαμος<input type="text" id="ceremonyColdRoom" placeholder="π.χ. Ναι / Όχι / Πού" /></label></div>
+        <div class="opt-field" data-opt="grave" data-field-key="grave">
           <div id="graveBox">
             <label>Τόπος ταφής</label>
             <div class="grave-row">
@@ -439,8 +469,8 @@
             </div>
           </div>
         </div>
+        <div data-field-key="notes"><label>Σημειώσεις<textarea id="ceremonyNotes" rows="2" placeholder="Οτιδήποτε σημαντικό..."></textarea></label></div>
         <div id="customFieldsFormBox" class="custom-fields-form-box"></div>
-        <label>Σημειώσεις<textarea id="ceremonyNotes" rows="2" placeholder="Οτιδήποτε σημαντικό..."></textarea></label>
         <div class="modal-actions">
           <button type="button" id="cancelModalBtn">Άκυρο</button>
           <button type="submit" id="saveCeremonyBtn">Αποθήκευση</button>
@@ -495,6 +525,15 @@
       <h2 id="customFieldModalTitle">Νέο πεδίο</h2>
       <form id="customFieldForm">
         <label>Όνομα πεδίου<input type="text" id="customFieldLabel" placeholder="π.χ. Οικονομική εκκρεμότητα" required /></label>
+        <label>Ενότητα εφαρμογής
+          <select id="customFieldSection">
+            <option value="ceremony">📋 Φόρμα τελετής</option>
+            <option value="home">🏠 Dashboard (πάνω από AI)</option>
+            <option value="inventory">📦 Αποθήκη</option>
+            <option value="stats">📊 Στατιστικά</option>
+            <option value="history">📜 Ιστορικό</option>
+          </select>
+        </label>
         <div class="form-grid-2">
           <label>Τύπος πεδίου
             <select id="customFieldType">
@@ -505,6 +544,7 @@
               <option value="date">Ημερομηνία</option>
               <option value="time">Ώρα</option>
               <option value="number">Αριθμός</option>
+              <option value="checkbox">Τικ ✓</option>
             </select>
           </label>
           <label>Placeholder<input type="text" id="customFieldPlaceholder" placeholder="προαιρετικό" /></label>

@@ -23,9 +23,9 @@
 // ---------------- CLOUD CONFIG (Supabase) ----------------
 const USE_CLOUD = true;
 
-const SUPABASE_URL = "https://jciaozbyvdiqfxwlgdql.supabase.co";
+const SUPABASE_URL = "https://rqklpnrgpiprttzsploe.supabase.co";
 const SUPABASE_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpjaWFvemJ5dmRpcWZ4d2xnZHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxMTE5NjQsImV4cCI6MjA4MDY4Nzk2NH0.eEBYVU1VTU3CZvaSA9fh-LLEbqRPRY9ZpK7P-17kWaA";
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJxa2xwbnJncGlwcnR0enNwbG9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMzA2NTgsImV4cCI6MjA5ODYwNjY1OH0.L9kumMt04wy0rlEfE79AwvGD8C2YWAyr_CIh9dDlBZQ";
 
 function supabaseHeaders(extra = {}) {
   return {
@@ -39,7 +39,7 @@ function supabaseHeaders(extra = {}) {
 
 // ---------------- PWA / PUSH ----------------
 const VAPID_PUBLIC_KEY =
-  "BAnN_TACRNnOgn2oPFjiJtVC32-gbP2eRefbVlCWvYdyBEtoH5DvIEglDbPvFjy5uqcIzVy6rAWD7WrODvgjuLM";
+  "BK7NS0ErC-xKQaTiBFm48qDEZE9IZZtbWvTqgAQCrZMGTjzxZtZ2eDvVsJAL7jIvga47TZyc6c-fAtOgijKOLKM";
 
 const SW_PATH = "./sw.js";
 const EDGE_FUNCTION_PUSH_SENDER = "push_sender";
@@ -194,6 +194,10 @@ const DEFAULT_SETS = ["ΓΚΡΙ", "ΛΕΥΚΟ", "ΚΟΚΚΙΝΟ", "ΜΠΛΕ"];
 
 // ---------------- State ----------------
 let ceremonies = [];
+let deletedCeremonies = [];
+// Ceremony bridge — available immediately so USA modules can read live data
+window.__fosGetCeremonies = () => ceremonies;
+window.__fosPushCeremony = (c) => { ceremonies.unshift(c); saveData(); renderAll(); };
 let warehouse = [];
 let setsWarehouse = [];
 let secondHelpers = [];
@@ -205,6 +209,7 @@ let aiSeenAlerts = [];
 let aiChatHistory = [];
 let customFields = [];
 let customLists = [];
+let sectionData = {};
 
 // ---------------- LocalStorage Keys ----------------
 const CEREMONIES_KEY = "staurakaki_ceremonies_v8";
@@ -220,9 +225,14 @@ const AI_SEEN_NOTES_KEY = "staurakaki_ai_seen_notes_v1";
 const AI_SEEN_ALERTS_KEY = "staurakaki_ai_seen_alerts_v1";
 const AI_CHAT_HISTORY_KEY = "staurakaki_ai_chat_history_v1";
 const CUSTOM_FIELDS_KEY = "staurakaki_custom_fields_v36";
-const CUSTOM_LISTS_KEY = "staurakaki_custom_lists_v1";
+const CUSTOM_LISTS_KEY = window.__appLang === "en" ? "funeralos_en_custom_lists_v1" : "staurakaki_custom_lists_v1";
+const SECTION_DATA_KEY = "funeralos_section_data_v1";
+const TRASH_KEY = "staurakaki_trash_v1";
 const OFFICE_EVENTS_LOCAL_KEY = "staurakaki_office_events_v1";
 const OFFICE_DNA_LOCAL_KEY = "staurakaki_office_dna_v1";
+const PENDING_SAVE_KEY = "staurakaki_pending_sync_v1";
+
+let _cloudSaveInFlight = false;
 
 // ---------------- Helpers ----------------
 function nowTs() { return Date.now(); }
@@ -504,7 +514,7 @@ function aiMarkNoteSeen(key) {
   if (!key) return;
   if (!Array.isArray(aiSeenNotes)) aiSeenNotes = [];
   if (!aiSeenNotes.includes(key)) aiSeenNotes.push(key);
-  addChange("ai_note_seen", "AI σημείωση σημειώθηκε ως διαβασμένη");
+  addChange("ai_note_seen", t("AI σημείωση σημειώθηκε ως διαβασμένη","AI note marked as seen"));
   saveData();
   updateHomeDashboard();
   if (aiLastMode === "cloud") aiRunCloud();
@@ -536,7 +546,7 @@ function aiMarkAlertSeen(key) {
   if (!Array.isArray(aiSeenAlerts)) aiSeenAlerts = [];
   if (!Array.isArray(customFields)) customFields = [];
   if (!aiSeenAlerts.includes(key)) aiSeenAlerts.push(key);
-  addChange("ai_alert_seen", "AI ειδοποίηση σημειώθηκε ως διαβασμένη");
+  addChange("ai_alert_seen", t("AI ειδοποίηση σημειώθηκε ως διαβασμένη","AI alert marked as seen"));
   saveData();
   updateHomeDashboard();
   if (aiLastMode === "cloud") aiRunCloud();
@@ -558,7 +568,10 @@ function setDeviceLabel(label) {
 function ensureDeviceLabel() {
   let label = getDeviceLabel();
   if (!label) {
-    label = window.prompt("Δώσε όνομα συσκευής (π.χ. iPhone Σταύρου, iMac γραφείου):", "");
+    const msg = window.__appLang === "en"
+      ? "Enter a device name (e.g. Office iPhone, Front Desk Mac):"
+      : "Δώσε όνομα συσκευής (π.χ. iPhone Σταύρου, iMac γραφείου):";
+    label = window.prompt(msg, "");
     if (label) setDeviceLabel(label);
   }
 }
@@ -590,7 +603,9 @@ function dateToStr(d) {
 }
 
 function addDaysStr(yyyyMmDd, daysToAdd) {
-  const d = new Date(yyyyMmDd);
+  // Parse as local noon to avoid UTC-midnight / DST off-by-one issues
+  const [y, m, dd] = String(yyyyMmDd).split("-").map(Number);
+  const d = new Date(y, m - 1, dd, 12, 0, 0);
   d.setDate(d.getDate() + daysToAdd);
   return dateToStr(d);
 }
@@ -634,16 +649,18 @@ function queueEdgePush(changeEntry) {
 
 async function sendEdgePushBatch(batch) {
   if (!Array.isArray(batch) || batch.length === 0) return;
+  // Only send push notifications in production to avoid alerting the real office during dev
+  if (window.location.hostname !== "funeralos.net") return;
 
-  const me = getDeviceLabel() || "Άγνωστη συσκευή";
-  let title = "Σταυρακάκη — Νέα αλλαγή";
+  const me = getDeviceLabel() || t("Άγνωστη συσκευή", "Unknown device");
+  const title = t("Σταυρακάκη — Νέα αλλαγή", "FuneralOS — New update");
   let body = "";
 
   if (batch.length === 1) {
     const c = batch[0];
-    body = `${c.device || me}: ${c.summary || "Update"}`;
+    body = `${c.device || me}: ${c.summary || t("Αλλαγή", "Update")}`;
   } else {
-    body = `${me}: ${batch.length} αλλαγές`;
+    body = `${me}: ${batch.length} ${t("αλλαγές", "changes")}`;
   }
 
   const payload = {
@@ -669,7 +686,7 @@ function addChange(action, summary) {
     ts: nowTs(),
     action: action || "update",
     summary: summary || "",
-    device: getDeviceLabel() || "Άγνωστη συσκευή"
+    device: getDeviceLabel() || t("Άγνωστη συσκευή", "Unknown device")
   };
   ensureOptionWarehouse();
 
@@ -739,7 +756,7 @@ function ensureUpdatesUI() {
     content.className = "modal-content";
 
     const h2 = document.createElement("h2");
-    h2.textContent = "Updates / Αλλαγές";
+    h2.textContent = t("Updates / Αλλαγές", "Updates");
 
     const actions = document.createElement("div");
     actions.style.display = "flex";
@@ -766,7 +783,7 @@ function ensureUpdatesUI() {
     btnRead.onclick = () => { markAllChangesRead(); renderUpdatesList(); };
 
     const btnClose = document.createElement("button");
-    btnClose.textContent = "Κλείσιμο";
+    btnClose.textContent = t("Κλείσιμο", "Close");
     btnClose.style.borderRadius = "999px";
     btnClose.style.border = "none";
     btnClose.style.padding = "7px 14px";
@@ -782,7 +799,10 @@ function ensureUpdatesUI() {
     note.style.color = "#6b7280";
     note.style.marginBottom = "8px";
     note.innerHTML = `
-      <div><b>Σημείωση:</b> Για να έρθει push στο iPhone όταν η εφαρμογή είναι κλειστή, πρέπει να είναι εγκατεστημένη (Add to Home Screen).</div>
+      <div><b>${t("Σημείωση","Note")}:</b> ${t(
+        "Για να έρθει push στο iPhone όταν η εφαρμογή είναι κλειστή, πρέπει να είναι εγκατεστημένη (Add to Home Screen).",
+        "To receive push notifications on iPhone when the app is closed, it must be installed (Add to Home Screen)."
+      )}</div>
     `;
 
     const list = document.createElement("div");
@@ -830,21 +850,27 @@ function renderUpdatesList() {
     .slice(0, 60);
 
   if (!items.length) {
-    el.innerHTML = `<p style="color:#6b7280;">Δεν υπάρχουν καταγεγραμμένες αλλαγές.</p>`;
+    el.innerHTML = `<p style="color:#6b7280;">${t("Δεν υπάρχουν καταγεγραμμένες αλλαγές.", "No recorded changes yet.")}</p>`;
     return;
   }
+
+  const GR_UNKNOWN = "Άγνωστη συσκευή";
+  const GR_OTHER   = "Άλλη συσκευή";
 
   el.innerHTML = items.map(c => {
     const unread = (c.ts || 0) > seen && (c.device || "") !== me;
     const dot = unread ? "🟢" : "⚪️";
-    const t = formatTimestamp(c.ts);
+    const ts = formatTimestamp(c.ts);
     const summary = esc(c.summary || "");
-    const dev = esc(c.device || "");
+    let rawDev = c.device || "";
+    if (rawDev === GR_UNKNOWN) rawDev = t(GR_UNKNOWN, "Unknown device");
+    if (rawDev === GR_OTHER)   rawDev = t(GR_OTHER, "Other device");
+    const dev = esc(rawDev);
     return `
       <div style="padding:8px 0;border-bottom:1px solid #e5e7eb;">
         <div style="display:flex;justify-content:space-between;gap:10px;">
           <div><b>${dot} ${dev}</b></div>
-          <div style="color:#6b7280;font-size:12px;">${t}</div>
+          <div style="color:#6b7280;font-size:12px;">${ts}</div>
         </div>
         <div style="margin-top:4px;">${summary || "<span style='color:#6b7280;'>—</span>"}</div>
       </div>
@@ -864,11 +890,41 @@ function closeUpdatesModal() {
 }
 
 // ---------------- Cloud load/save ----------------
+function showSyncBadge(state) {
+  let el = document.getElementById("cloudSyncBadge");
+  if (!el && state) {
+    el = document.createElement("span");
+    el.id = "cloudSyncBadge";
+    el.style.cssText = "position:fixed;bottom:14px;right:14px;z-index:9100;font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;background:rgba(15,26,46,.9);border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(6px);pointer-events:none;transition:opacity .5s;";
+    document.body.appendChild(el);
+  }
+  if (!el) return;
+  if (!state) { el.style.opacity = "0"; return; }
+  const cfg = {
+    saving:  ["⟳ syncing…",          "#aaccaa"],
+    saved:   ["✓ saved",              "#66cc88"],
+    pending: ["● offline · pending",  "#e0a040"],
+    error:   ["⚠ sync failed",        "#e07070"],
+  }[state] || [state, "#aabb88"];
+  el.textContent = cfg[0];
+  el.style.color = cfg[1];
+  el.style.opacity = "1";
+}
+
 async function getCloudSession() {
   try {
     if (window.__sb) {
       const { data: { session } } = await window.__sb.auth.getSession();
-      if (session?.user?.id) return { rowId: session.user.id, token: session.access_token };
+      if (session?.user?.id) {
+        const meta = session.user.user_metadata || {};
+        window.__currentRole = meta.office_role || "admin";
+        return {
+          rowId: meta.office_id || session.user.id,
+          userId: session.user.id,
+          token: session.access_token,
+          role: window.__currentRole,
+        };
+      }
     }
   } catch {}
   return null;
@@ -896,24 +952,76 @@ async function cloudLoadData() {
     if (Array.isArray(p.aiSeenAlerts)) aiSeenAlerts = p.aiSeenAlerts;
     if (Array.isArray(p.aiChatHistory)) aiChatHistory = p.aiChatHistory;
     if (Array.isArray(p.customFields)) customFields = p.customFields;
-    if (Array.isArray(p.customLists)) customLists = p.customLists;
+    if (Array.isArray(p.deletedCeremonies)) deletedCeremonies = p.deletedCeremonies;
+    if (window.__appLang === "en") {
+      if (Array.isArray(p.enCustomLists)) customLists = p.enCustomLists;
+      if (Array.isArray(p.customLists)) {
+        try { localStorage.setItem("staurakaki_custom_lists_v1", JSON.stringify(p.customLists)); } catch {}
+      }
+    } else {
+      if (Array.isArray(p.customLists)) customLists = p.customLists;
+    }
   }
 }
 
 async function cloudSaveAll() {
   if (window.__DEMO_MODE) return;
+  if (!navigator.onLine) {
+    localStorage.setItem(PENDING_SAVE_KEY, "1");
+    showSyncBadge("pending");
+    return;
+  }
+  if (_cloudSaveInFlight) {
+    localStorage.setItem(PENDING_SAVE_KEY, "1");
+    return;
+  }
+  _cloudSaveInFlight = true;
+  showSyncBadge("saving");
+
   const base = `${SUPABASE_URL}/rest/v1`;
   const session = await getCloudSession();
-  if (!session) { console.error("No authenticated user for cloud save"); return; }
-  const payload = { ceremonies, warehouse, setsWarehouse, secondHelpers, optionWarehouse, changeLog, pushSubs, aiSeenNotes, aiSeenAlerts, aiChatHistory, customFields, customLists };
-  try {
-    await fetch(`${base}/app_state`, {
-      method: "POST",
-      headers: { ...supabaseHeaders({ Prefer: "resolution=merge-duplicates" }), Authorization: `Bearer ${session.token}` },
-      body: JSON.stringify([{ id: session.rowId, payload }])
-    });
-  } catch (e) {
-    console.error("Cloud save failed", e);
+  if (!session) {
+    _cloudSaveInFlight = false;
+    console.error("No authenticated user for cloud save");
+    return;
+  }
+
+  let grCustomLists = customLists;
+  let enCustomLists = [];
+  if (window.__appLang === "en") {
+    enCustomLists = customLists;
+    try { grCustomLists = JSON.parse(localStorage.getItem("staurakaki_custom_lists_v1") || "[]"); } catch { grCustomLists = []; }
+  }
+
+  const payload = {
+    ceremonies, warehouse, setsWarehouse, secondHelpers, optionWarehouse,
+    changeLog, pushSubs, aiSeenNotes, aiSeenAlerts, aiChatHistory,
+    customFields, customLists: grCustomLists, enCustomLists, deletedCeremonies,
+    sync_ts: Date.now(),
+  };
+
+  const reqBody    = JSON.stringify([{ id: session.rowId, payload }]);
+  const reqHeaders = { ...supabaseHeaders({ Prefer: "resolution=merge-duplicates" }), Authorization: `Bearer ${session.token}` };
+
+  let saved = false;
+  for (let attempt = 0; attempt < 3 && !saved; attempt++) {
+    try {
+      if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 1500));
+      const res = await fetch(`${base}/app_state`, { method: "POST", headers: reqHeaders, body: reqBody });
+      if (res.ok) saved = true;
+    } catch {}
+  }
+
+  _cloudSaveInFlight = false;
+  if (saved) {
+    localStorage.removeItem(PENDING_SAVE_KEY);
+    showSyncBadge("saved");
+    setTimeout(() => showSyncBadge(""), 3000);
+    if (localStorage.getItem(PENDING_SAVE_KEY) === "1") setTimeout(cloudSaveAll, 200);
+  } else {
+    localStorage.setItem(PENDING_SAVE_KEY, "1");
+    showSyncBadge("error");
+    console.error("Cloud save failed after 3 retries");
   }
 }
 
@@ -1127,13 +1235,13 @@ function clearCeremonyOptionReferences(key, oldValue) {
 
 // ---------------- Demo Mode ----------------
 function loadDemoData() {
-  const d = (n) => { const dt = new Date(); dt.setDate(dt.getDate() + n); return dt.toISOString().slice(0, 10); };
+  const d = (n) => { const dt = new Date(); dt.setDate(dt.getDate() + n); return dateToStr(dt); };
 
   if (window.__appLang === "en") {
     const base = { sheet: '', set: '', flowers: '', announcementStatus: 'Not needed', decor: '', decorNote: '', secondPerson: 'None', pickupSecondPerson: '', suitcase: '-', coffee: '', coffeePlace: '', pickup: '', pickupDate: '', coldRoom: '', cremationEscortCount: 0, cremationParishNote: '', graveNumber: '', graveZone: '', customValues: {} };
     ceremonies = [
-      { ...base, id: 'demo_1', case_id: 'DEMO-2026-001', name: 'Johnson Michael', date: d(1), time: '10:00', place: 'St. Nicholas Cathedral', burialType: 'Ταφή', responsible: 'Thomas', coffin: 'VICTORIA BLACK GLOSS 43"', pallbearers: '6 bearers', graveType: 'Τριετία', notes: 'Confirm cemetery booking' },
-      { ...base, id: 'demo_2', case_id: 'DEMO-2026-002', name: 'Williams Elizabeth', date: d(2), time: '11:30', place: 'Holy Trinity Church', burialType: 'Ταφή', responsible: 'Andrew', coffin: 'ROYAL NEON HIGH GLOSS', pallbearers: '8 bearers', graveType: 'Οικογενειακός', notes: 'White flowers requested' },
+      { ...base, id: 'demo_1', case_id: 'DEMO-2026-001', name: 'Johnson Michael', date: d(0), time: '10:00', place: 'St. Nicholas Cathedral', burialType: 'Ταφή', responsible: 'Thomas', coffin: 'VICTORIA BLACK GLOSS 43"', pallbearers: '6 bearers', graveType: 'Τριετία', announcementStatus: 'Pending', notes: '⚠️ Cemetery plot NOT confirmed — call municipality ASAP. Pallbearers unconfirmed. Family insisting on full church service.' },
+      { ...base, id: 'demo_2', case_id: 'DEMO-2026-002', name: 'Williams Elizabeth', date: d(1), time: '11:30', place: 'Holy Trinity Church', burialType: 'Ταφή', responsible: 'Andrew', coffin: 'ROYAL NEON HIGH GLOSS', pallbearers: '8 bearers', graveType: 'Οικογενειακός', announcementStatus: 'Pending', notes: 'White flowers only — NO wreaths. 8 pallbearers requested but only 4 confirmed. Hearse reservation unconfirmed.' },
       { ...base, id: 'demo_3', case_id: 'DEMO-2026-003', name: 'Davis Robert', date: d(3), time: '09:00', place: 'Hatherley Crematorium', burialType: 'Αποτεφρωση', responsible: 'Thomas', coffin: 'HAMILTON CREMATION CASKET', cremationEscortCount: 2, graveType: '', notes: 'Family arriving from abroad' },
       { ...base, id: 'demo_4', case_id: 'DEMO-2026-004', name: 'Thompson James', date: d(5), time: '10:30', place: 'St. Mary\'s Cathedral', burialType: 'Ταφή', responsible: 'Andrew', coffin: 'VICTORIA HONEY OAK GLOSS 43"', pallbearers: '6 bearers', graveType: 'Τριετία', notes: '' },
       { ...base, id: 'demo_5', case_id: 'DEMO-2026-005', name: 'Anderson Patricia', date: d(7), time: '12:00', place: 'Christ Church', burialType: 'Ταφή', responsible: 'Christine', coffin: 'CAMEO WHITE', pallbearers: '', graveType: 'Οικογενειακός', notes: 'Pallbearers pending confirmation' },
@@ -1167,8 +1275,8 @@ function loadDemoData() {
 
   const base = { sheet: '', set: '', flowers: '', announcementStatus: 'Δεν χρειάζεται', decor: '', decorNote: '', secondPerson: 'Κανένας', pickupSecondPerson: '', suitcase: '-', coffee: '', coffeePlace: '', pickup: '', pickupDate: '', coldRoom: '', cremationEscortCount: 0, cremationParishNote: '', graveNumber: '', graveZone: '', customValues: {} };
   ceremonies = [
-    { ...base, id: 'demo_1', case_id: 'DEMO-2026-001', name: 'Παπαδόπουλος Γεώργιος', date: d(1), time: '10:00', place: 'Ι.Ν. Αγ. Νικολάου Κηφισιάς', burialType: 'Ταφή', responsible: 'Θανάσης', coffin: 'ΦΛΩΡΙΝΑ ΜΑΥΡΟ ΛΑΚΑ 40ΑΡΙ', pallbearers: '6άδα', graveType: 'Τριετία', notes: 'Να επιβεβαιωθεί το νεκροταφείο' },
-    { ...base, id: 'demo_2', case_id: 'DEMO-2026-002', name: 'Ζαφειρίου Αγγελική', date: d(2), time: '11:30', place: 'Ι.Ν. Κοιμήσεως Θεοτόκου Αμαρουσίου', burialType: 'Ταφή', responsible: 'Σταύρος', coffin: 'ΚΩΣΤΑΚΗ ΝΕΟΝ ΛΑΚΑ', pallbearers: '8άδα', graveType: 'Οικογενειακός', notes: 'Λευκά λουλούδια' },
+    { ...base, id: 'demo_1', case_id: 'DEMO-2026-001', name: 'Παπαδόπουλος Γεώργιος', date: d(0), time: '10:00', place: 'Ι.Ν. Αγ. Νικολάου Κηφισιάς', burialType: 'Ταφή', responsible: 'Θανάσης', coffin: 'ΦΛΩΡΙΝΑ ΜΑΥΡΟ ΛΑΚΑ 40ΑΡΙ', pallbearers: '6άδα', graveType: 'Τριετία', announcementStatus: 'Εκκρεμεί', notes: '⚠️ ΕΚΚΡΕΜΕΙ επιβεβαίωση νεκροταφείου — επείγει! Φραγκοφόροι ανεπιβεβαίωτοι. Οικογένεια επιμένει για πλήρη ακολουθία.' },
+    { ...base, id: 'demo_2', case_id: 'DEMO-2026-002', name: 'Ζαφειρίου Αγγελική', date: d(1), time: '11:30', place: 'Ι.Ν. Κοιμήσεως Θεοτόκου Αμαρουσίου', burialType: 'Ταφή', responsible: 'Σταύρος', coffin: 'ΚΩΣΤΑΚΗ ΝΕΟΝ ΛΑΚΑ', pallbearers: '8άδα', graveType: 'Οικογενειακός', announcementStatus: 'Εκκρεμεί', notes: 'Μόνο λευκά λουλούδια — χωρίς στεφάνια. 8 φραγκοφόροι ζητήθηκαν αλλά μόνο 4 επιβεβαιωμένοι. Νεκροφόρα αδέσμευτη.' },
     { ...base, id: 'demo_3', case_id: 'DEMO-2026-003', name: 'Κωνσταντίνου Δημήτρης', date: d(3), time: '09:00', place: 'Αποτεφρωτήριο Ριτσώνας', burialType: 'Αποτεφρωση', responsible: 'Θανάσης', coffin: 'ΔΗΜΟΥ ΑΠΟΤΕΦΡΩΤΙΚΟ', cremationEscortCount: 2, graveType: '', notes: 'Συγγενείς από Θεσσαλονίκη' },
     { ...base, id: 'demo_4', case_id: 'DEMO-2026-004', name: 'Νικολάου Σταύρος', date: d(5), time: '10:30', place: 'Ι.Ν. Αγ. Παντελεήμονος Ιλίου', burialType: 'Ταφή', responsible: 'Σταύρος', coffin: 'ΦΛΩΡΙΝΑ ΜΕΛΙ ΛΑΚΑ 40ΑΡΙ', pallbearers: '6άδα', graveType: 'Τριετία', notes: '' },
     { ...base, id: 'demo_5', case_id: 'DEMO-2026-005', name: 'Παναγιωτίδου Ελένη', date: d(7), time: '12:00', place: 'Ι.Ν. Αγ. Τριάδος Χολαργού', burialType: 'Ταφή', responsible: 'Χρήστος', coffin: 'ΑΜΠΑΖΟ ΛΕΥΚΟ', pallbearers: '', graveType: 'Οικογενειακός', notes: 'Φραγκοφόροι εκκρεμούν' },
@@ -1250,6 +1358,8 @@ async function loadData() {
       try { aiChatHistory = JSON.parse(localStorage.getItem(AI_CHAT_HISTORY_KEY)) || []; } catch { aiChatHistory = []; }
       try { customFields = JSON.parse(localStorage.getItem(CUSTOM_FIELDS_KEY)) || []; } catch { customFields = []; }
       try { customLists = JSON.parse(localStorage.getItem(CUSTOM_LISTS_KEY)) || []; } catch { customLists = []; }
+      try { sectionData = JSON.parse(localStorage.getItem(SECTION_DATA_KEY)) || {}; } catch { sectionData = {}; }
+      try { deletedCeremonies = JSON.parse(localStorage.getItem(TRASH_KEY)) || []; } catch { deletedCeremonies = []; }
     }
   } else {
     try { ceremonies = JSON.parse(localStorage.getItem(CEREMONIES_KEY)) || []; } catch { ceremonies = []; }
@@ -1263,6 +1373,8 @@ async function loadData() {
     try { aiSeenAlerts = JSON.parse(localStorage.getItem(AI_SEEN_ALERTS_KEY)) || []; } catch { aiSeenAlerts = []; }
     try { customFields = JSON.parse(localStorage.getItem(CUSTOM_FIELDS_KEY)) || []; } catch { customFields = []; }
     try { customLists = JSON.parse(localStorage.getItem(CUSTOM_LISTS_KEY)) || []; } catch { customLists = []; }
+    try { sectionData = JSON.parse(localStorage.getItem(SECTION_DATA_KEY)) || {}; } catch { sectionData = {}; }
+    try { deletedCeremonies = JSON.parse(localStorage.getItem(TRASH_KEY)) || []; } catch { deletedCeremonies = []; }
   }
 
   ceremonies = (ceremonies || []).map((c) => ({
@@ -1332,6 +1444,8 @@ async function saveData() {
   localStorage.setItem(AI_CHAT_HISTORY_KEY, JSON.stringify(aiChatHistory || []));
   localStorage.setItem(CUSTOM_FIELDS_KEY, JSON.stringify(customFields || []));
   localStorage.setItem(CUSTOM_LISTS_KEY, JSON.stringify(customLists || []));
+  localStorage.setItem(SECTION_DATA_KEY, JSON.stringify(sectionData || {}));
+  localStorage.setItem(TRASH_KEY, JSON.stringify(deletedCeremonies || []));
   if (USE_CLOUD) cloudSaveAll().catch((e) => console.error("Cloud save error (ignored)", e));
 }
 
@@ -1714,7 +1828,7 @@ function saveCeremony(e) {
       adjustCoffinStock(old.coffin || "", payload.coffin);
       adjustSetStock(old.set || "", payload.set);
 
-      addChange("ceremony_edit", `Επεξεργασία τελετής: ${payload.name || "-"} (${payload.date || "χωρίς ημ/νία"} ${payload.time || ""})`);
+      addChange("ceremony_edit", `${t("Επεξεργασία τελετής","Edit case")}: ${payload.name || "-"} (${payload.date || t("χωρίς ημ/νία","no date")} ${payload.time || ""})`);
     }
   } else {
     const id = nowTs().toString();
@@ -1723,7 +1837,7 @@ function saveCeremony(e) {
     adjustCoffinStock("", payload.coffin);
     adjustSetStock("", payload.set);
 
-    addChange("ceremony_add", `Νέα τελετή: ${payload.name || "-"} (${payload.date || "χωρίς ημ/νία"} ${payload.time || ""})`);
+    addChange("ceremony_add", `${t("Νέα τελετή","New case")}: ${payload.name || "-"} (${payload.date || t("χωρίς ημ/νία","no date")} ${payload.time || ""})`);
   }
 
   saveBackup("saveCeremony");
@@ -1733,18 +1847,67 @@ function saveCeremony(e) {
 }
 
 function deleteCeremony(id) {
-  if (!confirm("Να διαγραφεί η τελετή;")) return;
+  if (!confirm(t("Μετακίνηση στον Κάδο Ανακύκλωσης;", "Move to Trash?"))) return;
   const c = ceremonies.find(x => x.id === id);
   if (c) {
     adjustCoffinStock(c.coffin || "", "");
     adjustSetStock(c.set || "", "");
     emitOfficeEvent("ceremony_deleted", { ...c, case_id: ensureCeremonyCaseId(c) });
-    addChange("ceremony_delete", `Διαγραφή τελετής: ${c.name || "-"} (${c.date || "χωρίς ημ/νία"} ${c.time || ""})`);
+    addChange("ceremony_delete", `${t("Διαγραφή τελετής","Delete case")}: ${c.name || "-"} (${c.date || t("χωρίς ημ/νία","no date")} ${c.time || ""})`);
+    deletedCeremonies.unshift({ ...c, deleted_at: Date.now() });
   }
-  ceremonies = ceremonies.filter(c => c.id !== id);
+  ceremonies = ceremonies.filter(x => x.id !== id);
   saveBackup("deleteCeremony");
   saveData();
   renderAll();
+}
+
+function restoreCeremony(id) {
+  const idx = deletedCeremonies.findIndex(x => x.id === id);
+  if (idx === -1) return;
+  const c = deletedCeremonies.splice(idx, 1)[0];
+  delete c.deleted_at;
+  ceremonies.unshift(c);
+  saveData();
+  renderAll();
+  renderTrashPanel();
+}
+
+function permanentDeleteCeremony(id) {
+  if (!confirm(t("Μόνιμη διαγραφή; Δεν μπορεί να αναιρεθεί.", "Permanently delete? This cannot be undone."))) return;
+  deletedCeremonies = deletedCeremonies.filter(x => x.id !== id);
+  saveData();
+  renderTrashPanel();
+}
+
+function emptyTrash() {
+  if (!deletedCeremonies.length) return;
+  if (!confirm(t("Να αδειάσει ο κάδος; Μόνιμη διαγραφή όλων.", "Empty trash? All items will be permanently deleted."))) return;
+  deletedCeremonies = [];
+  saveData();
+  renderTrashPanel();
+}
+
+function renderTrashPanel() {
+  const el = document.getElementById("trashList");
+  if (!el) return;
+  const countEl = document.getElementById("trashCount");
+  if (countEl) countEl.textContent = deletedCeremonies.length || "";
+  if (!deletedCeremonies.length) {
+    el.innerHTML = `<p style="color:#8899aa;font-size:13px;padding:8px 0;">${t("Ο κάδος είναι άδειος.", "Trash is empty.")}</p>`;
+    return;
+  }
+  el.innerHTML = deletedCeremonies.map(c => {
+    const when = c.deleted_at ? new Date(c.deleted_at).toLocaleDateString() : "—";
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.07);">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:14px;color:#c8daf0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.name || t("(χωρίς όνομα)","(no name)")}</div>
+        <div style="font-size:11px;color:#8899aa;">${c.date || "—"} &nbsp;·&nbsp; ${t("Διαγράφηκε","Deleted")}: ${when}</div>
+      </div>
+      <button onclick="restoreCeremony('${c.id}')" style="padding:5px 10px;border-radius:6px;border:1px solid rgba(200,169,110,.4);background:transparent;color:#c8a96e;font-size:12px;cursor:pointer;">${t("Επαναφορά","Restore")}</button>
+      <button onclick="permanentDeleteCeremony('${c.id}')" style="padding:5px 10px;border-radius:6px;border:1px solid rgba(220,80,80,.4);background:transparent;color:#e07070;font-size:12px;cursor:pointer;">${t("Διαγραφή","Delete")}</button>
+    </div>`;
+  }).join("");
 }
 
 // ---------------- Warehouse reorder helper ----------------
@@ -2454,6 +2617,7 @@ function setupTabs() {
       if (tab === "history") $("historyTab")?.classList.add("active");
       if (tab === "settings") $("settingsTab")?.classList.add("active");
       if (tab === "hermes") $("hermesTab")?.classList.add("active");
+      if (String(tab).startsWith("usa")) { $(tab + "Tab")?.classList.add("active"); window.scrollTo(0,0); }
     });
   });
 }
@@ -2851,7 +3015,7 @@ function updateStats() {
   const now = new Date();
   const monday = getMondayOfWeek(now);
   const sunday = new Date(monday); sunday.setDate(monday.getDate() + 7);
-  const thisMonthKey = now.toISOString().slice(0, 7);
+  const thisMonthKey = getTodayStr().slice(0, 7);
 
   let total = 0, thisWeek = 0, thisMonth = 0, burials = 0, cremations = 0;
   const monthlyCounts = {};
@@ -3400,6 +3564,7 @@ function renderAll() {
   renderSecondHelpers();
   renderCustomLists();
   renderCustomFieldsSettings();
+  renderAllSectionPanels();
   renderHistory();
   try { renderHermesDashboard(); } catch (e) { console.warn("Hermes render skipped", e); }
   updateStats();
@@ -3445,7 +3610,7 @@ function compactSubscription(sub) {
     return {
       endpoint: j.endpoint,
       keys: j.keys || {},
-      device: getDeviceLabel() || "Άγνωστη συσκευή",
+      device: getDeviceLabel() || t("Άγνωστη συσκευή", "Unknown device"),
       ts: nowTs()
     };
   } catch {
@@ -3526,7 +3691,7 @@ async function setupPushOptB() {
     }
 
     if (!isStandalonePWA()) {
-      alert("Σημείωση: Στο iPhone για push όταν είναι κλειστή, πρέπει Add to Home Screen.");
+      alert(t("Σημείωση: Στο iPhone για push όταν είναι κλειστή, πρέπει Add to Home Screen.", "Note: On iPhone, to receive push when the app is closed, you need Add to Home Screen."));
     }
 
     await subscribePush(reg);
@@ -3562,8 +3727,8 @@ function maybeNotifyForChanges_LocalOnly() {
     const nts = Number(newest.ts) || 0;
     if (nts <= last) return;
 
-    const title = "Σταυρακάκη — Νέα αλλαγή";
-    const body = `${newest.device || "Άλλη συσκευή"}: ${newest.summary || "Update"}`;
+    const title = t("Σταυρακάκη — Νέα αλλαγή", "FuneralOS — New update");
+    const body = `${newest.device || t("Άλλη συσκευή", "Another device")}: ${newest.summary || t("Αλλαγή", "Update")}`;
     new Notification(title, { body });
 
     setLastPushTs(nts);
@@ -4736,6 +4901,19 @@ function bindAIAssistantActions() {
 
 // ---------------- Dropdowns από Προσαρμοσμένες Λίστες ----------------
 function fillDynamicDropdowns(c = {}) {
+  if (window.__appLang === "en") {
+    // EN app: populate responsiblePerson from directors list (Settings → Directors)
+    const directors = (() => {
+      try { return JSON.parse(localStorage.getItem("funeralos_en_directors_v1") || "[]"); } catch { return []; }
+    })();
+    fillSelect($("responsiblePerson"), ["-", ...directors], c.responsible ?? "-");
+    // Clear hidden dropdowns so iOS native picker never shows Greek options
+    ["secondPerson","pickupSecondPerson","suitcase","ceremonyDecor","ceremonyPallbearers","ceremonyCoffee","ceremonyGraveZone"].forEach(id => {
+      const el = $(id);
+      if (el && el.tagName === "SELECT") el.innerHTML = '<option value="">-</option>';
+    });
+    return;
+  }
   const items = getAllCustomListItems();
   fillSelect($("responsiblePerson"), ["-", ...items], c.responsible ?? "-");
   fillSelect($("secondPerson"), [t("Κανένας", "None"), ...items], c.secondPerson ?? t("Κανένας", "None"));
@@ -4824,8 +5002,17 @@ function openCeremonyModal(id = null) {
   modal.classList.remove("hidden");
 }
 
+// Retry pending cloud saves when connectivity returns
+window.addEventListener("online", () => {
+  if (localStorage.getItem(PENDING_SAVE_KEY) === "1") cloudSaveAll();
+});
+
 // ---------------- Init ----------------
 document.addEventListener("DOMContentLoaded", async () => {
+  // Check for team invite link (?invite=TOKEN) — handled after auth in freemium.js
+  const _inviteToken = new URLSearchParams(location.search).get("invite");
+  if (_inviteToken) window.__pendingInviteToken = _inviteToken;
+
   if (window.__DEMO_MODE) {
     const banner = document.createElement("div");
     banner.id = "demoBanner";
@@ -4849,6 +5036,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     setupTabs();
     renderAll();
+    renderTrashPanel();
     bindAIAssistantActions();
     aiEnsureChatHistoryUI();
 
@@ -4908,7 +5096,7 @@ function normalizeCustomFieldsList(list) {
     key = key.replace(/[^a-zA-Z0-9_\-]/g, "_");
     if (seen.has(key)) key = `${key}_${idx}`;
     seen.add(key);
-    const type = ["text","textarea","select","yesno","date","time","number"].includes(f?.type) ? f.type : "text";
+    const type = ["text","textarea","select","yesno","date","time","number","checkbox"].includes(f?.type) ? f.type : "text";
     const options = Array.isArray(f?.options) ? f.options.map(x => String(x || "").trim()).filter(Boolean) : [];
     return {
       key,
@@ -4920,7 +5108,8 @@ function normalizeCustomFieldsList(list) {
       showCard: f?.showCard !== false,
       showShare: f?.showShare !== false,
       enabled: f?.enabled !== false,
-      ts: Number(f?.ts || nowTs()) || nowTs()
+      ts: Number(f?.ts || nowTs()) || nowTs(),
+      section: ["ceremony","home","inventory","stats","history"].includes(f?.section) ? f.section : "ceremony"
     };
   }).filter(Boolean);
 }
@@ -4933,7 +5122,7 @@ function ensureCustomFields() {
 }
 
 function customFieldTypeLabel(type) {
-  return ({ text:"Κείμενο", textarea:"Μεγάλο κείμενο", select:"Λίστα", yesno:"Ναι/Όχι", date:"Ημερομηνία", time:"Ώρα", number:"Αριθμός" })[type] || "Κείμενο";
+  return ({ text:"Κείμενο", textarea:"Μεγάλο κείμενο", select:"Λίστα", yesno:"Ναι/Όχι", date:"Ημερομηνία", time:"Ώρα", number:"Αριθμός", checkbox:"Τικ ✓" })[type] || "Κείμενο";
 }
 
 function customFieldValue(c, field) {
@@ -4943,6 +5132,7 @@ function customFieldValue(c, field) {
 function customFieldValueDisplay(value, field) {
   if (value === null || value === undefined || String(value).trim() === "") return "";
   if (field.type === "date") return formatDate(String(value));
+  if (field.type === "checkbox") return value === "true" ? "✓" : "✗";
   return String(value);
 }
 
@@ -4950,14 +5140,14 @@ function renderCustomFieldsForm(c = {}) {
   ensureCustomFields();
   const box = $("customFieldsFormBox");
   if (!box) return;
-  const active = customFields.filter(f => f.enabled !== false);
+  const active = customFields.filter(f => f.enabled !== false && (f.section || "ceremony") === "ceremony");
   if (!active.length) {
     box.classList.add("hidden");
     box.innerHTML = "";
     return;
   }
   box.classList.remove("hidden");
-  box.innerHTML = `<div class="custom-fields-title">ΕΞΤΡΑ ΠΕΔΙΑ ΑΠΟ ΡΥΘΜΙΣΕΙΣ</div>` + active.map(f => {
+  box.innerHTML = active.map(f => {
     const value = customFieldValue(c, f);
     const req = f.required ? "required" : "";
     const ph = esc(f.placeholder || "");
@@ -4967,10 +5157,12 @@ function renderCustomFieldsForm(c = {}) {
       control = `<textarea data-custom-field="${esc(f.key)}" rows="2" placeholder="${ph}" ${req}>${esc(value)}</textarea>`;
     } else if (f.type === "select") {
       const opts = ["", ...(f.options || [])];
-      control = `<select data-custom-field="${esc(f.key)}" ${req}>${opts.map(o => `<option value="${esc(o)}" ${String(value) === String(o) ? "selected" : ""}>${esc(o || "-")}</option>`).join("")}</select>`;
+      control = `<select data-custom-field="${esc(f.key)}" ${req}>${opts.map(o => `<option value="${esc(o)}" ${String(value) === String(o) ? "selected" : ""}>${esc(o || "—")}</option>`).join("")}</select>`;
     } else if (f.type === "yesno") {
-      const opts = ["", "Ναι", "Όχι", "Άλλο"];
-      control = `<select data-custom-field="${esc(f.key)}" ${req}>${opts.map(o => `<option value="${esc(o)}" ${String(value) === String(o) ? "selected" : ""}>${esc(o || "-")}</option>`).join("")}</select>`;
+      const opts = ["", t("Ναι","Yes"), t("Όχι","No"), t("Άλλο","Other")];
+      control = `<select data-custom-field="${esc(f.key)}" ${req}>${opts.map(o => `<option value="${esc(o)}" ${String(value) === String(o) ? "selected" : ""}>${esc(o || "—")}</option>`).join("")}</select>`;
+    } else if (f.type === "checkbox") {
+      control = `<input type="checkbox" data-custom-field="${esc(f.key)}" ${value === "true" ? "checked" : ""} style="width:auto;margin-top:4px;" />`;
     } else {
       const inputType = f.type === "number" ? "number" : f.type === "date" ? "date" : f.type === "time" ? "time" : "text";
       control = `<input type="${inputType}" data-custom-field="${esc(f.key)}" value="${esc(value)}" placeholder="${ph}" ${req} />`;
@@ -4985,7 +5177,7 @@ function collectCustomFieldValues() {
   document.querySelectorAll("[data-custom-field]").forEach(el => {
     const key = el.dataset.customField;
     if (!key) return;
-    values[key] = el.value || "";
+    values[key] = el.type === "checkbox" ? (el.checked ? "true" : "false") : (el.value || "");
   });
   return values;
 }
@@ -4996,11 +5188,13 @@ function openCustomFieldModal(index = null) {
   const modal = $("customFieldModal");
   if (!modal) return;
   const f = index === null ? {} : (customFields[index] || {});
-  setText("customFieldModalTitle", index === null ? "Νέο πεδίο" : "Επεξεργασία πεδίου");
+  setText("customFieldModalTitle", index === null ? t("Νέο πεδίο","New field") : t("Επεξεργασία πεδίου","Edit field"));
   setVal("customFieldLabel", f.label || "");
   setVal("customFieldType", f.type || "text");
   setVal("customFieldPlaceholder", f.placeholder || "");
   setVal("customFieldOptions", Array.isArray(f.options) ? f.options.join("\n") : "");
+  const sectionSel = $("customFieldSection");
+  if (sectionSel) sectionSel.value = f.section || currentCsSection || "ceremony";
   const req = $("customFieldRequired"); if (req) req.checked = !!f.required;
   const showCard = $("customFieldShowCard"); if (showCard) showCard.checked = f.showCard !== false;
   const showShare = $("customFieldShowShare"); if (showShare) showShare.checked = f.showShare !== false;
@@ -5032,21 +5226,22 @@ function saveCustomField(e) {
     showCard: !!$("customFieldShowCard")?.checked,
     showShare: !!$("customFieldShowShare")?.checked,
     enabled: existing?.enabled !== false,
-    ts: existing?.ts || nowTs()
+    ts: existing?.ts || nowTs(),
+    section: val("customFieldSection") || "ceremony"
   };
 
   if (customFieldEditingIndex === null) {
     customFields.push(field);
-    addChange("custom_field_add", `Νέο πεδίο ρυθμίσεων: ${label}`);
+    addChange("custom_field_add", `${t("Νέο πεδίο ρυθμίσεων","New custom field")}: ${label}`);
   } else {
     customFields[customFieldEditingIndex] = field;
-    addChange("custom_field_edit", `Αλλαγή πεδίου ρυθμίσεων: ${label}`);
+    addChange("custom_field_edit", `${t("Αλλαγή πεδίου ρυθμίσεων","Edit custom field")}: ${label}`);
   }
 
   saveBackup("saveCustomField");
   saveData();
   closeCustomFieldModal();
-  renderAll();
+  renderAll(); // includes renderCustomFieldsSettings + renderAllSectionPanels
 }
 
 function deleteCustomField(index) {
@@ -5056,7 +5251,7 @@ function deleteCustomField(index) {
   if (!confirm(`Διαγραφή πεδίου "${f.label}"; Θα αφαιρεθεί και η τιμή του από τις τελετές.`)) return;
   customFields.splice(index, 1);
   ceremonies.forEach(c => { if (c.customValues) delete c.customValues[f.key]; });
-  addChange("custom_field_delete", `Διαγραφή πεδίου ρυθμίσεων: ${f.label}`);
+  addChange("custom_field_delete", `${t("Διαγραφή πεδίου ρυθμίσεων","Delete custom field")}: ${f.label}`);
   saveBackup("deleteCustomField");
   saveData();
   renderAll();
@@ -5067,7 +5262,7 @@ function toggleCustomField(index) {
   const f = customFields[index];
   if (!f) return;
   f.enabled = f.enabled === false ? true : false;
-  addChange("custom_field_toggle", `${f.enabled ? "Ενεργό" : "Ανενεργό"} πεδίο: ${f.label}`);
+  addChange("custom_field_toggle", `${f.enabled ? t("Ενεργό","Enabled") : t("Ανενεργό","Disabled")} ${t("πεδίο","field")}: ${f.label}`);
   saveData();
   renderAll();
 }
@@ -5075,38 +5270,173 @@ function toggleCustomField(index) {
 function moveCustomField(fromIdx, toIdx) {
   ensureCustomFields();
   moveItem(customFields, fromIdx, toIdx);
-  addChange("custom_field_reorder", "Αλλαγή σειράς πεδίων ρυθμίσεων");
+  addChange("custom_field_reorder", t("Αλλαγή σειράς πεδίων ρυθμίσεων", "Reordered custom fields"));
   saveData();
   renderCustomFieldsSettings();
+  renderAllSectionPanels();
 }
+
+let currentCsSection = "ceremony";
 
 function renderCustomFieldsSettings() {
   ensureCustomFields();
   const body = $("customFieldsBody");
   if (!body) return;
   body.innerHTML = "";
-  if (!customFields.length) {
-    body.innerHTML = `<tr><td colspan="4" class="custom-field-muted">Δεν υπάρχουν έξτρα πεδία ακόμα. Πάτα “+ Νέο πεδίο”.</td></tr>`;
+
+  const sectionFields = customFields
+    .map((f, i) => ({ f, i }))
+    .filter(({ f }) => (f.section || "ceremony") === currentCsSection);
+
+  if (!sectionFields.length) {
+    const msg = t("Δεν υπάρχουν πεδία για αυτήν την ενότητα. Πάτα \"+ Νέο πεδίο\".", "No fields for this section yet. Click \"+ New field\".");
+    body.innerHTML = `<tr><td colspan="4" class="custom-field-muted">${msg}</td></tr>`;
     return;
   }
-  customFields.forEach((f, idx) => {
+
+  const reorderHint = sectionFields.length < 2
+    ? t("Πρόσθεσε τουλάχιστον 2 πεδία για να ενεργοποιηθεί η αναδιάταξη ↑↓.",
+        "Add at least 2 fields to enable ↑↓ reordering.")
+    : "";
+
+  sectionFields.forEach(({ f, i: idx }, sIdx) => {
+    const prevIdx = sIdx > 0 ? sectionFields[sIdx - 1].i : -1;
+    const nextIdx = sIdx < sectionFields.length - 1 ? sectionFields[sIdx + 1].i : -1;
+    const upTitle  = prevIdx === -1 ? t("Χρειάζονται τουλάχιστον 2 πεδία", "Need at least 2 fields") : t("Μετακίνηση πάνω","Move up");
+    const dnTitle  = nextIdx === -1 ? t("Χρειάζονται τουλάχιστον 2 πεδία", "Need at least 2 fields") : t("Μετακίνηση κάτω","Move down");
     const tr = document.createElement("tr");
     if (f.enabled === false) tr.className = "custom-field-disabled";
-    const show = [f.showCard ? "Κάρτα" : "", f.showShare ? "Share" : "", f.required ? "Υποχρεωτικό" : ""].filter(Boolean);
+    const show = [f.showCard !== false ? t("Κάρτα","Card") : "", f.showShare !== false ? "Share" : "", f.required ? t("Υποχρ.","Req.") : ""].filter(Boolean);
     tr.innerHTML = `
       <td><b>${esc(f.label)}</b><div class="custom-field-muted">${esc(f.placeholder || "")}</div></td>
       <td>${esc(customFieldTypeLabel(f.type))}</td>
       <td>${show.length ? show.map(x => `<span class="custom-field-badge">${esc(x)}</span>`).join("") : "—"}</td>
       <td><div class="warehouse-actions compact-actions">
-        <button type="button" onclick="moveCustomField(${idx}, ${idx - 1})">↑</button>
-        <button type="button" onclick="moveCustomField(${idx}, ${idx + 1})">↓</button>
-        <button type="button" class="edit" onclick="openCustomFieldModal(${idx})">${t("Επεξεργασία", "Edit")}</button>
-        <button type="button" onclick="toggleCustomField(${idx})">${f.enabled === false ? "Ενεργό" : "Κρύψε"}</button>
+        <button type="button" title="${esc(upTitle)}" onclick="moveCustomField(${idx}, ${prevIdx})" ${prevIdx === -1 ? "disabled" : ""}>↑</button>
+        <button type="button" title="${esc(dnTitle)}" onclick="moveCustomField(${idx}, ${nextIdx})" ${nextIdx === -1 ? "disabled" : ""}>↓</button>
+        <button type="button" class="edit" onclick="openCustomFieldModal(${idx})">${t("Επεξεργασία","Edit")}</button>
+        <button type="button" onclick="toggleCustomField(${idx})">${f.enabled === false ? t("Ενεργό","Enable") : t("Κρύψε","Hide")}</button>
         <button type="button" class="delete" onclick="deleteCustomField(${idx})">×</button>
       </div></td>
     `;
     body.appendChild(tr);
   });
+
+  if (reorderHint) {
+    const hintRow = document.createElement("tr");
+    hintRow.innerHTML = `<td colspan="4" class="custom-field-muted" style="font-size:0.82em;padding:6px 4px;">${esc(reorderHint)}</td>`;
+    body.appendChild(hintRow);
+  }
+}
+
+// ========================
+// SECTION PANELS
+// ========================
+const CS_SECTION_NOTES_GR = {
+  ceremony: "Πεδία φόρμας τελετής — εμφανίζονται και στην κάρτα.",
+  home: "Πεδία που εμφανίζονται στο Dashboard πάνω από τον AI Βοηθό.",
+  inventory: "Πεδία που εμφανίζονται στην ενότητα Αποθήκης.",
+  stats: "Πεδία που εμφανίζονται στα Στατιστικά.",
+  history: "Πεδία που εμφανίζονται στο Ιστορικό."
+};
+const CS_SECTION_NOTES_EN = {
+  ceremony: "Case form fields — also shown on the case card.",
+  home: "Fields shown in the dashboard above the AI Assistant.",
+  inventory: "Fields shown in the Inventory section.",
+  stats: "Fields shown in the Stats section.",
+  history: "Fields shown in History."
+};
+
+function setCsSection(section) {
+  currentCsSection = section;
+  document.querySelectorAll("#csSectionFilter button").forEach(b => {
+    b.classList.toggle("active", (b.dataset.csSection || "") === section);
+  });
+  const noteEl = $("csSectionNote");
+  if (noteEl) {
+    const notes = window.__appLang === "en" ? CS_SECTION_NOTES_EN : CS_SECTION_NOTES_GR;
+    noteEl.textContent = notes[section] || notes.ceremony;
+  }
+  renderCustomFieldsSettings();
+}
+
+function setCsSectionAndSettings(sectionId) {
+  v38SwitchTab ? v38SwitchTab("settings") : (document.querySelector('[data-tab="settings"]')?.click());
+  setTimeout(() => setCsSection(sectionId), 50);
+}
+
+function renderSectionPanel(sectionId) {
+  const panel = $(`sectionPanel_${sectionId}`);
+  if (!panel) return;
+
+  const fields = (customFields || []).filter(f => (f.section || "ceremony") === sectionId && f.enabled !== false);
+  if (!fields.length) {
+    panel.classList.add("hidden");
+    panel.innerHTML = "";
+    return;
+  }
+
+  panel.classList.remove("hidden");
+  const data = (sectionData[sectionId] || {});
+  const isEn = window.__appLang === "en";
+
+  const fieldsHtml = fields.map(f => {
+    const value = String(data[f.key] ?? "");
+    const req = f.required ? "required" : "";
+    const ph = esc(f.placeholder || "");
+    const labelText = `${esc(f.label)}${f.required ? " *" : ""}`;
+    let control = "";
+    if (f.type === "textarea") {
+      control = `<textarea data-sp-field="${esc(f.key)}" rows="2" placeholder="${ph}" ${req}>${esc(value)}</textarea>`;
+    } else if (f.type === "select") {
+      const opts = ["", ...(f.options || [])];
+      control = `<select data-sp-field="${esc(f.key)}" ${req}>${opts.map(o => `<option value="${esc(o)}" ${value === o ? "selected" : ""}>${esc(o || "—")}</option>`).join("")}</select>`;
+    } else if (f.type === "yesno") {
+      const opts = ["", isEn ? "Yes" : "Ναι", isEn ? "No" : "Όχι", isEn ? "Other" : "Άλλο"];
+      control = `<select data-sp-field="${esc(f.key)}" ${req}>${opts.map(o => `<option value="${esc(o)}" ${value === o ? "selected" : ""}>${esc(o || "—")}</option>`).join("")}</select>`;
+    } else if (f.type === "checkbox") {
+      control = `<input type="checkbox" data-sp-field="${esc(f.key)}" ${value === "true" ? "checked" : ""} />`;
+    } else {
+      const inputType = f.type === "number" ? "number" : f.type === "date" ? "date" : f.type === "time" ? "time" : "text";
+      control = `<input type="${inputType}" data-sp-field="${esc(f.key)}" value="${esc(value)}" placeholder="${ph}" ${req} />`;
+    }
+    return `<label>${labelText}${control}</label>`;
+  }).join("");
+
+  const editLabel = isEn ? "Edit fields" : "Επεξεργασία";
+  const saveLabel = isEn ? "Save" : "Αποθήκευση";
+  const panelTitle = isEn ? "CUSTOM FIELDS" : "ΕΠΙΠΛΕΟΝ ΣΤΟΙΧΕΙΑ";
+
+  panel.innerHTML = `
+    <div class="section-panel-head">
+      <span class="section-panel-title">${panelTitle}</span>
+      <button type="button" class="section-panel-edit-btn" onclick="setCsSectionAndSettings('${esc(sectionId)}')">${editLabel}</button>
+    </div>
+    <div class="section-panel-fields">${fieldsHtml}</div>
+    <button type="button" class="section-panel-save" onclick="saveSectionPanelData('${esc(sectionId)}')">${saveLabel}</button>
+  `;
+}
+
+function saveSectionPanelData(sectionId) {
+  const panel = $(`sectionPanel_${sectionId}`);
+  if (!panel) return;
+  if (!sectionData[sectionId]) sectionData[sectionId] = {};
+  panel.querySelectorAll("[data-sp-field]").forEach(el => {
+    const key = el.dataset.spField;
+    if (!key) return;
+    sectionData[sectionId][key] = el.type === "checkbox" ? (el.checked ? "true" : "false") : (el.value || "");
+  });
+  localStorage.setItem(SECTION_DATA_KEY, JSON.stringify(sectionData));
+  const btn = panel.querySelector(".section-panel-save");
+  if (btn) {
+    const orig = btn.textContent;
+    btn.textContent = window.__appLang === "en" ? "✓ Saved" : "✓ Αποθηκεύτηκε";
+    setTimeout(() => { if (btn) btn.textContent = orig; }, 1500);
+  }
+}
+
+function renderAllSectionPanels() {
+  ["home", "inventory", "stats", "history"].forEach(s => renderSectionPanel(s));
 }
 
 // Override v36: γεμίζει φόρμα + δυναμικά πεδία
@@ -5115,7 +5445,9 @@ function openCeremonyModal(id = null) {
   const modal = $("ceremonyModal");
   if (!modal) return alert("Λείπει το ceremonyModal από το index.html");
   const titleEl = $("modalTitle");
-  if (titleEl) titleEl.textContent = id ? t("Επεξεργασία τελετής", "Edit ceremony") : t("Νέα τελετή", "New ceremony");
+  if (titleEl) titleEl.textContent = id
+    ? t("Επεξεργασία τελετής", "Edit Case")
+    : t("Νέα τελετή", "New Case");
   const c = id ? (ceremonies.find(x => x.id === id) || {}) : {};
 
   setVal("ceremonyDate", c.date || "");
@@ -5203,7 +5535,7 @@ function saveCeremony(e) {
       emitOfficeEvent("ceremony_updated", updatedCeremony, { payload: { previous_date: old.date || "", previous_place: old.place || "" } });
       adjustCoffinStock(old.coffin || "", payload.coffin);
       adjustSetStock(old.set || "", payload.set);
-      addChange("ceremony_edit", `Επεξεργασία τελετής: ${payload.name || "-"} (${payload.date || "χωρίς ημ/νία"} ${payload.time || ""})`);
+      addChange("ceremony_edit", `${t("Επεξεργασία τελετής","Edit case")}: ${payload.name || "-"} (${payload.date || t("χωρίς ημ/νία","no date")} ${payload.time || ""})`);
     }
   } else {
     const id = nowTs().toString();
@@ -5212,7 +5544,7 @@ function saveCeremony(e) {
     emitOfficeEvent("ceremony_created", newCeremony);
     adjustCoffinStock("", payload.coffin);
     adjustSetStock("", payload.set);
-    addChange("ceremony_add", `Νέα τελετή: ${payload.name || "-"} (${payload.date || "χωρίς ημ/νία"} ${payload.time || ""})`);
+    addChange("ceremony_add", `${t("Νέα τελετή","New case")}: ${payload.name || "-"} (${payload.date || t("χωρίς ημ/νία","no date")} ${payload.time || ""})`);
   }
   saveBackup("saveCeremonyV36");
   saveData();
@@ -5226,14 +5558,14 @@ function renderCeremonyCard(c, now) {
   card.className = "ceremony-card";
   card.dataset.id = c.id;
   if (shouldHighlightGreen(c, now)) card.classList.add("green-frame");
+
   const header = document.createElement("div"); header.className = "ceremony-header";
   const nm = document.createElement("div"); nm.className = "ceremony-name"; nm.textContent = c.name || "-";
   const dt = document.createElement("div"); dt.className = "ceremony-date"; dt.textContent = (c.date ? formatDate(c.date) : "—") + (c.time ? ` • ${c.time}` : "");
   header.append(nm, dt);
   const place = document.createElement("div"); place.className = "ceremony-place"; place.textContent = c.place || "";
-  const caseBadge = document.createElement("div");
-  caseBadge.className = "case-id-badge";
-  caseBadge.textContent = c.case_id ? `${t("Υπόθεση","Case")}: ${c.case_id}` : "";
+  const caseBadge = document.createElement("div"); caseBadge.className = "case-id-badge";
+  caseBadge.textContent = c.case_id ? `Case: ${c.case_id}` : "";
   const cardAiWarning = document.createElement("div");
   const notePriority = aiNotePriority(c.notes || "");
   if (notePriority === "high") {
@@ -5245,23 +5577,45 @@ function renderCeremonyCard(c, now) {
   const rows = document.createElement("div");
   const makeRow = (label, value) => { if (!value) return; const r = document.createElement("div"); r.className = "ceremony-row"; r.innerHTML = `<span class="ceremony-label">${esc(label)}:</span> ${esc(value)}`; rows.appendChild(r); };
   const btDisplay = bt => bt === "Αποτεφρωση" ? t("Αποτεφρωση","Cremation") : bt === "Μνημόσυνο" ? t("Μνημόσυνο","Memorial") : t("Ταφή","Burial");
-  const gtDisplay = gt => gt === "Οικογενειακός" ? t("Οικογενειακός","Family plot") : gt === "Τριετία" ? t("Τριετία","3-year plot") : (gt || "");
-  if (c.responsible && c.responsible !== "-") makeRow(t("Υπεύθυνος","Coordinator"), c.responsible);
-  if (c.secondPerson && c.secondPerson !== "Κανένας" && c.secondPerson !== "None") makeRow(t("2ο άτομο","2nd person"), c.secondPerson);
-  if (c.suitcase && c.suitcase !== "-") makeRow(t("Βαλίτσα","Suitcase"), c.suitcase);
-  makeRow(t("Τρόπος","Type"), btDisplay(c.burialType || "Ταφή"));
-  if ((c.burialType || "Ταφή") === "Αποτεφρωση") { makeRow(t("Συνοδοί αίθουσας","Cremation escorts"), String(Number(c.cremationEscortCount || 0))); makeRow(t("Ενορία πριν (σημ.)","Parish before (note)"), c.cremationParishNote); }
-  else { makeRow(t("Τάφος","Grave"), gtDisplay(c.graveType)); if (c.graveType === "Οικογενειακός") makeRow(t("Αριθμός τάφου","Grave number"), c.graveNumber); if (c.graveType === "Τριετία") makeRow(t("Ζώνη","Zone"), c.graveZone); }
-  makeRow(t("Φέρετρο","Coffin"), c.coffin); makeRow(t("ΣΕΤ","SET"), c.set); makeRow(t("Στεφάνια / Λουλούδια","Wreaths / Flowers"), c.flowers); makeRow(t("Αγγελτήριο","Announcement"), c.announcementStatus);
-  const decorLine = c.decor ? `${c.decor}${c.decorNote ? ` – ${c.decorNote}` : ""}` : ""; makeRow(t("Στολισμός","Decoration"), decorLine);
-  makeRow(t("Φραγκοφόροι","Pallbearers"), c.pallbearers);
-  if (c.coffee) makeRow(t("Καφές","Wake/Reception"), `${c.coffee}${c.coffeePlace ? ` – ${c.coffeePlace}` : ""}`);
-  makeRow(t("Παραλαβή","Pickup"), c.pickup); makeRow(t("2ο άτομο παραλαβής","2nd pickup person"), c.pickupSecondPerson);
-  if (c.pickupDate) makeRow(t("Ημερομηνία παραλαβής","Pickup date"), formatDate(c.pickupDate));
-  makeRow(t("Ψυκτικός θάλαμος","Cold room"), c.coldRoom);
+
   ensureCustomFields();
-  customFields.filter(f => f.enabled !== false && f.showCard !== false).forEach(f => makeRow(f.label, customFieldValueDisplay(customFieldValue(c, f), f)));
-  makeRow(t("Σημειώσεις","Notes"), c.notes);
+
+  if (window.__appLang === "en") {
+    // EN/USA Edition — show only relevant fields
+    makeRow("Disposition", btDisplay(c.burialType || "Ταφή"));
+    if (c.pickupDate) makeRow("Date of death", formatDate(c.pickupDate));
+    if (c.coldRoom) makeRow("Place of death", c.coldRoom);
+    if (c.flowers) makeRow("Facility", c.flowers);
+    if (c.pickup) makeRow("Caller / NOK", c.pickup);
+    if (c.sheet) makeRow("Phone", c.sheet);
+    if (c.decorNote) makeRow("Embalmer", c.decorNote);
+    if (c.responsible && c.responsible !== "-") makeRow("Director", c.responsible);
+    if ((c.burialType || "") === "Αποτεφρωση") {
+      if (Number(c.cremationEscortCount)) makeRow("Cremation escorts", String(c.cremationEscortCount));
+      if (c.cremationParishNote) makeRow("Chapel note", c.cremationParishNote);
+    }
+    customFields.filter(f => f.enabled !== false && f.showCard !== false && f.section === "ceremony").forEach(f => makeRow(f.label, customFieldValueDisplay(customFieldValue(c, f), f)));
+    if (c.notes) makeRow("Notes", c.notes);
+  } else {
+    // GR Edition
+    const gtDisplay = gt => gt === "Οικογενειακός" ? "Οικογενειακός" : gt === "Τριετία" ? "Τριετία" : (gt || "");
+    if (c.responsible && c.responsible !== "-") makeRow("Υπεύθυνος", c.responsible);
+    if (c.secondPerson && c.secondPerson !== "Κανένας" && c.secondPerson !== "None") makeRow("2ο άτομο", c.secondPerson);
+    if (c.suitcase && c.suitcase !== "-") makeRow("Βαλίτσα", c.suitcase);
+    makeRow("Τρόπος", btDisplay(c.burialType || "Ταφή"));
+    if ((c.burialType || "Ταφή") === "Αποτεφρωση") { makeRow("Συνοδοί αίθουσας", String(Number(c.cremationEscortCount || 0))); makeRow("Ενορία πριν (σημ.)", c.cremationParishNote); }
+    else { makeRow("Τάφος", gtDisplay(c.graveType)); if (c.graveType === "Οικογενειακός") makeRow("Αριθμός τάφου", c.graveNumber); if (c.graveType === "Τριετία") makeRow("Ζώνη", c.graveZone); }
+    makeRow("Φέρετρο", c.coffin); makeRow("ΣΕΤ", c.set); makeRow("Στεφάνια / Λουλούδια", c.flowers); makeRow("Αγγελτήριο", c.announcementStatus);
+    const decorLine = c.decor ? `${c.decor}${c.decorNote ? ` – ${c.decorNote}` : ""}` : ""; makeRow("Στολισμός", decorLine);
+    makeRow("Φραγκοφόροι", c.pallbearers);
+    if (c.coffee) makeRow("Καφές", `${c.coffee}${c.coffeePlace ? ` – ${c.coffeePlace}` : ""}`);
+    makeRow("Παραλαβή", c.pickup); makeRow("2ο άτομο παραλαβής", c.pickupSecondPerson);
+    if (c.pickupDate) makeRow("Ημερομηνία παραλαβής", formatDate(c.pickupDate));
+    makeRow("Ψυκτικός θάλαμος", c.coldRoom);
+    customFields.filter(f => f.enabled !== false && f.showCard !== false && f.section === "ceremony").forEach(f => makeRow(f.label, customFieldValueDisplay(customFieldValue(c, f), f)));
+    makeRow("Σημειώσεις", c.notes);
+  }
+
   const buttons = document.createElement("div"); buttons.className = "card-buttons";
   const editBtn = document.createElement("button"); editBtn.className = "edit"; editBtn.textContent = t("Επεξεργασία", "Edit"); editBtn.dataset.action = "edit";
   const waBtn = document.createElement("button"); waBtn.type = "button"; waBtn.dataset.action = "wa"; waBtn.title = "WhatsApp"; waBtn.style.cssText = "width:36px;height:36px;border-radius:999px;border:none;display:inline-flex;align-items:center;justify-content:center;background:#25d366;cursor:pointer;color:#fff;font-weight:900;"; waBtn.textContent = "WA";
@@ -5348,8 +5702,10 @@ function v38SwitchTab(tabName) {
   if (btn) { btn.click(); return; }
   document.querySelectorAll(".tab-button").forEach(b => b.classList.toggle("active", b.dataset.tab === tabName));
   document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-  const map = { ceremonies:"ceremoniesTab", warehouse:"warehouseTab", stats:"statsTab", history:"historyTab", settings:"settingsTab", hermes:"hermesTab" };
-  if (map[tabName]) $(map[tabName])?.classList.add("active");
+  const map = { ceremonies:"ceremoniesTab", warehouse:"warehouseTab", stats:"statsTab", history:"historyTab", settings:"settingsTab", hermes:"hermesTab",
+    usaDirector:"usaDirectorTab", usaCases:"usaCasesTab", usaFirstCall:"usaFirstCallTab", usaDocuments:"usaDocumentsTab",
+    usaStaff:"usaStaffTab", usaFleet:"usaFleetTab", usaCremation:"usaCremationTab", usaFinance:"usaFinanceTab", usaSchedule:"usaScheduleTab" };
+  if (map[tabName]) { $(map[tabName])?.classList.add("active"); if (String(tabName).startsWith("usa")) window.scrollTo(0,0); }
 }
 
 function v38SearchBlob(parts) {
@@ -6765,11 +7121,14 @@ document.addEventListener('DOMContentLoaded',seedOfficeKnowledge);
 /* FuneralOS v1.2 commercial polish — pricing config, WhatsApp to family, team/admin, referral, export backup */
 (function(){
   const cfg = window.FUNERALOS_CONFIG || {};
-  const PRO_PRICE = cfg.proPrice || 39;
-  const TEAM_PRICE = cfg.teamPrice || 79;
-  const proUrl = cfg.stripeProUrl || "https://buy.stripe.com/PLACEHOLDER_PRO";
-  const teamUrl = cfg.stripeTeamUrl || "https://buy.stripe.com/PLACEHOLDER_TEAM";
-  const demoUrl = cfg.demoBookingUrl || "https://wa.me/306987171717?text=Hello%20FuneralOS%2C%20I%20would%20like%20a%20live%20demo";
+  const isEN = window.__appLang === "en";
+  const PRO_PRICE      = cfg.proPrice      || (isEN ? 99  : 79);
+  const BUSINESS_PRICE = cfg.businessPrice || cfg.teamPrice || (isEN ? 199 : 129);
+  const currency       = "$";
+  const monthLabel     = isEN ? "month" : "μήνα";
+  const proUrl    = cfg.stripeProUrl    || "https://buy.stripe.com/PLACEHOLDER_PRO";
+  const teamUrl   = cfg.stripeTeamUrl   || "https://buy.stripe.com/PLACEHOLDER_TEAM";
+  const demoUrl   = cfg.demoBookingUrl  || "https://wa.me/306987171717?text=Hello%20FuneralOS%2C%20I%20would%20like%20a%20live%20demo";
 
   function safeEsc(s){ try { return typeof esc === 'function' ? esc(s) : String(s||'').replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); } catch(e){ return String(s||''); } }
   function allCeremonies(){ return Array.isArray(window.ceremonies) ? window.ceremonies : (typeof ceremonies !== 'undefined' ? ceremonies : []); }
@@ -6777,8 +7136,8 @@ document.addEventListener('DOMContentLoaded',seedOfficeKnowledge);
   function allSets(){ return Array.isArray(window.setsWarehouse) ? window.setsWarehouse : (typeof setsWarehouse !== 'undefined' ? setsWarehouse : []); }
 
   function patchPrices(){
-    document.querySelectorAll('a[href*="PLACEHOLDER_PRO"], a[href*="PLACEHOLDER"], #upgradeBtn').forEach(a=>{ if(proUrl && !proUrl.includes('PLACEHOLDER')) { a.href = proUrl; a.textContent = a.textContent.replace(/€\d+\/month|€\d+\/μήνα/g, `€${PRO_PRICE}/month`); } });
-    document.querySelectorAll('a[href*="PLACEHOLDER_TEAM"]').forEach(a=>{ if(teamUrl && !teamUrl.includes('PLACEHOLDER')) { a.href = teamUrl; a.textContent = a.textContent.replace(/€\d+\/month|€\d+\/μήνα/g, `€${TEAM_PRICE}/month`); } });
+    document.querySelectorAll('a[href*="PLACEHOLDER_PRO"], a[href*="PLACEHOLDER"], #upgradeBtn').forEach(a=>{ if(proUrl && !proUrl.includes('PLACEHOLDER')) { a.href = proUrl; } });
+    document.querySelectorAll('a[href*="PLACEHOLDER_TEAM"]').forEach(a=>{ if(teamUrl && !teamUrl.includes('PLACEHOLDER')) { a.href = teamUrl; } });
     document.querySelectorAll('[data-book-demo], a[href="#demo"], a[href="#contact"]').forEach(a=>{ if(!a.dataset.keepHref) a.href = demoUrl; });
   }
 
@@ -6839,13 +7198,28 @@ document.addEventListener('DOMContentLoaded',seedOfficeKnowledge);
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='funeralos-backup-'+new Date().toISOString().slice(0,10)+'.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   }
 
+  function exportCeremoniesCSV(){
+    const cols = ['case_id','name','date','time','place','burialType','responsible','secondPerson','coffin','set','flowers','graveType','graveNumber','notes'];
+    const header = cols.map(c => JSON.stringify(c)).join(',');
+    const rows = allCeremonies().map(c =>
+      cols.map(k => JSON.stringify(c[k] != null ? String(c[k]) : '')).join(',')
+    );
+    const csv = [header, ...rows].join('\r\n');
+    const blob = new Blob(['﻿' + csv], {type:'text/csv;charset=utf-8;'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = 'funeralos-ceremonies-' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+  }
+  window.exportCeremoniesCSV = exportCeremoniesCSV;
+  window.backupJSON = backupJSON;
+
   function addOwnerBar(){
     if(document.getElementById('v12OwnerBar')) return;
     if(window.__authPlan !== 'pro') return;
     const top=document.querySelector('.top-bar') || document.querySelector('.tabs') || document.body;
     const bar=document.createElement('div'); bar.id='v12OwnerBar';
     bar.style.cssText='display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center;padding:10px 12px;background:rgba(15,23,42,.92);color:#fff;border-bottom:1px solid rgba(255,255,255,.08)';
-    bar.innerHTML=`<b style="margin-right:8px">Owner tools</b><button id="v12ExportBackup" type="button">Export backup</button><a href="${demoUrl}" target="_blank" rel="noopener" style="text-decoration:none">Book demo link</a><span>Pro €${PRO_PRICE}/month · Team €${TEAM_PRICE}/month</span>`;
+    bar.innerHTML=`<b style="margin-right:8px">Owner tools</b><button id="v12ExportBackup" type="button">Export backup</button><a href="${demoUrl}" target="_blank" rel="noopener" style="text-decoration:none">Book demo link</a><span>Pro ${currency}${PRO_PRICE}/${monthLabel} · Business ${currency}${BUSINESS_PRICE}/${monthLabel}</span>`;
     bar.querySelectorAll('button,a').forEach(el=>el.style.cssText+=';border:1px solid rgba(255,255,255,.22);border-radius:999px;background:rgba(255,255,255,.08);color:#fff;padding:7px 11px;font-weight:800;cursor:pointer');
     top.insertAdjacentElement('afterend', bar);
     document.getElementById('v12ExportBackup').onclick=backupJSON;
@@ -6854,7 +7228,7 @@ document.addEventListener('DOMContentLoaded',seedOfficeKnowledge);
   function enhanceAdmin(){
     const admin=document.getElementById('adminTab'); if(!admin || document.getElementById('v12SaasChecklist')) return;
     const box=document.createElement('div'); box.id='v12SaasChecklist'; box.className='section-card';
-    box.innerHTML=`<h2>SaaS launch checklist</h2><p class="muted">Before taking real money, finish these items. No romance here: without them, support will become a small civil war.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px"><div><b>Payments</b><br><small>Stripe Payment Links: Pro €${PRO_PRICE}, Team €${TEAM_PRICE}. Webhook file included.</small></div><div><b>Privacy / Terms</b><br><small>Pages included. Review with a legal professional before launch.</small></div><div><b>Team users</b><br><small>Team plan up to 5 users. Real invitations need Supabase profile table.</small></div><div><b>Native app</b><br><small>Capacitor starter files included for later App Store / Play Store step.</small></div></div>`;
+    box.innerHTML=`<h2>SaaS launch checklist</h2><p class="muted">Before taking real money, finish these items. No romance here: without them, support will become a small civil war.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px"><div><b>Payments</b><br><small>Lemon Squeezy: Pro ${currency}${PRO_PRICE}, Business ${currency}${BUSINESS_PRICE}. Webhook configured.</small></div><div><b>Privacy / Terms</b><br><small>Pages included. Review with a legal professional before launch.</small></div><div><b>Team users</b><br><small>Team plan up to 5 users. Real invitations need Supabase profile table.</small></div><div><b>Native app</b><br><small>Capacitor starter files included for later App Store / Play Store step.</small></div></div>`;
     admin.appendChild(box);
   }
 
@@ -6864,3 +7238,40 @@ document.addEventListener('DOMContentLoaded',seedOfficeKnowledge);
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
+
+// ── JSON Restore ─────────────────────────────────────────────────────────────
+// Runs at top-level scope so it can write directly to module-level let variables.
+window.restoreFromJSON = function() {
+  const input = document.createElement("input");
+  input.type = "file"; input.accept = ".json,application/json";
+  input.onchange = async function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!Array.isArray(data.ceremonies)) {
+        alert("Invalid backup file — no ceremonies array found.");
+        return;
+      }
+      const count = data.ceremonies.length;
+      const wCount = Array.isArray(data.warehouse) ? data.warehouse.length : 0;
+      const confirmed = confirm(
+        "Restore from backup?\n\n" +
+        "  Ceremonies: " + count + "\n" +
+        "  Inventory items: " + wCount + "\n\n" +
+        "This will REPLACE all current data. This cannot be undone.\nContinue?"
+      );
+      if (!confirmed) return;
+      ceremonies = data.ceremonies;
+      if (Array.isArray(data.warehouse)) warehouse = data.warehouse;
+      if (Array.isArray(data.setsWarehouse)) setsWarehouse = data.setsWarehouse;
+      await saveData();
+      renderAll();
+      alert("Restore complete. " + count + " ceremonies loaded.");
+    } catch (err) {
+      alert("Failed to restore: " + err.message);
+    }
+  };
+  input.click();
+};

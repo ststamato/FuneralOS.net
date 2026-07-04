@@ -11,8 +11,8 @@
 (function () {
   "use strict";
 
-  const SUPABASE_URL = "https://jciaozbyvdiqfxwlgdql.supabase.co";
-  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpjaWFvemJ5dmRpcWZ4d2xnZHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxMTE5NjQsImV4cCI6MjA4MDY4Nzk2NH0.eEBYVU1VTU3CZvaSA9fh-LLEbqRPRY9ZpK7P-17kWaA";
+  const SUPABASE_URL = "https://rqklpnrgpiprttzsploe.supabase.co";
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJxa2xwbnJncGlwcnR0enNwbG9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMzA2NTgsImV4cCI6MjA5ODYwNjY1OH0.L9kumMt04wy0rlEfE79AwvGD8C2YWAyr_CIh9dDlBZQ";
 
   const FREE_CEREMONY_LIMIT = 5;
   const STRIPE_PRO_LINK = "https://funeralos.lemonsqueezy.com/checkout/buy/6cdaa45a-02fe-4a51-b4ae-e51633d3b36d";
@@ -31,14 +31,29 @@
     window.__DEMO_MODE = true;
     window.__authPlan = "business";
     window.__authUser = { id: "demo", email: "demo@funeralos.net" };
-    window.__authOfficeName = "Demo Office";
+    window.__authOfficeName = "Σταυρακάκη — Demo";
     document.addEventListener("DOMContentLoaded", function () {
       const overlay = document.getElementById("authOverlay");
       if (overlay) overlay.style.display = "none";
       const brandPill = document.getElementById("brandPill");
-      if (brandPill) brandPill.textContent = "Demo Office";
+      if (brandPill) brandPill.textContent = "Σταυρακάκη";
       const badge = document.getElementById("planBadge");
       if (badge) { badge.textContent = "DEMO"; badge.className = "plan-badge pro"; }
+      // Highlight correct plan tier
+      const tiers = document.getElementById("planTiers");
+      if (tiers) tiers.querySelectorAll("[data-tier]").forEach(function(t) {
+        t.classList.toggle("active", t.dataset.tier === "business");
+      });
+      // Demo notification bar
+      const bar = document.createElement("div");
+      bar.id = "__demo_bar";
+      bar.style.cssText = "position:fixed;bottom:0;left:0;right:0;z-index:99999;background:#0f1523;border-top:2px solid rgba(200,169,110,.35);padding:11px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;box-shadow:0 -4px 24px rgba(0,0,0,.5);";
+      bar.innerHTML = '<span style="color:rgba(255,255,255,.7);">🔍 <b style="color:#c8a96e;">Demo mode</b> — δοκιμαστικά δεδομένα, χωρίς αποθήκευση.</span>'
+        + '<div style="display:flex;gap:10px;align-items:center;">'
+        + '<a href="login.html?tab=register" style="background:linear-gradient(135deg,#c8a96e,#d4b97e);color:#0f1523;padding:8px 18px;border-radius:8px;font-weight:800;font-size:12px;text-decoration:none;white-space:nowrap;letter-spacing:.3px;">Ξεκίνα δωρεάν →</a>'
+        + '<button onclick="document.getElementById(\'__demo_bar\').style.display=\'none\'" style="background:transparent;border:none;color:rgba(255,255,255,.35);cursor:pointer;font-size:20px;padding:0 4px;line-height:1;" title="Κλείσιμο">×</button>'
+        + '</div>';
+      document.body.appendChild(bar);
     });
     return; // skip auth + gates
   }
@@ -140,93 +155,147 @@
     }
   }
 
-  // ── Optional fields system ──────────────────────────────────────────────────
-  var OPT_FIELD_LABELS = {
-    cremation: "Αποτέφρωση (λεπτομέρειες)",
-    secondPerson: "2ο άτομο βοήθειας",
-    suitcase: "Βαλίτσα",
-    set: "ΣΕΤ",
-    flowers: "Στεφάνια / Λουλούδια",
-    announcement: "Αγγελτήριο",
-    decor: "Στολισμός",
-    pallbearers: "Φραγκοφόροι",
-    coffee: "Καφές",
-    pickupSecond: "2ο άτομο παραλαβής",
-    coldRoom: "Ψυκτικός θάλαμος",
-    grave: "Τόπος ταφής"
-  };
+  // ── Form Layout System (order + visibility) ────────────────────────────────
+  var FORM_FIELD_DEFS = [
+    { key: "datetime",     label: "Ημερομηνία & Ώρα",            required: true },
+    { key: "name",         label: "Όνομα θανόντα",               required: true },
+    { key: "place",        label: "Τοποθεσία τελετής",           required: false },
+    { key: "burialType",   label: "Τρόπος (Ταφή / Αποτεφρωση)", required: false },
+    { key: "cremation",    label: "Αποτέφρωση (λεπτομέρειες)",  required: false },
+    { key: "responsible",  label: "Υπεύθυνος τελετής",           required: false },
+    { key: "secondPerson", label: "2ο άτομο βοήθειας",          required: false },
+    { key: "suitcase",     label: "Βαλίτσα",                    required: false },
+    { key: "coffin",       label: "Φέρετρο",                    required: false },
+    { key: "set",          label: "ΣΕΤ",                        required: false },
+    { key: "flowers",      label: "Στεφάνια / Λουλούδια",       required: false },
+    { key: "announcement", label: "Αγγελτήριο",                 required: false },
+    { key: "decor",        label: "Στολισμός",                  required: false },
+    { key: "pallbearers",  label: "Φραγκοφόροι",                required: false },
+    { key: "coffee",       label: "Καφές",                      required: false },
+    { key: "pickup",       label: "Παραλαβή",                   required: false },
+    { key: "pickupDate",   label: "Ημερομηνία παραλαβής",       required: false },
+    { key: "pickupSecond", label: "2ο άτομο παραλαβής",         required: false },
+    { key: "coldRoom",     label: "Ψυκτικός θάλαμος",           required: false },
+    { key: "grave",        label: "Τόπος ταφής",                required: false },
+    { key: "notes",        label: "Σημειώσεις",                 required: false },
+  ];
 
-  var LS_OPT_KEY = "funeralos_gr_opt_fields_v1";
+  var LS_LAYOUT_KEY = "funeralos_gr_form_layout_v2";
 
-  function getOptFieldState() {
+  function getFormLayoutState() {
     try {
-      var raw = localStorage.getItem(LS_OPT_KEY);
+      var raw = localStorage.getItem(LS_LAYOUT_KEY);
       if (raw) return JSON.parse(raw);
     } catch (e) {}
-    var defaults = {};
-    Object.keys(OPT_FIELD_LABELS).forEach(function (k) { defaults[k] = true; });
-    return defaults;
+    return { order: FORM_FIELD_DEFS.map(function (d) { return d.key; }), hidden: {} };
   }
 
-  function saveOptFieldState(state) {
-    try { localStorage.setItem(LS_OPT_KEY, JSON.stringify(state)); } catch (e) {}
+  function saveFormLayoutState(state) {
+    try { localStorage.setItem(LS_LAYOUT_KEY, JSON.stringify(state)); } catch (e) {}
   }
 
-  function applyOptFieldVisibility() {
-    var state = getOptFieldState();
-    document.querySelectorAll(".opt-field[data-opt]").forEach(function (el) {
-      var key = el.getAttribute("data-opt");
-      el.style.display = (state[key] === false) ? "none" : "";
+  function applyFormLayout() {
+    var form = document.getElementById("ceremonyForm");
+    if (!form) return;
+    var state = getFormLayoutState();
+    var order = state.order || FORM_FIELD_DEFS.map(function (d) { return d.key; });
+    var hidden = state.hidden || {};
+    var anchor = form.querySelector("#customFieldsFormBox");
+    if (!anchor) return;
+    order.forEach(function (key) {
+      var el = form.querySelector('[data-field-key="' + key + '"]');
+      if (!el) return;
+      var def = FORM_FIELD_DEFS.find(function (d) { return d.key === key; });
+      el.style.display = (def && !def.required && hidden[key] === true) ? "none" : "";
+      form.insertBefore(el, anchor);
     });
   }
 
-  function renderOptFieldsToggles() {
+  function renderFormLayoutPanel() {
     var container = document.getElementById("optFieldsToggleList");
     if (!container) return;
-    var state = getOptFieldState();
+    var state = getFormLayoutState();
+    var order = state.order || FORM_FIELD_DEFS.map(function (d) { return d.key; });
+    var hidden = state.hidden || {};
+    FORM_FIELD_DEFS.forEach(function (def) {
+      if (order.indexOf(def.key) === -1) order.push(def.key);
+    });
     container.innerHTML = "";
-    container.style.cssText = "display:flex;flex-direction:column;gap:8px;padding:4px 0;";
-    Object.keys(OPT_FIELD_LABELS).forEach(function (key) {
-      var enabled = state[key] !== false;
+    container.style.cssText = "display:flex;flex-direction:column;gap:0;padding:4px 0;";
+    order.forEach(function (key, idx) {
+      var def = FORM_FIELD_DEFS.find(function (d) { return d.key === key; });
+      if (!def) return;
+      var isHidden = !def.required && hidden[key] === true;
       var row = document.createElement("div");
-      row.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);";
-      var label = document.createElement("span");
-      label.textContent = OPT_FIELD_LABELS[key];
-      label.style.cssText = "font-size:13px;color:#c8daf0;";
-      var toggle = document.createElement("label");
-      toggle.style.cssText = "position:relative;display:inline-block;width:36px;height:20px;cursor:pointer;";
-      var input = document.createElement("input");
-      input.type = "checkbox";
-      input.checked = enabled;
-      input.style.cssText = "opacity:0;width:0;height:0;";
-      var slider = document.createElement("span");
-      slider.style.cssText = "position:absolute;inset:0;background:" + (enabled ? "#c8a96e" : "#2a3350") + ";border-radius:20px;transition:.2s;";
-      var knob = document.createElement("span");
-      knob.style.cssText = "position:absolute;top:3px;left:" + (enabled ? "19px" : "3px") + ";width:14px;height:14px;background:#fff;border-radius:50%;transition:.2s;";
-      slider.appendChild(knob);
-      toggle.appendChild(input);
-      toggle.appendChild(slider);
-      input.addEventListener("change", function () {
-        var s = getOptFieldState();
-        s[key] = input.checked;
-        saveOptFieldState(s);
-        slider.style.background = input.checked ? "#c8a96e" : "#2a3350";
-        knob.style.left = input.checked ? "19px" : "3px";
-        applyOptFieldVisibility();
+      row.style.cssText = "display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);";
+
+      var btnUp = document.createElement("button");
+      btnUp.type = "button"; btnUp.textContent = "↑";
+      btnUp.style.cssText = "background:none;border:1px solid rgba(255,255,255,.2);color:#c8daf0;border-radius:4px;width:26px;height:26px;cursor:pointer;font-size:13px;padding:0;flex-shrink:0;" + (idx === 0 ? "opacity:.25;pointer-events:none;" : "");
+
+      var btnDown = document.createElement("button");
+      btnDown.type = "button"; btnDown.textContent = "↓";
+      btnDown.style.cssText = "background:none;border:1px solid rgba(255,255,255,.2);color:#c8daf0;border-radius:4px;width:26px;height:26px;cursor:pointer;font-size:13px;padding:0;flex-shrink:0;" + (idx === order.length - 1 ? "opacity:.25;pointer-events:none;" : "");
+
+      var labelEl = document.createElement("span");
+      labelEl.textContent = def.label;
+      labelEl.style.cssText = "font-size:13px;color:" + (isHidden ? "#4a5a70" : "#c8daf0") + ";flex:1;";
+
+      btnUp.addEventListener("click", function () {
+        var s = getFormLayoutState();
+        var i = s.order.indexOf(key);
+        if (i > 0) { s.order.splice(i, 1); s.order.splice(i - 1, 0, key); saveFormLayoutState(s); applyFormLayout(); renderFormLayoutPanel(); }
       });
-      row.appendChild(label);
-      row.appendChild(toggle);
+      btnDown.addEventListener("click", function () {
+        var s = getFormLayoutState();
+        var i = s.order.indexOf(key);
+        if (i < s.order.length - 1) { s.order.splice(i, 1); s.order.splice(i + 1, 0, key); saveFormLayoutState(s); applyFormLayout(); renderFormLayoutPanel(); }
+      });
+
+      row.appendChild(btnUp);
+      row.appendChild(btnDown);
+      row.appendChild(labelEl);
+
+      if (def.required) {
+        var badge = document.createElement("span");
+        badge.textContent = "βασικό";
+        badge.style.cssText = "font-size:10px;background:rgba(200,169,110,.15);color:#c8a96e;border-radius:4px;padding:2px 6px;flex-shrink:0;";
+        row.appendChild(badge);
+      } else {
+        var toggle = document.createElement("label");
+        toggle.style.cssText = "position:relative;display:inline-block;width:36px;height:20px;cursor:pointer;flex-shrink:0;";
+        var input = document.createElement("input");
+        input.type = "checkbox"; input.checked = !isHidden;
+        input.style.cssText = "opacity:0;width:0;height:0;";
+        var slider = document.createElement("span");
+        slider.style.cssText = "position:absolute;inset:0;background:" + (!isHidden ? "#c8a96e" : "#2a3350") + ";border-radius:20px;transition:.2s;";
+        var knob = document.createElement("span");
+        knob.style.cssText = "position:absolute;top:3px;left:" + (!isHidden ? "19px" : "3px") + ";width:14px;height:14px;background:#fff;border-radius:50%;transition:.2s;";
+        slider.appendChild(knob);
+        toggle.appendChild(input); toggle.appendChild(slider);
+        input.addEventListener("change", function () {
+          var s = getFormLayoutState();
+          if (!s.hidden) s.hidden = {};
+          s.hidden[key] = !input.checked;
+          saveFormLayoutState(s);
+          slider.style.background = input.checked ? "#c8a96e" : "#2a3350";
+          knob.style.left = input.checked ? "19px" : "3px";
+          labelEl.style.color = input.checked ? "#c8daf0" : "#4a5a70";
+          applyFormLayout();
+        });
+        row.appendChild(toggle);
+      }
       container.appendChild(row);
     });
   }
 
-  // Re-apply visibility whenever ceremony modal opens
+  // Re-apply layout whenever ceremony modal opens
   document.addEventListener("click", function (e) {
     if (e.target.closest("#addCeremonyBtn") || e.target.closest("#newCeremonyBtn") ||
         e.target.closest("#newCeremonyHeroBtn") || e.target.closest("[data-editid]")) {
       setTimeout(function () {
-        const plan = window.__authPlan;
-        if (plan === "pro" || plan === "business") applyOptFieldVisibility();
+        var plan = window.__authPlan;
+        if (plan === "pro" || plan === "business") applyFormLayout();
       }, 50);
     }
   });
@@ -305,7 +374,7 @@
 
     if (isPaid) {
       const panel = document.getElementById("optionalFieldsPanel");
-      if (panel) { panel.style.display = ""; renderOptFieldsToggles(); }
+      if (panel) { panel.style.display = ""; renderFormLayoutPanel(); }
     }
 
     if (plan !== "business") {
@@ -377,10 +446,8 @@
     const modal = document.getElementById("upgradeModal");
     const titleEl = document.getElementById("upgradeTitle");
     const textEl = document.getElementById("upgradeText");
-    const btn = document.getElementById("upgradeBtn");
-    if (titleEl) titleEl.textContent = title || "Αναβάθμιση σε Pro";
+    if (titleEl) titleEl.textContent = title || "Αναβάθμιση πλάνου";
     if (textEl) textEl.textContent = text || "";
-    if (btn) btn.href = STRIPE_PRO_LINK;
     if (modal) modal.classList.add("open");
   }
 

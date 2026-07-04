@@ -171,6 +171,47 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true });
     }
 
+    // ── DELETE USER ───────────────────────────────────────────────────────────
+    if (action === "delete_user") {
+      const { userId } = body as { userId: string };
+      if (!userId) return json({ error: "Missing userId" }, 400);
+      const del = await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}`, {
+        method: "DELETE",
+        headers: h,
+      });
+      if (!del.ok) {
+        const errText = await del.text();
+        return json({ error: "Failed to delete user: " + errText }, 500);
+      }
+      return json({ ok: true });
+    }
+
+    // ── BAN USER (deactivate without deleting) ───────────────────────────────
+    if (action === "ban_user") {
+      const { userId } = body as { userId: string };
+      if (!userId) return json({ error: "Missing userId" }, 400);
+      const upd = await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}`, {
+        method: "PUT",
+        headers: h,
+        body: JSON.stringify({ ban_duration: "876600h" }), // ~100 years
+      });
+      if (!upd.ok) return json({ error: "Failed to ban user" }, 500);
+      return json({ ok: true });
+    }
+
+    // ── UNBAN USER ────────────────────────────────────────────────────────────
+    if (action === "unban_user") {
+      const { userId } = body as { userId: string };
+      if (!userId) return json({ error: "Missing userId" }, 400);
+      const upd = await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}`, {
+        method: "PUT",
+        headers: h,
+        body: JSON.stringify({ ban_duration: "none" }),
+      });
+      if (!upd.ok) return json({ error: "Failed to unban user" }, 500);
+      return json({ ok: true });
+    }
+
     return json({ error: "Unknown action" }, 400);
 
   } catch (e) {

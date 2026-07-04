@@ -38,7 +38,7 @@
     .logout-btn { background: transparent; border: 1px solid rgba(255,255,255,.15); color: rgba(255,255,255,.6); padding: 4px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; transition: all .15s; }
     .logout-btn:hover { border-color: rgba(255,255,255,.4); color: #fff; }
     .lang-app { display: flex; align-items: center; border: 1px solid rgba(255,255,255,.1); border-radius: 6px; overflow: hidden; }
-    .lang-app a, .lang-app span { font-size: 11px; font-weight: 600; padding: 4px 8px; text-decoration: none; color: rgba(255,255,255,.4); }
+    .lang-app a, .lang-app span { font-size: 10px; font-weight: 700; padding: 4px 6px; text-decoration: none; color: rgba(255,255,255,.4); letter-spacing: .3px; }
     .lang-app a:hover { color: #fff; background: rgba(255,255,255,.06); }
     .lang-app span { color: #c8a96e; background: rgba(200,169,110,.1); }
     .lang-app-sep { color: rgba(255,255,255,.15); padding: 0 !important; }
@@ -61,9 +61,17 @@
 <div id="upgradeModal">
   <div class="upgrade-box">
     <div class="up-icon">🔒</div>
-    <h2 id="upgradeTitle">Upgrade to Pro</h2>
+    <h2 id="upgradeTitle">Upgrade your plan</h2>
     <p id="upgradeText">You've reached the free plan limit.</p>
-    <a href="https://buy.stripe.com/PLACEHOLDER" target="_blank" class="up-btn" id="upgradeBtn">Upgrade to Pro — €39/month →</a>
+    <div style="display:flex;flex-direction:column;gap:10px;margin:16px 0 6px;">
+      <a href="https://funeralos.lemonsqueezy.com/checkout/buy/6a2ae60d-2bb0-48e7-acdd-0795f57089be" target="_blank" class="up-btn" id="upgradeBtnPro" style="text-align:center;">
+        ⭐ Pro Plan — $99/month →
+      </a>
+      <a href="https://funeralos.lemonsqueezy.com/checkout/buy/8c690de9-aa0d-4b4f-b2c9-6f72a4d262ac" target="_blank" class="up-btn" id="upgradeBtnBiz" style="text-align:center;background:linear-gradient(135deg,#c8a96e,#a07840);">
+        🚀 Business Plan — $199/month →
+      </a>
+    </div>
+    <p style="font-size:11px;color:#8899aa;margin:0 0 12px;text-align:center;">Pro: unlimited cases &nbsp;·&nbsp; Business: Pro + AI Assistant + Hermes</p>
     <button class="up-close" onclick="closeUpgradeModal()">Close</button>
   </div>
 </div>
@@ -77,13 +85,12 @@
       <span>Statistics</span>
       <span>History</span>
       <span>Settings</span>
-      <span>Hermes</span>
     </div>
     <div class="user-chip">
       <div class="lang-app">
-        <span>🇬🇧 EN</span>
+        <span>🇺🇸 USA EDITION</span>
         <span class="lang-app-sep">|</span>
-        <a href="../app.html">🇬🇷 GR</a>
+        <a href="../app.html">🇬🇷 GREEK EDITION</a>
       </div>
       <div class="plan-tiers" id="planTiers" title="Your current plan">
         <span data-tier="free">FREE</span>
@@ -91,6 +98,7 @@
         <span data-tier="business">BIZ</span>
       </div>
       <span id="planBadge" style="display:none;" aria-hidden="true"></span>
+      <a href="mailto:ststamato@gmail.com?subject=FuneralOS%20Support" class="logout-btn" style="text-decoration:none;" title="Need help? Email us">? Help</a>
       <button class="logout-btn" id="logoutBtn">Sign out</button>
     </div>
   </header>
@@ -101,11 +109,12 @@
     <button class="tab-button" data-tab="stats">Statistics</button>
     <button class="tab-button" data-tab="history">History</button>
     <button class="tab-button" data-tab="settings">Settings</button>
-    <button class="tab-button" data-tab="hermes">Hermes</button>
-    <button class="new-ceremony" id="newCeremonyBtn">+ New ceremony</button>
+    <button class="tab-button" data-tab="usaDirector" id="usaNavBtn" style="display:none;">🇺🇸 USA</button>
+    <button class="new-ceremony" id="newCeremonyBtn">+ New Case</button>
   </nav>
 
   <section class="home-command-center" id="homeCommandCenter" aria-label="Office dashboard">
+    <div id="sectionPanel_home" class="section-custom-panel hidden"></div>
     <button type="button" id="aiAssistantBtn" class="ai-assistant-btn hero-ai-btn">🤖 AI Assistant</button>
 
     <div class="hermes-mini-brief" id="hermesMiniBrief">
@@ -128,7 +137,7 @@
       <div class="dash-card danger-soft"><span>PENDING</span><strong id="dashIssuesCount">0</strong><small>AI check</small></div>
     </div>
 
-    <button type="button" class="new-ceremony-hero" id="newCeremonyHeroBtn">+ New Ceremony</button>
+    <button type="button" class="new-ceremony-hero" id="newCeremonyHeroBtn">+ New Case — First Call</button>
   </section>
 
   <main>
@@ -137,20 +146,21 @@
     </section>
 
     <section id="warehouseTab" class="tab">
+      <div id="sectionPanel_inventory" class="section-custom-panel hidden"></div>
       <h2>Inventory</h2>
       <div class="warehouse-section">
-        <h3>Coffins</h3>
-        <div class="warehouse-controls"><button id="addCoffinBtn">+ Add coffin</button></div>
+        <h3>Caskets</h3>
+        <div class="warehouse-controls"><button id="addCoffinBtn">+ Add casket</button></div>
         <table class="warehouse-table">
-          <thead><tr><th>Coffin</th><th>Qty</th><th></th></tr></thead>
+          <thead><tr><th>Casket</th><th>Qty</th><th></th></tr></thead>
           <tbody id="warehouseBody"></tbody>
         </table>
       </div>
       <div class="warehouse-section">
-        <h3>Burial Sets</h3>
-        <div class="warehouse-controls"><button id="addSetBtn">+ Add set</button></div>
+        <h3>Urns &amp; Vaults</h3>
+        <div class="warehouse-controls"><button id="addSetBtn">+ Add item</button></div>
         <table class="warehouse-table">
-          <thead><tr><th>Set</th><th>Qty</th><th></th></tr></thead>
+          <thead><tr><th>Item</th><th>Qty</th><th></th></tr></thead>
           <tbody id="setsBody"></tbody>
         </table>
         <p class="warehouse-hint">Low stock alert: highlighted when below 5 units</p>
@@ -161,19 +171,10 @@
         <div class="warehouse-controls"><button id="addSupplierBtn">+ Add supplier</button></div>
         <div id="suppliersList"></div>
       </div>
-      <div class="warehouse-section options-warehouse">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-          <div>
-            <h3>Custom lists</h3>
-            <p class="warehouse-hint">Create your own lists — items appear as dropdown options in the ceremony form.</p>
-          </div>
-          <button type="button" id="addCustomListBtn" class="add-option-btn">+ New list</button>
-        </div>
-        <div id="customListsContainer"></div>
-      </div>
     </section>
 
     <section id="statsTab" class="tab">
+      <div id="sectionPanel_stats" class="section-custom-panel hidden"></div>
       <h2>Statistics</h2>
       <div id="statsContent">
         <div id="statsMore"></div>
@@ -181,18 +182,37 @@
     </section>
 
     <section id="historyTab" class="tab">
-      <h2>Ceremony history</h2>
+      <div id="sectionPanel_history" class="section-custom-panel hidden"></div>
+      <h2>Case history</h2>
       <div id="historyControls"></div>
       <div id="historyList"></div>
     </section>
 
     <section id="settingsTab" class="tab">
       <h2>Settings</h2>
+      <!-- Timezone -->
+      <div class="settings-panel">
+        <div class="settings-head">
+          <div>
+            <h3>🕐 Time Zone</h3>
+            <p class="warehouse-hint">All "today / tomorrow / upcoming" calculations use this time zone.</p>
+          </div>
+        </div>
+        <div style="margin-top:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <select id="usaTimezoneSelect" onchange="window.__usaSaveTz && window.__usaSaveTz(this.value)" style="padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:#0f1a2e;color:#c8daf0;font-size:14px;min-width:200px;">
+            <option value="America/New_York">Eastern (ET)</option>
+            <option value="America/Chicago">Central (CT)</option>
+            <option value="America/Denver">Mountain (MT)</option>
+            <option value="America/Los_Angeles">Pacific (PT)</option>
+          </select>
+          <span id="tzCurrentTime" style="font-size:12px;color:#8899aa;"></span>
+        </div>
+      </div>
       <div class="settings-panel" id="optionalFieldsPanel" style="display:none;">
         <div class="settings-head">
           <div>
-            <h3>Optional ceremony fields <span style="background:#c8a96e;color:#0f1523;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-left:4px;vertical-align:middle;">PRO</span></h3>
-            <p class="warehouse-hint">Toggle which extra fields appear in the ceremony form.</p>
+            <h3>Case form layout <span style="background:#c8a96e;color:#0f1523;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-left:4px;vertical-align:middle;">PRO</span></h3>
+            <p class="warehouse-hint">Toggle visibility of fields in the case form.</p>
           </div>
         </div>
         <div id="optFieldsToggleList" class="opt-fields-toggle-list"></div>
@@ -253,15 +273,137 @@
           <p style="margin-top:10px;font-size:11px;color:#556677;line-height:1.6;">The code is entered during the new user's registration. Once they activate a Pro or Business plan, you automatically receive 1 free month.</p>
         </div>
       </div>
+      <!-- Subscription management -->
+      <div class="settings-panel" id="billingPanel">
+        <div class="settings-head">
+          <div>
+            <h3>Subscription</h3>
+            <p class="warehouse-hint">Your current plan and billing options.</p>
+          </div>
+        </div>
+        <div id="billingPanelBody" style="margin-top:14px;"></div>
+      </div>
+      <!-- Team Members -->
+      <div class="settings-panel" id="teamPanel">
+        <div class="settings-head">
+          <div>
+            <h3>👥 Team Members</h3>
+            <p class="warehouse-hint">Invite colleagues to share this office. Admins can edit everything; editors can add and update cases but cannot delete or change settings.</p>
+          </div>
+        </div>
+        <div id="teamMembersList" style="margin-top:12px;"></div>
+        <div id="teamInviteForm" style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <input id="inviteEmail" type="email" placeholder="colleague@email.com" style="flex:1;min-width:180px;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:#0f1a2e;color:#c8daf0;font-size:14px;" />
+          <select id="inviteRole" style="padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:#0f1a2e;color:#c8daf0;font-size:14px;">
+            <option value="editor">Editor</option>
+            <option value="admin">Admin</option>
+          </select>
+          <button onclick="sendTeamInvite()" style="background:#c8a96e;color:#0f1523;border:none;padding:10px 18px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;white-space:nowrap;">Send Invite</button>
+        </div>
+        <div id="teamInviteMsg" style="margin-top:8px;font-size:13px;"></div>
+      </div>
+      <!-- Directors panel -->
       <div class="settings-panel">
         <div class="settings-head">
           <div>
-            <h3>Custom ceremony fields</h3>
-            <p class="warehouse-hint">Add your own fields to the ceremony card — text, dropdowns, dates and more.</p>
+            <h3>Assigned Directors</h3>
+            <p class="warehouse-hint">Funeral directors that appear in the case form dropdown.</p>
+          </div>
+        </div>
+        <div id="directorsList" style="display:flex;flex-direction:column;gap:8px;margin-top:12px;"></div>
+        <div style="display:flex;gap:8px;margin-top:12px;">
+          <input id="directorNameInput" type="text" placeholder="Director full name" style="flex:1;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:#0f1a2e;color:#c8daf0;font-size:14px;" />
+          <button onclick="addDirectorEntry()" style="background:#c8a96e;color:#0f1523;border:none;padding:10px 18px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;white-space:nowrap;">+ Add</button>
+        </div>
+      </div>
+      <!-- USA Modules Settings -->
+      <div class="settings-panel" id="usaSettingsPanel" style="display:none;">
+        <div class="settings-head">
+          <div>
+            <h3>🇺🇸 USA Modules</h3>
+            <p class="warehouse-hint">Configure active modules, document checklist and case defaults.</p>
+          </div>
+        </div>
+        <div style="margin-bottom:18px;">
+          <p style="font-size:13px;font-weight:600;color:#c8daf0;margin-bottom:8px;">Active modules</p>
+          <div id="usaModuleToggles"></div>
+        </div>
+        <div style="margin-bottom:18px;">
+          <p style="font-size:13px;font-weight:600;color:#c8daf0;margin-bottom:6px;">Default case priority</p>
+          <select id="usaDefaultPriority" onchange="window.usaSavePriority(this.value)" style="padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:#0f1a2e;color:#c8daf0;font-size:14px;width:100%;max-width:220px;">
+            <option>Normal</option>
+            <option>Urgent</option>
+            <option>High</option>
+            <option>After Hours</option>
+            <option>Coroner Case</option>
+          </select>
+        </div>
+        <div style="margin-bottom:18px;">
+          <p style="font-size:13px;font-weight:600;color:#c8daf0;margin-bottom:4px;">Custom document checklist</p>
+          <p class="warehouse-hint" style="margin-bottom:10px;">Default: Death Certificate · Burial Permit · Cremation Authorization · Contract · Invoice</p>
+          <div id="usaCustomDocsList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;"></div>
+          <div style="display:flex;gap:8px;">
+            <input id="usaCustomDocInput" type="text" placeholder="e.g. Pre-Need Contract" style="flex:1;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:#0f1a2e;color:#c8daf0;font-size:14px;" />
+            <button onclick="window.usaAddCustomDoc()" style="background:#c8a96e;color:#0f1523;border:none;padding:10px 18px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;white-space:nowrap;">+ Add</button>
+          </div>
+        </div>
+        <div>
+          <p style="font-size:13px;font-weight:600;color:#c8daf0;margin-bottom:6px;">Data backup</p>
+          <button onclick="window.usaExportMeta()" style="background:rgba(200,169,110,.1);color:#c8a96e;border:1px solid rgba(200,169,110,.3);padding:10px 18px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;">⬇ Export USA data (JSON)</button>
+        </div>
+      </div>
+      <!-- Data Export -->
+      <div class="settings-panel">
+        <div class="settings-head">
+          <div>
+            <h3>Data Export</h3>
+            <p class="warehouse-hint">Download all your data at any time.</p>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">
+          <button onclick="window.exportCeremoniesCSV && window.exportCeremoniesCSV()" style="padding:10px 18px;background:rgba(200,169,110,.1);color:#c8a96e;border:1px solid rgba(200,169,110,.3);border-radius:9px;font-weight:700;font-size:13px;cursor:pointer;">⬇ Ceremonies CSV</button>
+          <button onclick="window.backupJSON && window.backupJSON()" style="padding:10px 18px;background:rgba(200,169,110,.1);color:#c8a96e;border:1px solid rgba(200,169,110,.3);border-radius:9px;font-weight:700;font-size:13px;cursor:pointer;">⬇ Full backup JSON</button>
+          <button onclick="window.restoreFromJSON && window.restoreFromJSON()" style="padding:10px 18px;background:rgba(239,68,68,.08);color:#fca5a5;border:1px solid rgba(239,68,68,.25);border-radius:9px;font-weight:700;font-size:13px;cursor:pointer;">⬆ Restore from JSON</button>
+        </div>
+      </div>
+      <!-- Trash / Soft Delete -->
+      <div class="settings-panel" id="trashPanel">
+        <div class="settings-head">
+          <div>
+            <h3>🗑 Trash <span id="trashCount" style="font-size:12px;background:rgba(220,80,80,.15);color:#e07070;border-radius:10px;padding:2px 7px;margin-left:6px;"></span></h3>
+            <p class="warehouse-hint">Deleted cases are kept here for 30 days. You can restore or permanently delete them.</p>
+          </div>
+          <button onclick="emptyTrash()" style="padding:6px 14px;border-radius:7px;border:1px solid rgba(220,80,80,.35);background:transparent;color:#e07070;font-size:12px;cursor:pointer;white-space:nowrap;">Empty Trash</button>
+        </div>
+        <div id="trashList" style="margin-top:10px;"></div>
+      </div>
+      <!-- Custom lists -->
+      <div class="settings-panel">
+        <div class="settings-head">
+          <div>
+            <h3>Custom lists</h3>
+            <p class="warehouse-hint">Create your own lists — items appear as dropdown options in the case form.</p>
+          </div>
+          <button type="button" id="addCustomListBtn" class="add-option-btn" style="white-space:nowrap;">+ New list</button>
+        </div>
+        <div id="customListsContainer" style="margin-top:12px;"></div>
+      </div>
+      <div class="settings-panel">
+        <div class="settings-head">
+          <div>
+            <h3>Custom app fields</h3>
+            <p class="warehouse-hint">Add your own fields to any section — case form, dashboard, inventory, stats, and history.</p>
           </div>
           <button type="button" id="addCustomFieldBtn" class="add-option-btn">+ New field</button>
         </div>
-        <div class="settings-note">Core fields stay untouched. Add extra fields here without breaking anything.</div>
+        <div class="cs-section-filter" id="csSectionFilter">
+          <button data-cs-section="ceremony" class="active" onclick="setCsSection('ceremony')">📋 Case form</button>
+          <button data-cs-section="home" onclick="setCsSection('home')">🏠 Dashboard</button>
+          <button data-cs-section="inventory" onclick="setCsSection('inventory')">📦 Inventory</button>
+          <button data-cs-section="stats" onclick="setCsSection('stats')">📊 Stats</button>
+          <button data-cs-section="history" onclick="setCsSection('history')">📜 History</button>
+        </div>
+        <div class="settings-note" id="csSectionNote">Case form fields — also shown on the case card.</div>
         <table class="warehouse-table compact-table">
           <thead><tr><th>Field</th><th>Type</th><th>Display</th><th></th></tr></thead>
           <tbody id="customFieldsBody"></tbody>
@@ -311,81 +453,248 @@
         </div>
       </div>
     </section>
-  </main>
 
-  <!-- CEREMONY MODAL -->
-  <div id="ceremonyModal" class="modal hidden">
-    <div class="modal-content">
-      <h2 id="modalTitle">New ceremony</h2>
-      <form id="ceremonyForm">
-        <div class="form-grid-2">
-          <label>Date<input type="date" id="ceremonyDate" /></label>
-          <label>Time<input type="time" id="ceremonyTime" /></label>
+    <section id="usaDirectorTab" class="tab usa-module-tab">
+      <div class="usa-hero">
+        <div>
+          <p class="usa-kicker">FUNERALOS USA v3</p>
+          <h2>Director Command Center</h2>
+          <p>Daily cockpit for the funeral director: cases, documents, payments and next moves on one screen.</p>
         </div>
-        <label>Deceased name<input type="text" id="deceasedName" /></label>
-        <label>Ceremony location (Parish / Cemetery / Church)<input type="text" id="ceremonyPlace" placeholder="e.g. St Nicholas Church / Forest Hill" /></label>
-        <label>Type
-          <select id="burialType">
-            <option value="Ταφή">Burial</option>
-            <option value="Αποτεφρωση">Cremation</option>
-          </select>
-        </label>
-        <div class="opt-field" data-opt="cremation">
-          <div id="cremationBox" class="hint-box hidden">
-            <div class="form-grid-2">
-              <label>Attendees at crematorium<input type="number" id="cremationEscortCount" min="0" value="0" /></label>
-              <label>Church service before<input type="text" id="cremationParishNote" placeholder="e.g. St Nicholas 11:00" /></label>
-            </div>
-            <p class="mini-muted">Cremation: no grave / zone / plot needed.</p>
+        <button type="button" id="usaHeroNewCaseBtn" class="usa-primary">+ New First Call</button>
+      </div>
+      <div class="usa-dashboard-grid">
+        <div class="usa-card"><span>ACTIVE CASES</span><strong id="usaActiveCount">0</strong><small>open workload</small></div>
+        <div class="usa-card warning"><span>MISSING DOCUMENTS</span><strong id="usaMissingDocsCount">0</strong><small>need signatures/permits</small></div>
+        <div class="usa-card danger"><span>PENDING BALANCES</span><strong id="usaPendingPaymentsTotal">$0</strong><small>unpaid</small></div>
+        <div class="usa-card"><span>UPCOMING SERVICES</span><strong id="usaUpcomingServicesCount">0</strong><small>next 7 days</small></div>
+      </div>
+      <div class="usa-split">
+        <section class="usa-panel">
+          <h3>Attention Required</h3>
+          <div id="usaAttentionList" class="usa-list"></div>
+        </section>
+        <section class="usa-panel">
+          <h3>Director AI Brief</h3>
+          <div id="usaDirectorBrief" class="usa-brief"></div>
+        </section>
+      </div>
+      <section class="usa-v3-ai-director">
+        <div class="usa-section-head">
+          <div>
+            <p class="usa-kicker">AI OPERATIONS DIRECTOR</p>
+            <h2>30-Second Funeral Home Overview</h2>
+            <p>Morning briefing, end-of-day recap, Operations Score, Case Health and smart alerts for independent funeral homes.</p>
+          </div>
+          <div class="usa-v3-actions">
+            <button type="button" id="usaV3MorningBtn" class="usa-primary">Morning Briefing</button>
+            <button type="button" id="usaV3EveningBtn" class="usa-secondary">Evening Recap</button>
           </div>
         </div>
-        <label>Ceremony coordinator<select id="responsiblePerson"></select></label>
-        <div class="opt-field" data-opt="secondPerson"><label>2nd assistant<select id="secondPerson"></select></label></div>
-        <div class="opt-field" data-opt="suitcase"><label>Luggage<select id="suitcase"></select></label></div>
-        <label>Coffin<select id="ceremonyCoffin"></select></label>
-        <label>Shroud<input type="text" id="ceremonySheet" placeholder="e.g. white cotton" /></label>
-        <div class="opt-field" data-opt="set"><label>Burial set<select id="ceremonySet"></select></label></div>
-        <div class="opt-field" data-opt="flowers"><label>Flowers / Wreaths<input type="text" id="ceremonyFlowers" placeholder="e.g. 2 wreaths, 1 bouquet" /></label></div>
-        <div class="opt-field" data-opt="announcement">
-          <label>Obituary
-            <select id="ceremonyAnnouncementStatus">
-              <option value="Δεν χρειάζεται">Not needed</option>
-              <option value="Εκκρεμεί">Pending</option>
-              <option value="Ολοκληρώθηκε">Completed</option>
+        <div class="usa-v3-score-row">
+          <article class="usa-v3-score-card">
+            <span>OPERATIONS SCORE</span>
+            <strong id="usaV3OpsScore">0</strong>
+            <small id="usaV3OpsLabel">Waiting for data</small>
+            <div class="usa-v3-score-bar"><i id="usaV3OpsBar"></i></div>
+          </article>
+          <article class="usa-v3-mini-card"><span>Cases At Risk</span><strong id="usaV3RiskCases">0</strong><small>need director action</small></article>
+          <article class="usa-v3-mini-card"><span>Smart Alerts</span><strong id="usaV3AlertCount">0</strong><small>important only</small></article>
+          <article class="usa-v3-mini-card"><span>Recommended Action</span><strong id="usaV3TopAction">—</strong><small>next best move</small></article>
+        </div>
+        <div class="usa-split">
+          <section class="usa-panel">
+            <h3>AI Morning Briefing</h3>
+            <div id="usaV3MorningBrief" class="usa-v3-brief"></div>
+          </section>
+          <section class="usa-panel">
+            <h3>AI Evening Recap</h3>
+            <div id="usaV3EveningRecap" class="usa-v3-brief"></div>
+          </section>
+        </div>
+        <div class="usa-split">
+          <section class="usa-panel">
+            <h3>Case Health</h3>
+            <div id="usaV3CaseHealth" class="usa-v3-case-health"></div>
+          </section>
+          <section class="usa-panel">
+            <h3>Smart Alerts</h3>
+            <div id="usaV3SmartAlerts" class="usa-list"></div>
+          </section>
+        </div>
+      </section>
+    </section>
+
+    <section id="usaCasesTab" class="tab usa-module-tab">
+      <div class="usa-section-head">
+        <div><h2>Cases</h2><p>American case file from First Call to Case Closing.</p></div>
+        <button type="button" id="usaNewCaseBtn" class="usa-primary">+ New Case</button>
+      </div>
+      <div class="usa-filters">
+        <button type="button" class="usa-filter active" data-usa-filter="active">Active</button>
+        <button type="button" class="usa-filter" data-usa-filter="pending">Pending</button>
+        <button type="button" class="usa-filter" data-usa-filter="closed">Closed</button>
+        <input id="usaCaseSearch" type="search" placeholder="Search decedent, family, director..." />
+      </div>
+      <div id="usaCasesList" class="usa-case-list"></div>
+    </section>
+
+    <section id="usaFirstCallTab" class="tab usa-module-tab">
+      <div class="usa-section-head"><div><h2>First Call Center</h2><p>The call that opens the case. Fast intake and removal team assignment.</p></div></div>
+      <form id="usaFirstCallForm" class="usa-form usa-panel">
+        <div class="usa-form-grid">
+          <label>Decedent Name<input id="usaFcDecedent" required placeholder="John Smith" /></label>
+          <label>Date of Death<input id="usaFcDod" type="date" /></label>
+          <label>Caller Name<input id="usaFcCaller" placeholder="Mary Smith" /></label>
+          <label>Relationship<input id="usaFcRelationship" placeholder="Daughter / Spouse" /></label>
+          <label>Phone<input id="usaFcPhone" placeholder="(555) 000-0000" /></label>
+          <label>Place of Death<select id="usaFcPlace"><option>Hospital</option><option>Nursing Home</option><option>Hospice</option><option>Residence</option><option>Coroner / Medical Examiner</option><option>Other</option></select></label>
+          <label>Facility / Address<input id="usaFcFacility" placeholder="Hospital, facility or home address" /></label>
+          <label>Priority<select id="usaFcPriority"><option>Normal</option><option>Urgent</option><option>Coroner Case</option><option>After Hours</option></select></label>
+          <label>Removal Driver<input id="usaFcDriver" placeholder="Driver" /></label>
+          <label>Vehicle<input id="usaFcVehicle" placeholder="Removal Van / Hearse" /></label>
+        </div>
+        <label>Notes<textarea id="usaFcNotes" rows="3" placeholder="Important instructions, personal effects, family requests..."></textarea></label>
+        <div class="modal-actions"><button type="reset">Clear</button><button type="submit" class="usa-primary">Create Case + Assign Team</button></div>
+      </form>
+    </section>
+
+    <section id="usaDocumentsTab" class="tab usa-module-tab">
+      <div class="usa-section-head"><div><h2>Documents</h2><p>Checklist for death certificate, permits, authorizations, contract and invoice.</p></div></div>
+      <div id="usaDocumentsList" class="usa-doc-list"></div>
+    </section>
+
+    <section id="usaStaffTab" class="tab usa-module-tab">
+      <div class="usa-section-head"><div><h2>Staff Management</h2><p>Shifts, assignments and certification expirations for funeral directors, drivers and removal technicians.</p></div><button type="button" id="usaAddStaffDemo" class="usa-primary">+ Demo Staff</button></div>
+      <div id="usaStaffList" class="usa-grid-list"></div>
+      <form id="usaStaffForm" class="usa-form usa-panel usa-mini-form">
+        <div class="usa-form-grid">
+          <label>Name<input id="usaStaffName" placeholder="Michael Brown" /></label>
+          <label>Role<select id="usaStaffRole"><option>Funeral Director</option><option>Removal Technician</option><option>Driver</option><option>Embalmer</option><option>Office Staff</option></select></label>
+          <label>Shift<input id="usaStaffShift" placeholder="Today 8:00–17:00" /></label>
+          <label>Certification Expiration<input id="usaStaffCert" type="date" /></label>
+        </div>
+        <div class="modal-actions"><button type="submit" class="usa-primary">Add Staff Member</button></div>
+      </form>
+    </section>
+
+    <section id="usaFleetTab" class="tab usa-module-tab">
+      <div class="usa-section-head"><div><h2>Fleet Management</h2><p>Hearse, removal van, limousine and utility vehicles with service, insurance and case assignments.</p></div><button type="button" id="usaAddFleetDemo" class="usa-primary">+ Demo Vehicle</button></div>
+      <div id="usaFleetList" class="usa-grid-list"></div>
+      <form id="usaFleetForm" class="usa-form usa-panel usa-mini-form">
+        <div class="usa-form-grid">
+          <label>Vehicle Name<input id="usaFleetName" placeholder="Hearse 1" /></label>
+          <label>Type<select id="usaFleetType"><option>Hearse</option><option>Removal Van</option><option>Limousine</option><option>Utility Vehicle</option></select></label>
+          <label>Mileage<input id="usaFleetMileage" type="number" placeholder="84500" /></label>
+          <label>Next Service<input id="usaFleetService" type="date" /></label>
+          <label>Insurance Expiration<input id="usaFleetInsurance" type="date" /></label>
+          <label>Status<select id="usaFleetStatus"><option>Available</option><option>Assigned</option><option>In Service</option><option>Out of Service</option></select></label>
+        </div>
+        <div class="modal-actions"><button type="submit" class="usa-primary">Add Vehicle</button></div>
+      </form>
+    </section>
+
+    <section id="usaCremationTab" class="tab usa-module-tab">
+      <div class="usa-section-head"><div><h2>Cremation Workflow</h2><p>Authorization, permit, crematory booking, urn selection and release of ashes per case.</p></div></div>
+      <div id="usaCremationList" class="usa-case-list"></div>
+    </section>
+
+    <section id="usaFinanceTab" class="tab usa-module-tab">
+      <div class="usa-section-head"><div><h2>Finance Dashboard</h2><p>Revenue, outstanding balances, average case value and quick balance updates without digging through cases.</p></div></div>
+      <div class="usa-dashboard-grid">
+        <div class="usa-card"><span>REVENUE CLOSED</span><strong id="usaRevenueClosed">$0</strong><small>closed cases</small></div>
+        <div class="usa-card danger"><span>OUTSTANDING</span><strong id="usaFinanceOutstanding">$0</strong><small>open balances</small></div>
+        <div class="usa-card"><span>AVG CASE VALUE</span><strong id="usaAvgCaseValue">$0</strong><small>all cases</small></div>
+        <div class="usa-card warning"><span>UNPAID CASES</span><strong id="usaUnpaidCases">0</strong><small>need follow-up</small></div>
+      </div>
+      <div id="usaFinanceList" class="usa-case-list"></div>
+    </section>
+
+    <section id="usaScheduleTab" class="tab usa-module-tab">
+      <div class="usa-section-head"><div><h2>Service &amp; Viewing Schedule</h2><p>Viewing room, chapel/service, cemetery or crematory — all with time, staff and vehicle.</p></div></div>
+      <div id="usaScheduleList" class="usa-case-list"></div>
+    </section>
+
+  </main>
+
+  <!-- CASE MODAL (USA Edition — First Call) -->
+  <div id="ceremonyModal" class="modal hidden">
+    <div class="modal-content">
+      <h2 id="modalTitle">New Case — First Call</h2>
+      <form id="ceremonyForm">
+
+        <!-- Decedent -->
+        <label>Decedent full name<input type="text" id="deceasedName" placeholder="Last, First M." /></label>
+        <div class="form-grid-2">
+          <label>Date of death<input type="date" id="pickupDate" /></label>
+          <label>Disposition
+            <select id="burialType">
+              <option value="Ταφή">Burial</option>
+              <option value="Αποτεφρωση">Cremation</option>
+              <option value="Εντομβισμός">Entombment</option>
             </select>
           </label>
         </div>
-        <div class="opt-field" data-opt="decor">
-          <label>Decoration<select id="ceremonyDecor"><option value="">-</option></select></label>
-          <label>Decoration notes<input type="text" id="ceremonyDecorNote" placeholder="e.g. simple / additional..." /></label>
-        </div>
-        <div class="opt-field" data-opt="pallbearers"><label>Pallbearers<select id="ceremonyPallbearers"><option value="">-</option></select></label></div>
-        <div class="opt-field" data-opt="coffee">
-          <label>Wake / Reception<select id="ceremonyCoffee"><option value="">-</option><option value="Ναι">Yes</option><option value="Όχι">No</option></select></label>
-          <label>Reception location<input type="text" id="ceremonyCoffeePlace" placeholder="e.g. Hall / Café near church" /></label>
-        </div>
-        <label>Pickup from<input type="text" id="ceremonyPickup" placeholder="e.g. Hospital / Home / Care home" /></label>
-        <div class="opt-field" data-opt="pickupSecond"><label>2nd pickup person<select id="pickupSecondPerson"></select></label></div>
-        <label>Pickup date<input type="date" id="pickupDate" /></label>
-        <div class="opt-field" data-opt="coldRoom"><label>Cold storage<input type="text" id="ceremonyColdRoom" placeholder="e.g. Yes / No / Where" /></label></div>
-        <div class="opt-field" data-opt="grave">
-          <div id="graveBox">
-            <label>Grave type</label>
-            <div class="grave-row">
-              <label class="grave-option"><input type="radio" name="graveType" id="graveTypeFamily" value="Οικογενειακός" />Family plot</label>
-              <label class="grave-option"><input type="radio" name="graveType" id="graveTypeTriennial" value="Τριετία" checked />3-year plot</label>
-            </div>
-            <div class="grave-fields">
-              <input type="text" id="ceremonyGraveNumber" placeholder="Grave number (family plot)" />
-              <select id="ceremonyGraveZone"><option value="">Zone (3-year plot)</option></select>
-            </div>
+        <div id="cremationBox" class="hint-box hidden">
+          <div class="form-grid-2">
+            <label>Family attendees at crematory<input type="number" id="cremationEscortCount" min="0" value="0" /></label>
+            <label>Chapel/church service note<input type="text" id="cremationParishNote" placeholder="e.g. chapel 10:00 before transfer" /></label>
           </div>
         </div>
+
+        <!-- Place of death -->
+        <div class="form-grid-2">
+          <label>Place of death
+            <select id="ceremonyColdRoom">
+              <option value="">— select —</option>
+              <option value="Hospital">Hospital</option>
+              <option value="Hospice">Hospice</option>
+              <option value="Nursing Facility">Nursing Facility</option>
+              <option value="Residence">Residence</option>
+              <option value="Coroner's Office">Coroner's Office</option>
+              <option value="Other">Other</option>
+            </select>
+          </label>
+          <label>Facility name<input type="text" id="ceremonyFlowers" placeholder="e.g. St. Mary Medical Center" /></label>
+        </div>
+
+        <!-- Caller -->
+        <div class="form-grid-2">
+          <label>Caller / Next of kin<input type="text" id="ceremonyPickup" placeholder="Full name" /></label>
+          <label>Phone<input type="text" id="ceremonySheet" placeholder="(555) 000-0000" /></label>
+        </div>
+
+        <!-- Service -->
+        <p style="font-size:11px;font-weight:700;letter-spacing:.8px;color:rgba(200,169,110,.7);text-transform:uppercase;margin:12px 0 6px;">Service</p>
+        <div class="form-grid-2">
+          <label>Service date<input type="date" id="ceremonyDate" /></label>
+          <label>Service time<input type="time" id="ceremonyTime" /></label>
+        </div>
+        <label>Service location<input type="text" id="ceremonyPlace" placeholder="e.g. Riverside Church / Greenwood Cemetery" /></label>
+        <label>Embalmer<input type="text" id="ceremonyDecorNote" placeholder="Licensed embalmer name" /></label>
+        <label>Assigned director<select id="responsiblePerson"></select></label>
+
+        <!-- Hidden fields kept for app.js compatibility -->
+        <select id="secondPerson" style="display:none"></select>
+        <select id="pickupSecondPerson" style="display:none"></select>
+        <select id="suitcase" style="display:none"><option value="-">-</option></select>
+        <select id="ceremonyCoffin" style="display:none"></select>
+        <select id="ceremonySet" style="display:none"></select>
+        <select id="ceremonyDecor" style="display:none"><option value="">-</option></select>
+        <select id="ceremonyPallbearers" style="display:none"><option value="">-</option></select>
+        <select id="ceremonyCoffee" style="display:none"><option value="">-</option></select>
+        <input type="text" id="ceremonyCoffeePlace" style="display:none" />
+        <select id="ceremonyAnnouncementStatus" style="display:none"><option value="Δεν χρειάζεται">Not needed</option></select>
+        <input type="radio" name="graveType" id="graveTypeFamily" value="Οικογενειακός" style="display:none" />
+        <input type="radio" name="graveType" id="graveTypeTriennial" value="Τριετία" style="display:none" />
+        <input type="text" id="ceremonyGraveNumber" style="display:none" />
+        <select id="ceremonyGraveZone" style="display:none"></select>
+
         <div id="customFieldsFormBox" class="custom-fields-form-box"></div>
-        <label>Notes<textarea id="ceremonyNotes" rows="2" placeholder="Anything important..."></textarea></label>
+        <label>Notes<textarea id="ceremonyNotes" rows="2" placeholder="Coroner hold, family requests, urgent items..."></textarea></label>
         <div class="modal-actions">
           <button type="button" id="cancelModalBtn">Cancel</button>
-          <button type="submit" id="saveCeremonyBtn">Save</button>
+          <button type="submit" id="saveCeremonyBtn">Save Case</button>
         </div>
       </form>
     </div>
@@ -393,7 +702,7 @@
 
   <div id="warehouseModal" class="modal hidden">
     <div class="modal-content">
-      <h2 id="warehouseModalTitle">New coffin</h2>
+      <h2 id="warehouseModalTitle">New casket</h2>
       <form id="warehouseForm">
         <label>Name<input type="text" id="warehouseName" required /></label>
         <div class="form-grid-2"><label>Quantity<input type="number" id="warehouseQty" min="0" value="0" /></label></div>
@@ -407,9 +716,9 @@
 
   <div id="setModal" class="modal hidden">
     <div class="modal-content">
-      <h2 id="setModalTitle">New burial set</h2>
+      <h2 id="setModalTitle">New urn / vault</h2>
       <form id="setForm">
-        <label>Set name<input type="text" id="setName" required /></label>
+        <label>Item name<input type="text" id="setName" required /></label>
         <div class="form-grid-2"><label>Quantity<input type="number" id="setQty" min="0" value="0" /></label></div>
         <div class="modal-actions">
           <button type="button" id="cancelSetBtn">Cancel</button>
@@ -436,7 +745,16 @@
     <div class="modal-content">
       <h2 id="customFieldModalTitle">New field</h2>
       <form id="customFieldForm">
-        <label>Field name<input type="text" id="customFieldLabel" placeholder="e.g. Outstanding payment" required /></label>
+        <label>Field name<input type="text" id="customFieldLabel" placeholder="e.g. Outstanding balance" required /></label>
+        <label>App section
+          <select id="customFieldSection">
+            <option value="ceremony">📋 Case form</option>
+            <option value="home">🏠 Dashboard (above AI)</option>
+            <option value="inventory">📦 Inventory</option>
+            <option value="stats">📊 Stats</option>
+            <option value="history">📜 History</option>
+          </select>
+        </label>
         <div class="form-grid-2">
           <label>Field type
             <select id="customFieldType">
@@ -447,6 +765,7 @@
               <option value="date">Date</option>
               <option value="time">Time</option>
               <option value="number">Number</option>
+              <option value="checkbox">Checkbox ✓</option>
             </select>
           </label>
           <label>Placeholder<input type="text" id="customFieldPlaceholder" placeholder="optional" /></label>
@@ -459,7 +778,7 @@
         </div>
         <div class="modal-actions">
           <button type="button" id="cancelCustomFieldBtn">Cancel</button>
-          <button type="submit" id="saveCustomFieldBtn">Save</button>
+          <button type="submit" id="saveCustomFieldBtn">Save field</button>
         </div>
       </form>
     </div>
@@ -510,6 +829,7 @@
 <script>window.__appLang = "en";</script>
 <script src="../app.js"></script>
 <script src="suppliers.js"></script>
+<script src="../usa.js"></script>
 
 </body>
 </html>

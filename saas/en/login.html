@@ -79,6 +79,7 @@
       <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" />
     </div>
     <button class="btn-submit" id="loginBtn" onclick="doLogin()">Sign in</button>
+    <button class="btn-submit" style="background:transparent;color:var(--gold);border:1px solid rgba(200,169,110,.35);margin-top:8px;" onclick="resetPassword()">Forgot password?</button>
   </div>
 
   <!-- REGISTER -->
@@ -97,8 +98,8 @@
       <input type="password" id="regPassword" placeholder="••••••••" autocomplete="new-password" />
     </div>
     <div class="form-group">
-      <label style="font-size:12px;color:#8899aa;">Referral code <span style="font-weight:400;">(optional)</span></label>
-      <input type="text" id="regReferral" placeholder="e.g. FOS-A1B2C3" autocomplete="off" style="text-transform:uppercase;" />
+      <label style="font-size:12px;color:#8899aa;">Referred by a friend? Enter their code <span style="font-weight:400;">(optional)</span></label>
+      <input type="text" id="regReferral" placeholder="e.g. abc12345" autocomplete="off" />
     </div>
     <button class="btn-submit" id="registerBtn" onclick="doRegister()">Create account</button>
   </div>
@@ -111,8 +112,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-  const SUPABASE_URL = "https://jciaozbyvdiqfxwlgdql.supabase.co";
-  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpjaWFvemJ5dmRpcWZ4d2xnZHFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxMTE5NjQsImV4cCI6MjA4MDY4Nzk2NH0.eEBYVU1VTU3CZvaSA9fh-LLEbqRPRY9ZpK7P-17kWaA";
+  const SUPABASE_URL = "https://rqklpnrgpiprttzsploe.supabase.co";
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJxa2xwbnJncGlwcnR0enNwbG9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMzA2NTgsImV4cCI6MjA5ODYwNjY1OH0.L9kumMt04wy0rlEfE79AwvGD8C2YWAyr_CIh9dDlBZQ";
 
   const { createClient } = window.supabase;
   const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -188,6 +189,15 @@
       showMsg('registerMsg', '✓ Account created! Check your email to confirm, then sign in.', 'success');
       btn.disabled = false; btn.textContent = 'Create account';
     }
+  }
+
+  async function resetPassword() {
+    const email = document.getElementById('loginEmail').value.trim();
+    if (!email) { showMsg('loginMsg', 'Enter your email address above first.', 'error'); return; }
+    const redirectTo = location.origin + location.pathname.replace(/login\.html$/, 'reset.html');
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+    if (error) showMsg('loginMsg', error.message, 'error');
+    else showMsg('loginMsg', 'Password reset email sent. Check your inbox.', 'success');
   }
 
   function translateError(msg) {
