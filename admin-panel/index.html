@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FuneralOS — Admin</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      background: #080f1a;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+
+    /* ── Auth overlay ─────────────────────────────────────────────────────── */
+    #authOverlay {
+      position: fixed; inset: 0; background: #080f1a;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 999; flex-direction: column; gap: 16px;
+    }
+    #authOverlay .ao-logo { font-size: 28px; font-weight: 900; color: #c8a96e; letter-spacing: .05em; }
+    .spinner {
+      width: 28px; height: 28px; border: 3px solid rgba(200,169,110,.2);
+      border-top-color: #c8a96e; border-radius: 50%; animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Top bar ──────────────────────────────────────────────────────────── */
+    .top-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 20px 12px;
+      background: #0d1626;
+      border-bottom: 1px solid rgba(255,255,255,.07);
+      position: sticky; top: 0; z-index: 10;
+    }
+    .top-bar-left { display: flex; align-items: center; gap: 12px; }
+    .logo-pill {
+      background: #c8a96e; color: #0d1626;
+      font-size: 13px; font-weight: 900; letter-spacing: .08em;
+      padding: 5px 13px; border-radius: 999px;
+    }
+    .admin-label {
+      font-size: 12px; font-weight: 700; letter-spacing: .1em;
+      color: rgba(255,255,255,.35); text-transform: uppercase;
+    }
+    .back-link {
+      font-size: 12px; font-weight: 600; color: rgba(255,255,255,.4);
+      text-decoration: none; padding: 6px 12px;
+      border: 1px solid rgba(255,255,255,.1); border-radius: 7px;
+      transition: all .15s;
+    }
+    .back-link:hover { color: #fff; border-color: rgba(255,255,255,.3); }
+    .owner-badge {
+      font-size: 11px; font-weight: 700; color: #c8a96e;
+      background: rgba(200,169,110,.1); border: 1px solid rgba(200,169,110,.2);
+      padding: 4px 10px; border-radius: 20px;
+    }
+
+    /* ── Main layout ──────────────────────────────────────────────────────── */
+    .main { max-width: 1200px; margin: 0 auto; padding: 24px 16px 80px; }
+
+    /* ── Stats grid ───────────────────────────────────────────────────────── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: #0d1626;
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: 14px;
+      padding: 16px 14px 14px;
+    }
+    .stat-card.gold  { border-color: rgba(200,169,110,.25); }
+    .stat-card.green { border-color: rgba(34,197,94,.2); }
+    .stat-card.blue  { border-color: rgba(59,130,246,.2); }
+    .stat-num {
+      font-size: 34px; font-weight: 900; line-height: 1;
+      color: #fff;
+    }
+    .stat-card.gold  .stat-num { color: #c8a96e; }
+    .stat-card.green .stat-num { color: #22c55e; }
+    .stat-card.blue  .stat-num { color: #60a5fa; }
+    .stat-lbl {
+      font-size: 11px; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase; color: rgba(255,255,255,.35);
+      margin-top: 6px;
+    }
+    #statsLoading {
+      grid-column: 1/-1; text-align: center;
+      padding: 24px; color: rgba(255,255,255,.35); font-size: 13px;
+    }
+
+    /* ── Toolbar ──────────────────────────────────────────────────────────── */
+    .toolbar {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 14px; flex-wrap: wrap;
+    }
+    .toolbar input {
+      flex: 1; min-width: 200px;
+      background: #0d1626; border: 1px solid rgba(255,255,255,.1);
+      color: #e2e8f0; padding: 9px 14px; border-radius: 9px;
+      font-size: 13px; outline: none;
+    }
+    .toolbar input::placeholder { color: rgba(255,255,255,.25); }
+    .toolbar input:focus { border-color: rgba(200,169,110,.4); }
+    .toolbar select {
+      background: #0d1626; border: 1px solid rgba(255,255,255,.1);
+      color: #e2e8f0; padding: 9px 12px; border-radius: 9px;
+      font-size: 13px; outline: none; cursor: pointer;
+    }
+    .refresh-btn {
+      background: rgba(200,169,110,.1); border: 1px solid rgba(200,169,110,.25);
+      color: #c8a96e; padding: 9px 16px; border-radius: 9px;
+      font-size: 13px; font-weight: 700; cursor: pointer; transition: all .15s;
+    }
+    .refresh-btn:hover { background: rgba(200,169,110,.2); }
+    .count-lbl { font-size: 12px; color: rgba(255,255,255,.3); margin-left: auto; }
+
+    /* ── User table ───────────────────────────────────────────────────────── */
+    .table-wrap {
+      background: #0d1626;
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      padding: 11px 14px;
+      font-size: 10px; font-weight: 800; letter-spacing: .08em;
+      text-transform: uppercase; color: rgba(255,255,255,.3);
+      text-align: left; background: rgba(255,255,255,.03);
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    tbody tr {
+      border-bottom: 1px solid rgba(255,255,255,.05);
+      cursor: pointer; transition: background .1s;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(255,255,255,.04); }
+    td {
+      padding: 11px 14px;
+      font-size: 13px; color: #cbd5e1;
+    }
+    td.email { font-weight: 600; color: #e2e8f0; font-size: 13px; }
+    td.office { color: rgba(255,255,255,.5); font-size: 12px; }
+    td.date   { color: rgba(255,255,255,.35); font-size: 12px; }
+    .open-btn {
+      background: transparent; border: 1px solid rgba(255,255,255,.1);
+      color: rgba(255,255,255,.4); padding: 5px 10px; border-radius: 6px;
+      font-size: 11px; font-weight: 700; cursor: pointer; transition: all .15s;
+      white-space: nowrap;
+    }
+    .open-btn:hover { border-color: #c8a96e; color: #c8a96e; }
+
+    /* ── Plan badges ──────────────────────────────────────────────────────── */
+    .badge {
+      display: inline-block; padding: 3px 9px; border-radius: 999px;
+      font-size: 10px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase;
+    }
+    .badge-free     { background: rgba(255,255,255,.08); color: rgba(255,255,255,.5); }
+    .badge-pro      { background: rgba(200,169,110,.2);  color: #c8a96e; }
+    .badge-business { background: rgba(34,197,94,.18);   color: #22c55e; }
+
+    /* ── Empty / loading row ─────────────────────────────────────────────── */
+    .empty-row td {
+      text-align: center; padding: 40px; color: rgba(255,255,255,.25);
+      font-size: 14px;
+    }
+
+    /* ── Drawer overlay ───────────────────────────────────────────────────── */
+    .drawer-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.55); z-index: 100;
+    }
+    .drawer-overlay.active { display: block; }
+
+    /* ── User drawer ──────────────────────────────────────────────────────── */
+    .drawer {
+      position: fixed; top: 0; right: -420px; width: 400px; max-width: 95vw;
+      height: 100vh; background: #0d1626;
+      border-left: 1px solid rgba(255,255,255,.1);
+      z-index: 101; overflow-y: auto;
+      transition: right .25s cubic-bezier(.4,0,.2,1);
+      padding: 0 0 60px;
+    }
+    .drawer.active { right: 0; }
+
+    .drawer-header {
+      padding: 20px 20px 16px;
+      border-bottom: 1px solid rgba(255,255,255,.07);
+      position: sticky; top: 0; background: #0d1626; z-index: 1;
+    }
+    .drawer-close {
+      float: right; background: transparent; border: none;
+      color: rgba(255,255,255,.4); font-size: 20px; cursor: pointer;
+      line-height: 1; padding: 2px 4px;
+    }
+    .drawer-close:hover { color: #fff; }
+    .drawer-email {
+      font-size: 15px; font-weight: 800; color: #fff;
+      word-break: break-all; padding-right: 30px;
+    }
+    .drawer-office {
+      font-size: 12px; color: rgba(255,255,255,.4); margin-top: 4px;
+    }
+    .drawer-meta-row {
+      display: flex; gap: 16px; margin-top: 10px; flex-wrap: wrap;
+    }
+    .drawer-meta-item {
+      font-size: 11px; color: rgba(255,255,255,.35);
+    }
+    .drawer-meta-item strong { color: rgba(255,255,255,.6); }
+
+    .drawer-section { padding: 18px 20px; border-bottom: 1px solid rgba(255,255,255,.05); }
+    .drawer-section-title {
+      font-size: 10px; font-weight: 800; letter-spacing: .1em;
+      text-transform: uppercase; color: rgba(255,255,255,.3); margin-bottom: 12px;
+    }
+
+    /* Plan buttons */
+    .plan-btns { display: flex; gap: 8px; }
+    .plan-btn {
+      flex: 1; padding: 9px 6px; border-radius: 9px; border: 1px solid;
+      font-size: 12px; font-weight: 800; letter-spacing: .4px; cursor: pointer;
+      transition: all .15s; background: transparent;
+    }
+    .plan-btn.free     { border-color: rgba(255,255,255,.15); color: rgba(255,255,255,.4); }
+    .plan-btn.free.active { background: rgba(255,255,255,.08); color: #fff; border-color: rgba(255,255,255,.3); }
+    .plan-btn.pro      { border-color: rgba(200,169,110,.3);  color: rgba(200,169,110,.5); }
+    .plan-btn.pro.active  { background: rgba(200,169,110,.2);  color: #c8a96e; border-color: #c8a96e; }
+    .plan-btn.biz      { border-color: rgba(34,197,94,.25);   color: rgba(34,197,94,.4); }
+    .plan-btn.biz.active  { background: rgba(34,197,94,.15);   color: #22c55e; border-color: #22c55e; }
+    .plan-btn:hover:not(.active) { opacity: 1; filter: brightness(1.4); }
+
+    /* Reward buttons */
+    .reward-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+    .reward-btn {
+      padding: 9px 14px; border-radius: 9px;
+      background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.25);
+      color: #22c55e; font-size: 12px; font-weight: 700; cursor: pointer;
+      transition: all .15s;
+    }
+    .reward-btn:hover { background: rgba(34,197,94,.2); }
+    .reward-sub { font-size: 11px; color: rgba(255,255,255,.3); margin-top: 8px; }
+
+    /* Office edit */
+    .office-edit { display: flex; gap: 8px; align-items: stretch; }
+    .office-edit input {
+      flex: 1; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
+      color: #e2e8f0; padding: 9px 12px; border-radius: 9px;
+      font-size: 13px; outline: none;
+    }
+    .office-edit input:focus { border-color: rgba(200,169,110,.4); }
+    .save-btn {
+      background: rgba(200,169,110,.15); border: 1px solid rgba(200,169,110,.3);
+      color: #c8a96e; padding: 9px 14px; border-radius: 9px;
+      font-size: 12px; font-weight: 700; cursor: pointer; transition: all .15s;
+      white-space: nowrap;
+    }
+    .save-btn:hover { background: rgba(200,169,110,.3); }
+
+    /* Feedback */
+    .drawer-feedback {
+      padding: 10px 20px;
+      font-size: 13px; font-weight: 600;
+      min-height: 36px; display: flex; align-items: center;
+    }
+    .drawer-feedback.success { color: #22c55e; }
+    .drawer-feedback.error   { color: #f87171; }
+    .drawer-feedback.info    { color: rgba(255,255,255,.4); }
+
+    /* AI usage row */
+    .ai-usage-bar {
+      height: 6px; background: rgba(255,255,255,.08); border-radius: 3px; margin-top: 6px;
+    }
+    .ai-usage-fill {
+      height: 100%; border-radius: 3px; background: #c8a96e; transition: width .3s;
+    }
+    .ai-usage-fill.full { background: #f87171; }
+
+    /* Referral info */
+    .info-row {
+      display: flex; justify-content: space-between;
+      font-size: 12px; padding: 5px 0;
+      border-bottom: 1px solid rgba(255,255,255,.04);
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-key { color: rgba(255,255,255,.35); }
+    .info-val { color: #e2e8f0; font-weight: 600; }
+    .info-val.green { color: #22c55e; }
+
+    @media (max-width: 600px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      thead .hide-sm { display: none; }
+      td.hide-sm { display: none; }
+      .drawer { width: 100%; max-width: 100vw; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Auth overlay -->
+<div id="authOverlay">
+  <div class="ao-logo">FuneralOS</div>
+  <div class="spinner"></div>
+</div>
+
+<!-- Top bar -->
+<header class="top-bar">
+  <div class="top-bar-left">
+    <div class="logo-pill">FuneralOS</div>
+    <div class="admin-label">Admin Panel</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <span class="owner-badge" id="ownerLabel">—</span>
+    <a href="https://funeralos.net/en/app.html" class="back-link">← App</a>
+  </div>
+</header>
+
+<!-- Main content -->
+<div class="main">
+
+  <!-- Stats cards -->
+  <div class="stats-grid" id="statsGrid">
+    <div id="statsLoading">Φόρτωση δεδομένων...</div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <input id="searchInput" type="search" placeholder="Αναζήτηση email ή γραφείου..." />
+    <select id="planFilter">
+      <option value="">Όλα τα πλάνα</option>
+      <option value="free">FREE</option>
+      <option value="pro">PRO</option>
+      <option value="business">BUSINESS</option>
+    </select>
+    <button class="refresh-btn" onclick="loadUsers()">↺ Ανανέωση</button>
+    <span class="count-lbl" id="countLbl"></span>
+  </div>
+
+  <!-- Users table -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Email</th>
+          <th class="hide-sm">Γραφείο</th>
+          <th>Πλάνο</th>
+          <th class="hide-sm">Εγγραφή</th>
+          <th>Τελευταία σύνδεση</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="userTableBody">
+        <tr class="empty-row"><td colspan="6">Φόρτωση...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- Drawer overlay -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+
+<!-- User detail drawer -->
+<div class="drawer" id="userDrawer">
+  <!-- populated by openDrawer() -->
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function () {
+  "use strict";
+
+  const SUPABASE_URL = "https://rqklpnrgpiprttzsploe.supabase.co";
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJxa2xwbnJncGlwcnR0enNwbG9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMzA2NTgsImV4cCI6MjA5ODYwNjY1OH0.L9kumMt04wy0rlEfE79AwvGD8C2YWAyr_CIh9dDlBZQ";
+  const ADMIN_FN    = SUPABASE_URL + "/functions/v1/admin-stats";
+  const OWNER_EMAILS = ["ststamato@gmail.com"];
+
+  const { createClient } = window.supabase;
+  const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  let allUsers    = [];
+  let activeUser  = null; // user shown in drawer
+  let userToken   = null;
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  async function init() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { location.href = "https://funeralos.net/en/login.html"; return; }
+    if (!OWNER_EMAILS.includes(session.user.email)) { location.href = "https://funeralos.net/en/app.html"; return; }
+
+    userToken = session.access_token;
+    document.getElementById("ownerLabel").textContent = session.user.email;
+    document.getElementById("authOverlay").style.display = "none";
+
+    await loadUsers();
+
+    document.getElementById("searchInput").addEventListener("input", renderTable);
+    document.getElementById("planFilter").addEventListener("change", renderTable);
+  }
+
+  // ── Admin API call ─────────────────────────────────────────────────────────
+  async function adminCall(action, extra) {
+    const res = await fetch(ADMIN_FN, {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + userToken,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ action, ...extra }),
+    });
+    return res.json();
+  }
+
+  // ── Load users ─────────────────────────────────────────────────────────────
+  async function loadUsers() {
+    document.getElementById("userTableBody").innerHTML =
+      '<tr class="empty-row"><td colspan="6">Φόρτωση δεδομένων...</td></tr>';
+    document.getElementById("statsGrid").innerHTML =
+      '<div id="statsLoading">Φόρτωση δεδομένων...</div>';
+
+    const data = await adminCall("list");
+    if (data.error) {
+      document.getElementById("userTableBody").innerHTML =
+        `<tr class="empty-row"><td colspan="6">Σφάλμα: ${data.error}</td></tr>`;
+      return;
+    }
+
+    allUsers = data.users || [];
+    renderStats();
+    renderTable();
+  }
+
+  // ── Stats cards ────────────────────────────────────────────────────────────
+  function renderStats() {
+    const total   = allUsers.length;
+    const free    = allUsers.filter(u => (u.plan || "free") === "free").length;
+    const pro     = allUsers.filter(u => u.plan === "pro").length;
+    const biz     = allUsers.filter(u => u.plan === "business").length;
+    const now     = Date.now();
+    const d7      = 7  * 24 * 3600 * 1000;
+    const d30     = 30 * 24 * 3600 * 1000;
+    const act7    = allUsers.filter(u => u.last_sign_in_at && (now - new Date(u.last_sign_in_at).getTime()) < d7).length;
+    const act30   = allUsers.filter(u => u.last_sign_in_at && (now - new Date(u.last_sign_in_at).getTime()) < d30).length;
+    const curMon  = new Date();
+    const newMon  = allUsers.filter(u => {
+      if (!u.created_at) return false;
+      const d = new Date(u.created_at);
+      return d.getMonth() === curMon.getMonth() && d.getFullYear() === curMon.getFullYear();
+    }).length;
+
+    document.getElementById("statsGrid").innerHTML = `
+      <div class="stat-card">
+        <div class="stat-num">${total}</div>
+        <div class="stat-lbl">Σύνολο χρηστών</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">${free}</div>
+        <div class="stat-lbl">FREE</div>
+      </div>
+      <div class="stat-card gold">
+        <div class="stat-num">${pro}</div>
+        <div class="stat-lbl">PRO</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-num">${biz}</div>
+        <div class="stat-lbl">BUSINESS</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-num">${act7}</div>
+        <div class="stat-lbl">Ενεργοί (7 ημέρες)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">${act30}</div>
+        <div class="stat-lbl">Ενεργοί (30 ημέρες)</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-num">${newMon}</div>
+        <div class="stat-lbl">Νέοι αυτό τον μήνα</div>
+      </div>
+    `;
+  }
+
+  // ── Table ──────────────────────────────────────────────────────────────────
+  function getFiltered() {
+    const q    = (document.getElementById("searchInput").value || "").toLowerCase();
+    const plan = document.getElementById("planFilter").value;
+    return allUsers.filter(u => {
+      if (plan && (u.plan || "free") !== plan) return false;
+      if (q && !u.email.toLowerCase().includes(q) && !(u.office_name || "").toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }
+
+  function renderTable() {
+    const users = getFiltered();
+    document.getElementById("countLbl").textContent = users.length + " χρήστες";
+
+    const tbody = document.getElementById("userTableBody");
+    if (!users.length) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="6">Δεν βρέθηκαν χρήστες</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = users.map(u => {
+      const plan    = u.plan || "free";
+      const lastSeen = u.last_sign_in_at ? timeAgo(u.last_sign_in_at) : "—";
+      const signup  = u.created_at ? fmtDate(u.created_at) : "—";
+      return `
+        <tr onclick="openDrawer('${u.id}')">
+          <td class="email">${esc(u.email)}</td>
+          <td class="office hide-sm">${esc(u.office_name) || '<span style="opacity:.3">—</span>'}</td>
+          <td><span class="badge badge-${plan}">${plan.toUpperCase()}</span></td>
+          <td class="date hide-sm">${signup}</td>
+          <td class="date">${lastSeen}</td>
+          <td><button class="open-btn" onclick="event.stopPropagation();openDrawer('${u.id}')">Άνοιγμα →</button></td>
+        </tr>`;
+    }).join("");
+  }
+
+  // ── Drawer ─────────────────────────────────────────────────────────────────
+  function openDrawer(userId) {
+    const u = allUsers.find(x => x.id === userId);
+    if (!u) return;
+    activeUser = u;
+
+    const plan     = u.plan || "free";
+    const credits  = u.referral?.referral_credits || 0;
+    const until    = u.referral?.referral_plan_until;
+    const code     = u.referral?.referral_code || "—";
+    const refCount = u.referral_count || 0;
+    const aiCalls  = u.ai_calls_today || 0;
+    const aiFill   = Math.round((aiCalls / 10) * 100);
+
+    const drawer = document.getElementById("userDrawer");
+    drawer.innerHTML = `
+      <div class="drawer-header">
+        <button class="drawer-close" onclick="closeDrawer()">✕</button>
+        <div class="drawer-email">${esc(u.email)}</div>
+        <div class="drawer-office">${esc(u.office_name) || '(χωρίς όνομα γραφείου)'}</div>
+        <div class="drawer-meta-row">
+          <div class="drawer-meta-item">Εγγραφή: <strong>${u.created_at ? fmtDate(u.created_at) : "—"}</strong></div>
+          <div class="drawer-meta-item">Τελ. σύνδεση: <strong>${u.last_sign_in_at ? timeAgo(u.last_sign_in_at) : "—"}</strong></div>
+        </div>
+      </div>
+
+      <!-- AI usage -->
+      <div class="drawer-section">
+        <div class="drawer-section-title">AI Βοηθός — Χρήση σήμερα</div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;">
+          <span style="color:rgba(255,255,255,.5);">${aiCalls} / 10 κλήσεις</span>
+          <span style="color:${aiCalls >= 10 ? '#f87171' : '#c8a96e'};font-weight:700;">${aiCalls >= 10 ? 'Όριο!' : aiFill + '%'}</span>
+        </div>
+        <div class="ai-usage-bar">
+          <div class="ai-usage-fill${aiCalls >= 10 ? ' full' : ''}" style="width:${aiFill}%"></div>
+        </div>
+      </div>
+
+      <!-- Referral info -->
+      <div class="drawer-section">
+        <div class="drawer-section-title">Παραπομπές & Credits</div>
+        <div class="info-row">
+          <span class="info-key">Κωδικός παραπομπής</span>
+          <span class="info-val">${esc(code)}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">Επιτυχείς παραπομπές</span>
+          <span class="info-val">${refCount}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">Δωρεάν μήνες (credits)</span>
+          <span class="info-val ${credits > 0 ? 'green' : ''}">${credits} μήνες</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">Plan ισχύει έως</span>
+          <span class="info-val ${until && new Date(until) > new Date() ? 'green' : ''}">${until ? fmtDate(until) : '—'}</span>
+        </div>
+      </div>
+
+      <!-- Change plan -->
+      <div class="drawer-section">
+        <div class="drawer-section-title">Αλλαγή Πλάνου</div>
+        <div class="plan-btns">
+          <button class="plan-btn free ${plan === 'free' ? 'active' : ''}"
+            onclick="setPlan('free')">FREE</button>
+          <button class="plan-btn pro ${plan === 'pro' ? 'active' : ''}"
+            onclick="setPlan('pro')">PRO</button>
+          <button class="plan-btn biz ${plan === 'business' ? 'active' : ''}"
+            onclick="setPlan('business')">BUSINESS</button>
+        </div>
+        <p style="font-size:11px;color:rgba(255,255,255,.25);margin-top:8px;">
+          Ενεργοποιείται στην επόμενη σύνδεση του χρήστη.
+        </p>
+      </div>
+
+      <!-- Add free months -->
+      <div class="drawer-section">
+        <div class="drawer-section-title">Επιβράβευση — Δωρεάν μήνες</div>
+        <div class="reward-btns">
+          <button class="reward-btn" onclick="addCredits(1)">+1 μήνας</button>
+          <button class="reward-btn" onclick="addCredits(3)">+3 μήνες</button>
+          <button class="reward-btn" onclick="addCredits(6)">+6 μήνες</button>
+          <button class="reward-btn" onclick="addCredits(12)">+12 μήνες</button>
+        </div>
+        <div class="reward-sub">Προσθέτει δωρεάν PRO/BIZ περίοδο στον χρήστη μέσω credits.</div>
+      </div>
+
+      <!-- Edit office name -->
+      <div class="drawer-section">
+        <div class="drawer-section-title">Διόρθωση Ονόματος Γραφείου</div>
+        <div class="office-edit">
+          <input id="officeInput" type="text" value="${esc(u.office_name)}" placeholder="Όνομα γραφείου..." />
+          <button class="save-btn" onclick="updateOffice()">Αποθήκευση</button>
+        </div>
+      </div>
+
+      <!-- Danger Zone -->
+      <div class="drawer-section" style="border-top:1px solid rgba(239,68,68,.2);margin-top:8px;padding-top:16px;">
+        <div class="drawer-section-title" style="color:#f87171;">⚠️ Danger Zone</div>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+          <button onclick="banUser()" style="flex:1;padding:9px 12px;background:rgba(239,68,68,.12);color:#fca5a5;border:1px solid rgba(239,68,68,.3);border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;">🚫 Deactivate</button>
+          <button onclick="unbanUser()" style="flex:1;padding:9px 12px;background:rgba(34,197,94,.1);color:#86efac;border:1px solid rgba(34,197,94,.25);border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;">✅ Reactivate</button>
+          <button onclick="deleteUser()" style="flex:1;padding:9px 12px;background:rgba(239,68,68,.2);color:#fca5a5;border:1px solid rgba(239,68,68,.45);border-radius:8px;font-weight:800;font-size:12px;cursor:pointer;">🗑️ Delete</button>
+        </div>
+        <p style="font-size:11px;color:rgba(239,68,68,.45);margin-top:8px;">Deactivate = blocks login, keeps data. Delete = permanent, irreversible.</p>
+      </div>
+
+      <div class="drawer-feedback" id="drawerFeedback"></div>
+    `;
+
+    document.getElementById("drawerOverlay").classList.add("active");
+    drawer.classList.add("active");
+  }
+
+  function closeDrawer() {
+    document.getElementById("drawerOverlay").classList.remove("active");
+    document.getElementById("userDrawer").classList.remove("active");
+    activeUser = null;
+  }
+
+  // ── Actions ────────────────────────────────────────────────────────────────
+  window.openDrawer  = openDrawer;
+  window.closeDrawer = closeDrawer;
+
+  window.setPlan = async function (plan) {
+    if (!activeUser) return;
+    feedback("Αποθήκευση...", "info");
+    const data = await adminCall("set_plan", { userId: activeUser.id, plan });
+    if (data.ok) {
+      activeUser.plan = plan;
+      const u = allUsers.find(x => x.id === activeUser.id);
+      if (u) u.plan = plan;
+      renderStats();
+      renderTable();
+      openDrawer(activeUser.id);
+      feedback("✓ Πλάνο → " + plan.toUpperCase(), "success");
+    } else {
+      feedback("✗ " + (data.error || "Σφάλμα"), "error");
+    }
+  };
+
+  window.addCredits = async function (months) {
+    if (!activeUser) return;
+    feedback("Αποθήκευση...", "info");
+    const data = await adminCall("add_credits", { userId: activeUser.id, months });
+    if (data.ok) {
+      if (!activeUser.referral) activeUser.referral = {};
+      activeUser.referral.referral_credits = data.new_credits;
+      activeUser.referral.referral_plan_until = data.plan_until;
+      const u = allUsers.find(x => x.id === activeUser.id);
+      if (u) u.referral = activeUser.referral;
+      openDrawer(activeUser.id);
+      feedback("✓ +" + months + " μήνες προστέθηκαν", "success");
+    } else {
+      feedback("✗ " + (data.error || "Σφάλμα"), "error");
+    }
+  };
+
+  window.updateOffice = async function () {
+    if (!activeUser) return;
+    const name = (document.getElementById("officeInput")?.value || "").trim();
+    if (!name) return;
+    feedback("Αποθήκευση...", "info");
+    const data = await adminCall("update_office", { userId: activeUser.id, office_name: name });
+    if (data.ok) {
+      activeUser.office_name = name;
+      const u = allUsers.find(x => x.id === activeUser.id);
+      if (u) u.office_name = name;
+      renderTable();
+      feedback("✓ Όνομα γραφείου ενημερώθηκε", "success");
+    } else {
+      feedback("✗ " + (data.error || "Σφάλμα"), "error");
+    }
+  };
+
+  window.banUser = async function () {
+    if (!activeUser) return;
+    if (!confirm("Απενεργοποίηση λογαριασμού " + activeUser.email + ";\nΟ χρήστης δεν θα μπορεί να συνδεθεί. Τα δεδομένα παραμένουν.")) return;
+    feedback("Απενεργοποίηση...", "info");
+    const data = await adminCall("ban_user", { userId: activeUser.id });
+    feedback(data.ok ? "✓ Λογαριασμός απενεργοποιήθηκε" : "✗ " + (data.error || "Σφάλμα"), data.ok ? "success" : "error");
+  };
+
+  window.unbanUser = async function () {
+    if (!activeUser) return;
+    feedback("Επανενεργοποίηση...", "info");
+    const data = await adminCall("unban_user", { userId: activeUser.id });
+    feedback(data.ok ? "✓ Λογαριασμός ενεργοποιήθηκε" : "✗ " + (data.error || "Σφάλμα"), data.ok ? "success" : "error");
+  };
+
+  window.deleteUser = async function () {
+    if (!activeUser) return;
+    const confirmed = confirm(
+      "ΜΟΝΙΜΗ ΔΙΑΓΡΑΦΗ χρήστη:\n" + activeUser.email + "\n\nΑυτή η ενέργεια είναι ΜΟΝΙΜΗ και δεν αναιρείται.\nΟλα τα δεδομένα του θα χαθούν.\n\nΕίσαι σίγουρος;"
+    );
+    if (!confirmed) return;
+    feedback("Διαγραφή...", "info");
+    const data = await adminCall("delete_user", { userId: activeUser.id });
+    if (data.ok) {
+      allUsers = allUsers.filter(u => u.id !== activeUser.id);
+      renderStats();
+      renderTable();
+      closeDrawer();
+    } else {
+      feedback("✗ " + (data.error || "Σφάλμα"), "error");
+    }
+  };
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  window.loadUsers = loadUsers;
+
+  function feedback(msg, type) {
+    const el = document.getElementById("drawerFeedback");
+    if (!el) return;
+    el.textContent = msg;
+    el.className = "drawer-feedback " + type;
+    if (type === "success") setTimeout(() => {
+      if (el) { el.textContent = ""; el.className = "drawer-feedback"; }
+    }, 3000);
+  }
+
+  function timeAgo(iso) {
+    const diff = Date.now() - new Date(iso).getTime();
+    const m = Math.floor(diff / 60000);
+    if (m < 2)  return "μόλις τώρα";
+    if (m < 60) return "πριν " + m + "λ";
+    const h = Math.floor(m / 60);
+    if (h < 24) return "πριν " + h + "ω";
+    const d = Math.floor(h / 24);
+    if (d < 30) return "πριν " + d + " μέρες";
+    return "πριν " + Math.floor(d / 30) + " μήνες";
+  }
+
+  function fmtDate(iso) {
+    return new Date(iso).toLocaleDateString("el-GR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  }
+
+  function esc(str) {
+    if (!str) return "";
+    return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
