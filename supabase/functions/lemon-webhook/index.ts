@@ -1,6 +1,7 @@
 // FuneralOS — Lemon Squeezy Webhook Handler
 // Supabase Edge Function (Deno)
-// Secrets needed: LEMON_SQUEEZY_WEBHOOK_SECRET
+// Secrets needed: LEMON_SQUEEZY_WEBHOOK_SECRET, RESEND_API_KEY
+// Optional:       FROM_EMAIL (default: FuneralOS <billing@funeralos.gr>)
 // Auto-injected:  SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 
 const CORS = {
@@ -131,12 +132,46 @@ async function rewardReferrer(
   console.log(`Referral rewarded: referrer=${referrerId} credits=${currentCredits + 1} until=${base.toISOString()}`);
 }
 
+async function sendReceiptEmail(
+  resendKey: string,
+  toEmail: string,
+  plan: string,
+  productName: string
+): Promise<void> {
+  const planLabel = plan === "business" ? "Business" : "Pro";
+  const from = Deno.env.get("FROM_EMAIL") || "FuneralOS <billing@funeralos.gr>";
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from,
+      to: [toEmail],
+      subject: `✓ Your FuneralOS ${planLabel} plan is active`,
+      html: `<div style="font-family:sans-serif;max-width:540px;margin:0 auto;background:#0f1523;color:#c8daf0;padding:32px;border-radius:12px;">
+        <h1 style="color:#c8a96e;margin:0 0 4px;font-size:22px;">FuneralOS</h1>
+        <h2 style="margin:0 0 24px;color:#fff;font-size:18px;">Your ${planLabel} plan is now active</h2>
+        <p style="margin:0 0 16px;">Thank you for subscribing to <strong>FuneralOS ${planLabel}</strong>. Your account has been upgraded and all features are unlocked.</p>
+        <div style="background:rgba(200,169,110,.1);border:1px solid rgba(200,169,110,.3);border-radius:8px;padding:16px;margin:0 0 24px;">
+          <strong style="color:#c8a96e;">Plan:</strong> ${planLabel}<br>
+          <strong style="color:#c8a96e;">Product:</strong> ${productName}<br>
+          <strong style="color:#c8a96e;">Account:</strong> ${toEmail}
+        </div>
+        <p style="margin:0 0 8px;">Manage your subscription at any time from Settings in the app, or visit your <a href="https://app.lemonsqueezy.com/my-orders" style="color:#c8a96e;">Lemon Squeezy orders page</a>.</p>
+        <p style="color:#8899aa;font-size:11px;margin-top:32px;border-top:1px solid rgba(255,255,255,.08);padding-top:16px;">FuneralOS — Professional funeral management software</p>
+      </div>`,
+    }),
+  });
+  if (!res.ok) console.warn(`Resend receipt email failed: ${res.status} ${await res.text()}`);
+  else console.log(`Receipt email sent to ${toEmail}`);
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   const webhookSecret = Deno.env.get("LEMON_SQUEEZY_WEBHOOK_SECRET");
   const supabaseUrl   = Deno.env.get("SUPABASE_URL")!;
   const serviceKey    = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const resendKey     = Deno.env.get("RESEND_API_KEY") || "";
 
   if (!webhookSecret) return new Response("LEMON_SQUEEZY_WEBHOOK_SECRET not set", { status: 500 });
   if (!serviceKey)    return new Response("SUPABASE_SERVICE_ROLE_KEY not set", { status: 500 });
@@ -227,6 +262,10 @@ Deno.serve(async (req: Request) => {
   // Reward referrer on paid upgrade (pending referral becomes rewarded, +1 month)
   if (ok && targetPlan !== "free") {
     await rewardReferrer(supabaseUrl, serviceKey, userId);
+    // Send receipt email for new subscriptions and one-time purchases
+    if (resendKey && email && ["subscription_created", "order_created"].includes(eventName)) {
+      await sendReceiptEmail(resendKey, email, targetPlan, productName);
+    }
   }
 
   return new Response(JSON.stringify({ ok, plan: targetPlan }), {

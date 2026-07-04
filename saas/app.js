@@ -230,6 +230,9 @@ const SECTION_DATA_KEY = "funeralos_section_data_v1";
 const TRASH_KEY = "staurakaki_trash_v1";
 const OFFICE_EVENTS_LOCAL_KEY = "staurakaki_office_events_v1";
 const OFFICE_DNA_LOCAL_KEY = "staurakaki_office_dna_v1";
+const PENDING_SAVE_KEY = "staurakaki_pending_sync_v1";
+
+let _cloudSaveInFlight = false;
 
 // ---------------- Helpers ----------------
 function nowTs() { return Date.now(); }
@@ -887,11 +890,41 @@ function closeUpdatesModal() {
 }
 
 // ---------------- Cloud load/save ----------------
+function showSyncBadge(state) {
+  let el = document.getElementById("cloudSyncBadge");
+  if (!el && state) {
+    el = document.createElement("span");
+    el.id = "cloudSyncBadge";
+    el.style.cssText = "position:fixed;bottom:14px;right:14px;z-index:9100;font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;background:rgba(15,26,46,.9);border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(6px);pointer-events:none;transition:opacity .5s;";
+    document.body.appendChild(el);
+  }
+  if (!el) return;
+  if (!state) { el.style.opacity = "0"; return; }
+  const cfg = {
+    saving:  ["⟳ syncing…",          "#aaccaa"],
+    saved:   ["✓ saved",              "#66cc88"],
+    pending: ["● offline · pending",  "#e0a040"],
+    error:   ["⚠ sync failed",        "#e07070"],
+  }[state] || [state, "#aabb88"];
+  el.textContent = cfg[0];
+  el.style.color = cfg[1];
+  el.style.opacity = "1";
+}
+
 async function getCloudSession() {
   try {
     if (window.__sb) {
       const { data: { session } } = await window.__sb.auth.getSession();
-      if (session?.user?.id) return { rowId: session.user.id, token: session.access_token };
+      if (session?.user?.id) {
+        const meta = session.user.user_metadata || {};
+        window.__currentRole = meta.office_role || "admin";
+        return {
+          rowId: meta.office_id || session.user.id,
+          userId: session.user.id,
+          token: session.access_token,
+          role: window.__currentRole,
+        };
+      }
     }
   } catch {}
   return null;
@@ -919,9 +952,9 @@ async function cloudLoadData() {
     if (Array.isArray(p.aiSeenAlerts)) aiSeenAlerts = p.aiSeenAlerts;
     if (Array.isArray(p.aiChatHistory)) aiChatHistory = p.aiChatHistory;
     if (Array.isArray(p.customFields)) customFields = p.customFields;
+    if (Array.isArray(p.deletedCeremonies)) deletedCeremonies = p.deletedCeremonies;
     if (window.__appLang === "en") {
       if (Array.isArray(p.enCustomLists)) customLists = p.enCustomLists;
-      // Preserve GR custom lists in localStorage so cloud save can restore them
       if (Array.isArray(p.customLists)) {
         try { localStorage.setItem("staurakaki_custom_lists_v1", JSON.stringify(p.customLists)); } catch {}
       }
@@ -933,24 +966,62 @@ async function cloudLoadData() {
 
 async function cloudSaveAll() {
   if (window.__DEMO_MODE) return;
+  if (!navigator.onLine) {
+    localStorage.setItem(PENDING_SAVE_KEY, "1");
+    showSyncBadge("pending");
+    return;
+  }
+  if (_cloudSaveInFlight) {
+    localStorage.setItem(PENDING_SAVE_KEY, "1");
+    return;
+  }
+  _cloudSaveInFlight = true;
+  showSyncBadge("saving");
+
   const base = `${SUPABASE_URL}/rest/v1`;
   const session = await getCloudSession();
-  if (!session) { console.error("No authenticated user for cloud save"); return; }
+  if (!session) {
+    _cloudSaveInFlight = false;
+    console.error("No authenticated user for cloud save");
+    return;
+  }
+
   let grCustomLists = customLists;
   let enCustomLists = [];
   if (window.__appLang === "en") {
     enCustomLists = customLists;
     try { grCustomLists = JSON.parse(localStorage.getItem("staurakaki_custom_lists_v1") || "[]"); } catch { grCustomLists = []; }
   }
-  const payload = { ceremonies, warehouse, setsWarehouse, secondHelpers, optionWarehouse, changeLog, pushSubs, aiSeenNotes, aiSeenAlerts, aiChatHistory, customFields, customLists: grCustomLists, enCustomLists };
-  try {
-    await fetch(`${base}/app_state`, {
-      method: "POST",
-      headers: { ...supabaseHeaders({ Prefer: "resolution=merge-duplicates" }), Authorization: `Bearer ${session.token}` },
-      body: JSON.stringify([{ id: session.rowId, payload }])
-    });
-  } catch (e) {
-    console.error("Cloud save failed", e);
+
+  const payload = {
+    ceremonies, warehouse, setsWarehouse, secondHelpers, optionWarehouse,
+    changeLog, pushSubs, aiSeenNotes, aiSeenAlerts, aiChatHistory,
+    customFields, customLists: grCustomLists, enCustomLists, deletedCeremonies,
+    sync_ts: Date.now(),
+  };
+
+  const reqBody    = JSON.stringify([{ id: session.rowId, payload }]);
+  const reqHeaders = { ...supabaseHeaders({ Prefer: "resolution=merge-duplicates" }), Authorization: `Bearer ${session.token}` };
+
+  let saved = false;
+  for (let attempt = 0; attempt < 3 && !saved; attempt++) {
+    try {
+      if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 1500));
+      const res = await fetch(`${base}/app_state`, { method: "POST", headers: reqHeaders, body: reqBody });
+      if (res.ok) saved = true;
+    } catch {}
+  }
+
+  _cloudSaveInFlight = false;
+  if (saved) {
+    localStorage.removeItem(PENDING_SAVE_KEY);
+    showSyncBadge("saved");
+    setTimeout(() => showSyncBadge(""), 3000);
+    if (localStorage.getItem(PENDING_SAVE_KEY) === "1") setTimeout(cloudSaveAll, 200);
+  } else {
+    localStorage.setItem(PENDING_SAVE_KEY, "1");
+    showSyncBadge("error");
+    console.error("Cloud save failed after 3 retries");
   }
 }
 
@@ -4931,8 +5002,17 @@ function openCeremonyModal(id = null) {
   modal.classList.remove("hidden");
 }
 
+// Retry pending cloud saves when connectivity returns
+window.addEventListener("online", () => {
+  if (localStorage.getItem(PENDING_SAVE_KEY) === "1") cloudSaveAll();
+});
+
 // ---------------- Init ----------------
 document.addEventListener("DOMContentLoaded", async () => {
+  // Check for team invite link (?invite=TOKEN) — handled after auth in freemium.js
+  const _inviteToken = new URLSearchParams(location.search).get("invite");
+  if (_inviteToken) window.__pendingInviteToken = _inviteToken;
+
   if (window.__DEMO_MODE) {
     const banner = document.createElement("div");
     banner.id = "demoBanner";

@@ -58,6 +58,8 @@
       renderBillingPanel();
       initTimezoneSelector();
       if (typeof renderTrashPanel === "function") renderTrashPanel();
+      renderTeamPanel();
+      applyRoleRestrictions();
     });
     return;
   }
@@ -255,6 +257,9 @@
     renderBillingPanel();
     initTimezoneSelector();
     if (typeof renderTrashPanel === "function") renderTrashPanel();
+    renderTeamPanel();
+    handlePendingInvite();
+    applyRoleRestrictions();
 
     if (isPaid) {
       const panel = document.getElementById("optionalFieldsPanel");
@@ -644,6 +649,153 @@
     }
     location.reload();
   };
+
+  // ── Team / Multi-user ─────────────────────────────────────────────────────────
+
+  async function callEdgeFunction(path, body, token) {
+    const res = await fetch(SUPABASE_URL + "/functions/v1/" + path, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + token,
+        "apikey": SUPABASE_KEY,
+      },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok, status: res.status, data };
+  }
+
+  // Send a team invite
+  window.sendTeamInvite = async function () {
+    const emailEl = document.getElementById("inviteEmail");
+    const roleEl  = document.getElementById("inviteRole");
+    const msgEl   = document.getElementById("teamInviteMsg");
+    if (!emailEl || !msgEl) return;
+    const email = emailEl.value.trim();
+    const role  = roleEl ? roleEl.value : "editor";
+    if (!email) { msgEl.style.color = "#e07070"; msgEl.textContent = "Enter an email address first."; return; }
+
+    msgEl.style.color = "#aabb88";
+    msgEl.textContent = "Sending…";
+
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { msgEl.style.color = "#e07070"; msgEl.textContent = "Not logged in."; return; }
+
+    const result = await callEdgeFunction("team-invite", { email, role }, session.access_token);
+    if (result.ok) {
+      msgEl.style.color = "#66cc88";
+      msgEl.textContent = "Invitation sent to " + email + ".";
+      emailEl.value = "";
+      renderTeamPanel();
+    } else {
+      msgEl.style.color = "#e07070";
+      msgEl.textContent = result.data?.error || result.data?.message || "Failed to send invite.";
+    }
+  };
+
+  // Fetch and render team members list
+  async function renderTeamPanel() {
+    const listEl = document.getElementById("teamMembersList");
+    const formEl = document.getElementById("teamInviteForm");
+    if (!listEl) return;
+
+    const role = window.__currentRole || "admin";
+    // Editors don't see the invite form
+    if (formEl) formEl.style.display = role === "admin" ? "" : "none";
+
+    const { data: { session } } = await sb.auth.getSession().catch(() => ({ data: {} }));
+    if (!session) return;
+    const token = session.access_token;
+
+    // Fetch office members via Supabase REST (RLS: members can see each other)
+    const officeId = (session.user.user_metadata || {}).office_id || session.user.id;
+    const res = await fetch(
+      SUPABASE_URL + "/rest/v1/office_members?office_id=eq." + officeId + "&select=user_id,role,joined_at",
+      { headers: { Authorization: "Bearer " + token, apikey: SUPABASE_KEY } }
+    );
+    if (!res.ok) {
+      listEl.innerHTML = '<p style="font-size:12px;color:#8899aa;">Could not load team members.</p>';
+      return;
+    }
+    const members = await res.json();
+    if (!members.length) {
+      listEl.innerHTML = '<p style="font-size:12px;color:#8899aa;">No team members yet. Invite a colleague above.</p>';
+      return;
+    }
+    listEl.innerHTML = members.map(function (m) {
+      const joined = m.joined_at ? new Date(m.joined_at).toLocaleDateString() : "—";
+      const isSelf = m.user_id === session.user.id;
+      const roleLabel = m.role === "admin" ? '<span style="color:#c8a96e;font-weight:700;">Admin</span>' : '<span style="color:#8899aa;">Editor</span>';
+      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.07);">'
+        + '<div style="flex:1;min-width:0;">'
+        + '<div style="font-size:13px;color:#c8daf0;">' + m.user_id + (isSelf ? ' <span style="font-size:10px;color:#8899aa;">(you)</span>' : '') + '</div>'
+        + '<div style="font-size:11px;color:#8899aa;">' + roleLabel + ' · Joined ' + joined + '</div>'
+        + '</div>'
+        + (role === "admin" && !isSelf ? '<button onclick="removeTeamMember(\'' + m.user_id + '\')" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(220,80,80,.4);background:transparent;color:#e07070;font-size:11px;cursor:pointer;">Remove</button>' : '')
+        + '</div>';
+    }).join("");
+  }
+
+  // Remove a team member (admin only, server-side via service role — use Edge Function pattern)
+  window.removeTeamMember = async function (userId) {
+    if (!confirm("Remove this team member? They will lose access to the shared office data.")) return;
+    const { data: { session } } = await sb.auth.getSession().catch(() => ({ data: {} }));
+    if (!session) return;
+    const officeId = (session.user.user_metadata || {}).office_id || session.user.id;
+    // Admins can delete from office_members directly (RLS: office_id = auth.uid())
+    const res = await fetch(
+      SUPABASE_URL + "/rest/v1/office_members?office_id=eq." + officeId + "&user_id=eq." + userId,
+      { method: "DELETE", headers: { Authorization: "Bearer " + session.access_token, apikey: SUPABASE_KEY, Prefer: "return=minimal" } }
+    );
+    if (res.ok) renderTeamPanel();
+    else alert("Failed to remove member.");
+  };
+
+  // Handle pending invite token (set by app.js on ?invite=TOKEN load)
+  async function handlePendingInvite() {
+    const token = window.__pendingInviteToken;
+    if (!token) return;
+    delete window.__pendingInviteToken;
+
+    // Wait for auth session
+    const { data: { session } } = await sb.auth.getSession().catch(() => ({ data: {} }));
+    if (!session) {
+      // Not logged in — redirect to login with intent
+      const loginUrl = "login.html?invite=" + encodeURIComponent(token);
+      location.replace(loginUrl);
+      return;
+    }
+
+    const result = await callEdgeFunction("accept-invite", { token }, session.access_token);
+    if (result.ok) {
+      // Refresh session so new metadata (office_id, role) is applied
+      await sb.auth.refreshSession();
+      location.replace(location.pathname); // strip ?invite= from URL
+    } else {
+      const msg = result.data?.message || result.data?.error || "Invalid or expired invitation.";
+      alert("Could not accept invitation: " + msg);
+    }
+  }
+
+  // Apply role-based UI restrictions for editors
+  function applyRoleRestrictions() {
+    const role = window.__currentRole || "admin";
+    if (role === "editor") {
+      // Hide settings tab
+      var settingsTab = document.querySelector('[data-tab="settings"]');
+      if (settingsTab) settingsTab.style.display = "none";
+      // Add "Editor" badge to nav
+      var nav = document.querySelector(".tab-nav") || document.querySelector("nav");
+      if (nav && !document.getElementById("editorRoleBadge")) {
+        var badge = document.createElement("span");
+        badge.id = "editorRoleBadge";
+        badge.style.cssText = "font-size:10px;font-weight:700;background:rgba(200,169,110,.15);color:#c8a96e;border:1px solid rgba(200,169,110,.3);padding:2px 8px;border-radius:10px;margin-left:8px;align-self:center;";
+        badge.textContent = "Editor";
+        nav.appendChild(badge);
+      }
+    }
+  }
 
   initAuth();
 })();

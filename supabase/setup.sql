@@ -71,6 +71,54 @@ create policy "user own referrals" on referrals
 create policy "insert referral" on referrals
   for insert with check (auth.uid() = referred_id);
 
+-- ── Team / Multi-user ────────────────────────────────────────────────────
+
+-- Update app_state RLS: allow user OR office member to access office's state
+-- office_id in user JWT metadata = the admin's user_id whose app_state row they share
+drop policy if exists "user own state" on app_state;
+create policy "user or office member state access" on app_state
+  for all using (
+    id = auth.uid()
+    or id = (auth.jwt() -> 'user_metadata' ->> 'office_id')::uuid
+  );
+
+-- Office members: who belongs to which office (office_id = admin's user_id)
+create table if not exists office_members (
+  id          uuid primary key default gen_random_uuid(),
+  office_id   uuid references auth.users(id) on delete cascade,
+  user_id     uuid references auth.users(id) on delete cascade,
+  role        text not null check (role in ('admin', 'editor')),
+  invited_by  uuid references auth.users(id) on delete set null,
+  joined_at   timestamptz default now(),
+  unique (office_id, user_id)
+);
+
+alter table office_members enable row level security;
+create policy "office members see each other" on office_members
+  for select using (
+    office_id = auth.uid()
+    or office_id = (auth.jwt() -> 'user_metadata' ->> 'office_id')::uuid
+  );
+create policy "office admin can remove members" on office_members
+  for delete using (office_id = auth.uid());
+
+-- Office invites (managed server-side via service role only)
+create table if not exists office_invites (
+  id          uuid primary key default gen_random_uuid(),
+  office_id   uuid references auth.users(id) on delete cascade,
+  email       text not null,
+  role        text not null check (role in ('admin', 'editor')),
+  token       text unique not null default encode(gen_random_bytes(24), 'hex'),
+  invited_by  uuid references auth.users(id) on delete set null,
+  created_at  timestamptz default now(),
+  expires_at  timestamptz default (now() + interval '7 days'),
+  accepted_at timestamptz,
+  unique (office_id, email)
+);
+
+alter table office_invites enable row level security;
+-- No client-side RLS — all access via service role in Edge Functions
+
 -- ── Auto-create profile on signup ─────────────────────────────────────────
 create or replace function handle_new_user()
 returns trigger language plpgsql security definer as $$
