@@ -666,12 +666,21 @@
     return { ok: res.ok, status: res.status, data };
   }
 
+  const PRO_TEAM_LIMIT = 5;
+
   // Send a team invite
   window.sendTeamInvite = async function () {
+    const plan  = window.__authPlan || "free";
     const emailEl = document.getElementById("inviteEmail");
     const roleEl  = document.getElementById("inviteRole");
     const msgEl   = document.getElementById("teamInviteMsg");
     if (!emailEl || !msgEl) return;
+
+    if (plan === "free") {
+      showUpgradeModal("Team Members — Pro feature", "Invite up to " + PRO_TEAM_LIMIT + " team members on Pro, or unlimited on Business.");
+      return;
+    }
+
     const email = emailEl.value.trim();
     const role  = roleEl ? roleEl.value : "editor";
     if (!email) { msgEl.style.color = "#e07070"; msgEl.textContent = "Enter an email address first."; return; }
@@ -681,6 +690,21 @@
 
     const { data: { session } } = await sb.auth.getSession();
     if (!session) { msgEl.style.color = "#e07070"; msgEl.textContent = "Not logged in."; return; }
+
+    // Pro plan: enforce 5-member limit before calling Edge Function
+    if (plan === "pro") {
+      const officeId = (session.user.user_metadata || {}).office_id || session.user.id;
+      const countRes = await fetch(
+        SUPABASE_URL + "/rest/v1/office_members?office_id=eq." + officeId + "&select=user_id",
+        { headers: { Authorization: "Bearer " + session.access_token, apikey: SUPABASE_KEY } }
+      );
+      const current = countRes.ok ? await countRes.json() : [];
+      if (current.length >= PRO_TEAM_LIMIT) {
+        msgEl.style.color = "#e07070";
+        msgEl.textContent = "Pro limit reached (" + PRO_TEAM_LIMIT + " members). Upgrade to Business for unlimited.";
+        return;
+      }
+    }
 
     const result = await callEdgeFunction("team-invite", { email, role }, session.access_token);
     if (result.ok) {
@@ -698,11 +722,24 @@
   async function renderTeamPanel() {
     const listEl = document.getElementById("teamMembersList");
     const formEl = document.getElementById("teamInviteForm");
+    const msgEl  = document.getElementById("teamInviteMsg");
     if (!listEl) return;
 
+    const plan = window.__authPlan || "free";
+
+    // Free users: show upgrade prompt instead of team panel
+    if (plan === "free") {
+      if (formEl) formEl.style.display = "none";
+      listEl.innerHTML =
+        '<div style="padding:14px;background:rgba(200,169,110,.08);border:1px solid rgba(200,169,110,.2);border-radius:8px;text-align:center;">'
+        + '<p style="font-size:13px;color:#c8a96e;margin:0 0 10px;font-weight:600;">Team collaboration — Pro &amp; Business</p>'
+        + '<p style="font-size:12px;color:#8899aa;margin:0 0 12px;">Invite up to ' + PRO_TEAM_LIMIT + ' colleagues on Pro, or unlimited on Business.</p>'
+        + '<a href="javascript:void(0)" onclick="window.__showUpgrade && window.__showUpgrade(\'Team Members\',\'Invite up to ' + PRO_TEAM_LIMIT + ' team members on Pro, or unlimited on Business.\')" style="display:inline-block;background:#c8a96e;color:#0f1523;padding:7px 18px;border-radius:7px;font-size:12px;font-weight:700;text-decoration:none;cursor:pointer;">See plans →</a>'
+        + '</div>';
+      return;
+    }
+
     const role = window.__currentRole || "admin";
-    // Editors don't see the invite form
-    if (formEl) formEl.style.display = role === "admin" ? "" : "none";
 
     const { data: { session } } = await sb.auth.getSession().catch(() => ({ data: {} }));
     if (!session) return;
@@ -719,6 +756,19 @@
       return;
     }
     const members = await res.json();
+
+    const atProLimit = plan === "pro" && members.length >= PRO_TEAM_LIMIT;
+
+    // Show/hide invite form
+    if (formEl) formEl.style.display = (role === "admin" && !atProLimit) ? "" : "none";
+
+    // Pro counter below invite form
+    if (msgEl && plan === "pro" && role === "admin") {
+      msgEl.style.color = atProLimit ? "#e07070" : "#8899aa";
+      msgEl.textContent = members.length + "/" + PRO_TEAM_LIMIT + " team members"
+        + (atProLimit ? " · Upgrade to Business for unlimited." : "");
+    }
+
     if (!members.length) {
       listEl.innerHTML = '<p style="font-size:12px;color:#8899aa;">No team members yet. Invite a colleague above.</p>';
       return;
