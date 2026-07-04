@@ -56,6 +56,8 @@
       var layoutPanel = document.getElementById("optionalFieldsPanel");
       if (layoutPanel) layoutPanel.style.display = "";
       renderBillingPanel();
+      initTimezoneSelector();
+      if (typeof renderTrashPanel === "function") renderTrashPanel();
     });
     return;
   }
@@ -198,6 +200,21 @@
     }
   }
 
+  function initTimezoneSelector() {
+    const sel = document.getElementById("usaTimezoneSelect");
+    if (!sel || !window.__usaGetTz) return;
+    sel.value = window.__usaGetTz();
+    function updateClock() {
+      const clockEl = document.getElementById("tzCurrentTime");
+      if (!clockEl || !window.__usaGetTz) return;
+      const tz = window.__usaGetTz();
+      const now = new Date().toLocaleTimeString("en-US", {timeZone: tz, hour:"2-digit", minute:"2-digit", hour12:true});
+      clockEl.textContent = "Current time: " + now;
+    }
+    updateClock();
+    setInterval(updateClock, 30000);
+  }
+
   function renderBillingPanel() {
     const body = document.getElementById("billingPanelBody");
     if (!body) return;
@@ -236,6 +253,8 @@
     const isPaid = plan === "pro" || plan === "business";
 
     renderBillingPanel();
+    initTimezoneSelector();
+    if (typeof renderTrashPanel === "function") renderTrashPanel();
 
     if (isPaid) {
       const panel = document.getElementById("optionalFieldsPanel");

@@ -194,6 +194,7 @@ const DEFAULT_SETS = ["ΓΚΡΙ", "ΛΕΥΚΟ", "ΚΟΚΚΙΝΟ", "ΜΠΛΕ"];
 
 // ---------------- State ----------------
 let ceremonies = [];
+let deletedCeremonies = [];
 // Ceremony bridge — available immediately so USA modules can read live data
 window.__fosGetCeremonies = () => ceremonies;
 window.__fosPushCeremony = (c) => { ceremonies.unshift(c); saveData(); renderAll(); };
@@ -226,6 +227,7 @@ const AI_CHAT_HISTORY_KEY = "staurakaki_ai_chat_history_v1";
 const CUSTOM_FIELDS_KEY = "staurakaki_custom_fields_v36";
 const CUSTOM_LISTS_KEY = window.__appLang === "en" ? "funeralos_en_custom_lists_v1" : "staurakaki_custom_lists_v1";
 const SECTION_DATA_KEY = "funeralos_section_data_v1";
+const TRASH_KEY = "staurakaki_trash_v1";
 const OFFICE_EVENTS_LOCAL_KEY = "staurakaki_office_events_v1";
 const OFFICE_DNA_LOCAL_KEY = "staurakaki_office_dna_v1";
 
@@ -598,7 +600,9 @@ function dateToStr(d) {
 }
 
 function addDaysStr(yyyyMmDd, daysToAdd) {
-  const d = new Date(yyyyMmDd);
+  // Parse as local noon to avoid UTC-midnight / DST off-by-one issues
+  const [y, m, dd] = String(yyyyMmDd).split("-").map(Number);
+  const d = new Date(y, m - 1, dd, 12, 0, 0);
   d.setDate(d.getDate() + daysToAdd);
   return dateToStr(d);
 }
@@ -1160,7 +1164,7 @@ function clearCeremonyOptionReferences(key, oldValue) {
 
 // ---------------- Demo Mode ----------------
 function loadDemoData() {
-  const d = (n) => { const dt = new Date(); dt.setDate(dt.getDate() + n); return dt.toISOString().slice(0, 10); };
+  const d = (n) => { const dt = new Date(); dt.setDate(dt.getDate() + n); return dateToStr(dt); };
 
   if (window.__appLang === "en") {
     const base = { sheet: '', set: '', flowers: '', announcementStatus: 'Not needed', decor: '', decorNote: '', secondPerson: 'None', pickupSecondPerson: '', suitcase: '-', coffee: '', coffeePlace: '', pickup: '', pickupDate: '', coldRoom: '', cremationEscortCount: 0, cremationParishNote: '', graveNumber: '', graveZone: '', customValues: {} };
@@ -1284,6 +1288,7 @@ async function loadData() {
       try { customFields = JSON.parse(localStorage.getItem(CUSTOM_FIELDS_KEY)) || []; } catch { customFields = []; }
       try { customLists = JSON.parse(localStorage.getItem(CUSTOM_LISTS_KEY)) || []; } catch { customLists = []; }
       try { sectionData = JSON.parse(localStorage.getItem(SECTION_DATA_KEY)) || {}; } catch { sectionData = {}; }
+      try { deletedCeremonies = JSON.parse(localStorage.getItem(TRASH_KEY)) || []; } catch { deletedCeremonies = []; }
     }
   } else {
     try { ceremonies = JSON.parse(localStorage.getItem(CEREMONIES_KEY)) || []; } catch { ceremonies = []; }
@@ -1298,6 +1303,7 @@ async function loadData() {
     try { customFields = JSON.parse(localStorage.getItem(CUSTOM_FIELDS_KEY)) || []; } catch { customFields = []; }
     try { customLists = JSON.parse(localStorage.getItem(CUSTOM_LISTS_KEY)) || []; } catch { customLists = []; }
     try { sectionData = JSON.parse(localStorage.getItem(SECTION_DATA_KEY)) || {}; } catch { sectionData = {}; }
+    try { deletedCeremonies = JSON.parse(localStorage.getItem(TRASH_KEY)) || []; } catch { deletedCeremonies = []; }
   }
 
   ceremonies = (ceremonies || []).map((c) => ({
@@ -1368,6 +1374,7 @@ async function saveData() {
   localStorage.setItem(CUSTOM_FIELDS_KEY, JSON.stringify(customFields || []));
   localStorage.setItem(CUSTOM_LISTS_KEY, JSON.stringify(customLists || []));
   localStorage.setItem(SECTION_DATA_KEY, JSON.stringify(sectionData || {}));
+  localStorage.setItem(TRASH_KEY, JSON.stringify(deletedCeremonies || []));
   if (USE_CLOUD) cloudSaveAll().catch((e) => console.error("Cloud save error (ignored)", e));
 }
 
@@ -1769,18 +1776,67 @@ function saveCeremony(e) {
 }
 
 function deleteCeremony(id) {
-  if (!confirm("Να διαγραφεί η τελετή;")) return;
+  if (!confirm(t("Μετακίνηση στον Κάδο Ανακύκλωσης;", "Move to Trash?"))) return;
   const c = ceremonies.find(x => x.id === id);
   if (c) {
     adjustCoffinStock(c.coffin || "", "");
     adjustSetStock(c.set || "", "");
     emitOfficeEvent("ceremony_deleted", { ...c, case_id: ensureCeremonyCaseId(c) });
     addChange("ceremony_delete", `${t("Διαγραφή τελετής","Delete case")}: ${c.name || "-"} (${c.date || t("χωρίς ημ/νία","no date")} ${c.time || ""})`);
+    deletedCeremonies.unshift({ ...c, deleted_at: Date.now() });
   }
-  ceremonies = ceremonies.filter(c => c.id !== id);
+  ceremonies = ceremonies.filter(x => x.id !== id);
   saveBackup("deleteCeremony");
   saveData();
   renderAll();
+}
+
+function restoreCeremony(id) {
+  const idx = deletedCeremonies.findIndex(x => x.id === id);
+  if (idx === -1) return;
+  const c = deletedCeremonies.splice(idx, 1)[0];
+  delete c.deleted_at;
+  ceremonies.unshift(c);
+  saveData();
+  renderAll();
+  renderTrashPanel();
+}
+
+function permanentDeleteCeremony(id) {
+  if (!confirm(t("Μόνιμη διαγραφή; Δεν μπορεί να αναιρεθεί.", "Permanently delete? This cannot be undone."))) return;
+  deletedCeremonies = deletedCeremonies.filter(x => x.id !== id);
+  saveData();
+  renderTrashPanel();
+}
+
+function emptyTrash() {
+  if (!deletedCeremonies.length) return;
+  if (!confirm(t("Να αδειάσει ο κάδος; Μόνιμη διαγραφή όλων.", "Empty trash? All items will be permanently deleted."))) return;
+  deletedCeremonies = [];
+  saveData();
+  renderTrashPanel();
+}
+
+function renderTrashPanel() {
+  const el = document.getElementById("trashList");
+  if (!el) return;
+  const countEl = document.getElementById("trashCount");
+  if (countEl) countEl.textContent = deletedCeremonies.length || "";
+  if (!deletedCeremonies.length) {
+    el.innerHTML = `<p style="color:#8899aa;font-size:13px;padding:8px 0;">${t("Ο κάδος είναι άδειος.", "Trash is empty.")}</p>`;
+    return;
+  }
+  el.innerHTML = deletedCeremonies.map(c => {
+    const when = c.deleted_at ? new Date(c.deleted_at).toLocaleDateString() : "—";
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.07);">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:14px;color:#c8daf0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.name || t("(χωρίς όνομα)","(no name)")}</div>
+        <div style="font-size:11px;color:#8899aa;">${c.date || "—"} &nbsp;·&nbsp; ${t("Διαγράφηκε","Deleted")}: ${when}</div>
+      </div>
+      <button onclick="restoreCeremony('${c.id}')" style="padding:5px 10px;border-radius:6px;border:1px solid rgba(200,169,110,.4);background:transparent;color:#c8a96e;font-size:12px;cursor:pointer;">${t("Επαναφορά","Restore")}</button>
+      <button onclick="permanentDeleteCeremony('${c.id}')" style="padding:5px 10px;border-radius:6px;border:1px solid rgba(220,80,80,.4);background:transparent;color:#e07070;font-size:12px;cursor:pointer;">${t("Διαγραφή","Delete")}</button>
+    </div>`;
+  }).join("");
 }
 
 // ---------------- Warehouse reorder helper ----------------
@@ -2888,7 +2944,7 @@ function updateStats() {
   const now = new Date();
   const monday = getMondayOfWeek(now);
   const sunday = new Date(monday); sunday.setDate(monday.getDate() + 7);
-  const thisMonthKey = now.toISOString().slice(0, 7);
+  const thisMonthKey = getTodayStr().slice(0, 7);
 
   let total = 0, thisWeek = 0, thisMonth = 0, burials = 0, cremations = 0;
   const monthlyCounts = {};
@@ -4900,6 +4956,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     setupTabs();
     renderAll();
+    renderTrashPanel();
     bindAIAssistantActions();
     aiEnsureChatHistoryUI();
 

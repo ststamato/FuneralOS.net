@@ -4,10 +4,54 @@
 // All IIFEs below rely on window.__usaLib exposed here.
 // ================================
 (function(){
-  const USA_META_KEY = "funeralos_en_usa_meta_v1";
-  const USA_SETTINGS_KEY = "funeralos_en_usa_settings_v1";
-  const USA_DOCS = ["Death Certificate","Burial Permit","Cremation Authorization","Contract","Invoice"];
+  const USA_META_KEY      = "funeralos_en_usa_meta_v1";
+  const USA_SETTINGS_KEY  = "funeralos_en_usa_settings_v1";
+  const USA_TZ_KEY        = "funeralos_en_timezone_v1";
+  const USA_DOCS  = ["Death Certificate","Burial Permit","Cremation Authorization","Contract","Invoice"];
   const USA_STEPS = ["First Call","Removal Scheduled","Family Meeting","Documents Pending","Preparation","Viewing","Service Scheduled","Burial/Cremation","Closed"];
+  const USA_TZ_OPTIONS = [
+    {label:"Eastern (ET)",  iana:"America/New_York"},
+    {label:"Central (CT)",  iana:"America/Chicago"},
+    {label:"Mountain (MT)", iana:"America/Denver"},
+    {label:"Pacific (PT)",  iana:"America/Los_Angeles"},
+  ];
+
+  function getAppTimezone(){
+    return localStorage.getItem(USA_TZ_KEY) ||
+      Intl.DateTimeFormat().resolvedOptions().timeZone ||
+      "America/New_York";
+  }
+
+  // Returns YYYY-MM-DD in the given IANA tz, offset by `days` from now
+  function tzDateStr(tz, days){
+    const d = new Date();
+    if (days) d.setDate(d.getDate() + days);
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: tz, year:"numeric", month:"2-digit", day:"2-digit"
+    }).formatToParts(d);
+    return parts.find(p=>p.type==="year").value  + "-" +
+           parts.find(p=>p.type==="month").value + "-" +
+           parts.find(p=>p.type==="day").value;
+  }
+
+  // Returns integer days from tz-today to dateStr (positive = future)
+  function tzDaysBetween(dateStr, tz){
+    if (!dateStr) return null;
+    const today = tzDateStr(tz, 0);
+    const a = new Date(today    + "T12:00:00");
+    const b = new Date(dateStr  + "T12:00:00");
+    return Math.round((b - a) / 86400000);
+  }
+
+  // Expose to other IIFEs in this file
+  window.__usaGetTz     = getAppTimezone;
+  window.__usaTzDateStr = tzDateStr;
+  window.__usaTzDaysBetween = tzDaysBetween;
+  window.__usaSaveTz = function(iana){
+    localStorage.setItem(USA_TZ_KEY, iana);
+  };
+  window.__usaTzOptions = USA_TZ_OPTIONS;
+
   const USA_MODULES_LIST = [
     {tab:"usaDirector",  icon:"🗂",  label:"Director"},
     {tab:"usaCases",     icon:"📁",  label:"Cases"},
@@ -87,6 +131,9 @@
 
     const prioEl = document.getElementById("usaDefaultPriority");
     if (prioEl) prioEl.value = s.defaultPriority || "Normal";
+
+    const tzEl = document.getElementById("usaTimezoneSelect");
+    if (tzEl) tzEl.value = getAppTimezone();
   }
 
   window.usaToggleModule = function(checkbox){
@@ -336,8 +383,8 @@
   const el = (id)=>document.getElementById(id);
   const safe = (s)=>String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const money = (n)=>"$"+(Number(n||0).toLocaleString("en-US"));
-  const todayIso = ()=>new Date().toISOString().slice(0,10);
-  const addDaysIso = (days)=>{const d=new Date();d.setDate(d.getDate()+days);return d.toISOString().slice(0,10);};
+  const todayIso    = ()=>window.__usaTzDateStr(window.__usaGetTz(), 0);
+  const addDaysIso  = (days)=>window.__usaTzDateStr(window.__usaGetTz(), days);
   const uid = ()=>"usa_"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
 
   function cases(){ return window.__usaLib.cases(); }
@@ -553,8 +600,8 @@
   const el = (id)=>document.getElementById(id);
   const safe = (s)=>String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const money = (n)=>"$"+(Number(n||0).toLocaleString("en-US"));
-  const todayIso = ()=>new Date().toISOString().slice(0,10);
-  const addDaysIso = (days)=>{const d=new Date();d.setDate(d.getDate()+days);return d.toISOString().slice(0,10);};
+  const todayIso   = ()=>window.__usaTzDateStr(window.__usaGetTz(), 0);
+  const addDaysIso = (days)=>window.__usaTzDateStr(window.__usaGetTz(), days);
   const uid = ()=>"V2-"+Math.random().toString(36).slice(2,8).toUpperCase();
   function loadKey(key){try{return JSON.parse(localStorage.getItem(key)||"[]")||[]}catch{return []}}
   function saveKey(key,data){localStorage.setItem(key,JSON.stringify(data))}
@@ -678,9 +725,9 @@
   const safe = (s)=>String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const money = (n)=>"$"+Number(n||0).toLocaleString("en-US");
   const load = (key)=>{try{return JSON.parse(localStorage.getItem(key)||"[]")||[]}catch{return []}};
-  const todayIso = ()=>new Date().toISOString().slice(0,10);
-  const addDaysIso = (days)=>{const d=new Date();d.setDate(d.getDate()+days);return d.toISOString().slice(0,10)};
-  const daysBetween = (date)=>{ if(!date) return null; const a=new Date(todayIso()); const b=new Date(date); return Math.round((b-a)/86400000); };
+  const todayIso   = ()=>window.__usaTzDateStr(window.__usaGetTz(), 0);
+  const addDaysIso = (days)=>window.__usaTzDateStr(window.__usaGetTz(), days);
+  const daysBetween = (date)=>window.__usaTzDaysBetween(date, window.__usaGetTz());
   const cases = ()=> window.__usaLib ? window.__usaLib.cases() : [];
   const staff = ()=>load(STAFF_KEY);
   const fleet = ()=>load(FLEET_KEY);

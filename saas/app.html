@@ -264,6 +264,17 @@
         </div>
         <div id="optFieldsToggleList" class="opt-fields-toggle-list"></div>
       </div>
+      <!-- Trash / Soft Delete -->
+      <div class="settings-panel" id="trashPanel">
+        <div class="settings-head">
+          <div>
+            <h3>🗑 Κάδος Ανακύκλωσης <span id="trashCount" style="font-size:12px;background:rgba(220,80,80,.15);color:#e07070;border-radius:10px;padding:2px 7px;margin-left:6px;"></span></h3>
+            <p class="warehouse-hint">Οι διαγραμμένες τελετές φυλάσσονται εδώ. Μπορείς να τις επαναφέρεις ή να τις διαγράψεις μόνιμα.</p>
+          </div>
+          <button onclick="emptyTrash()" style="padding:6px 14px;border-radius:7px;border:1px solid rgba(220,80,80,.35);background:transparent;color:#e07070;font-size:12px;cursor:pointer;white-space:nowrap;">Άδειασμα κάδου</button>
+        </div>
+        <div id="trashList" style="margin-top:10px;"></div>
+      </div>
       <div class="settings-panel">
         <div class="settings-head">
           <div>
