@@ -81,9 +81,9 @@ function aiUpdateCloudUsageBadge() {
   if (!el) return;
   const { used, limit, remaining } = aiGetCloudUsage();
   if (remaining === 0) {
-    el.innerHTML = `<span class="ai-usage-badge ai-usage-full">☁ Cloud AI: ${used}/${limit} — Όριο ημέρας. Επαναφέρεται αύριο.</span>`;
+    el.innerHTML = `<span class="ai-usage-badge ai-usage-full">☁ Cloud AI: ${used}/${limit} — ${t("Όριο ημέρας. Επαναφέρεται αύριο.","Daily limit reached. Resets tomorrow.")}</span>`;
   } else {
-    el.innerHTML = `<span class="ai-usage-badge">☁ Cloud AI: ${used}/${limit} χρήσεις σήμερα</span>`;
+    el.innerHTML = `<span class="ai-usage-badge">☁ Cloud AI: ${used}/${limit} ${t("χρήσεις σήμερα","uses today")}</span>`;
   }
 }
 
@@ -554,7 +554,7 @@ function aiMarkAlertSeen(key) {
 }
 
 function aiSeenButton(key) {
-  return `<div class="ai-note-actions"><button type="button" class="ai-seen-btn" data-ai-seen-alert="${esc(key)}">Το είδα</button></div>`;
+  return `<div class="ai-note-actions"><button type="button" class="ai-seen-btn" data-ai-seen-alert="${esc(key)}">${t("Το είδα","Got it")}</button></div>`;
 }
 
 function getDeviceLabel() { return localStorage.getItem(DEVICE_LABEL_KEY) || ""; }
@@ -4146,21 +4146,21 @@ function aiRenderBriefing() {
   const staff = aiStaffLoad(today).slice(0, 6);
 
   let html = "";
-  html += aiHtmlSection("Σήμερα", aiHtmlCard(`${today.length} τελετές`, `
-    <div class="ai-line"><span>Ταφές</span><b>${burialsToday}</b></div>
-    <div class="ai-line"><span>Αποτεφρώσεις</span><b>${cremationsToday}</b></div>
-    <div class="ai-line"><span>Κρίσιμες σημειώσεις</span><b>${todayNotes.filter(x => x.priority === "high").length}</b></div>
-    <div class="ai-line"><span>Τελετές με ελλείψεις</span><b>${todayErrors.length}</b></div>
+  html += aiHtmlSection(t("Σήμερα","Today"), aiHtmlCard(`${today.length} ${t("τελετές","ceremonies")}`, `
+    <div class="ai-line"><span>${t("Ταφές","Burials")}</span><b>${burialsToday}</b></div>
+    <div class="ai-line"><span>${t("Αποτεφρώσεις","Cremations")}</span><b>${cremationsToday}</b></div>
+    <div class="ai-line"><span>${t("Κρίσιμες σημειώσεις","Critical notes")}</span><b>${todayNotes.filter(x => x.priority === "high").length}</b></div>
+    <div class="ai-line"><span>${t("Τελετές με ελλείψεις","Ceremonies with gaps")}</span><b>${todayErrors.length}</b></div>
   `, todayErrors.length || todayNotes.some(x => x.priority === "high") ? "warning" : "ok"));
 
-  html += aiHtmlSection("Αύριο", aiHtmlCard(`${tomorrow.length} τελετές`, `
-    <div class="ai-meta">Γρήγορη εικόνα επόμενης ημέρας.</div>
-    ${tomorrow.slice(0, 5).map(c => `<div class="ai-line"><span>${esc(c.name || "-")}</span><b>${esc(c.time || "-")}</b></div>`).join("") || `<div class="ai-empty">Δεν υπάρχουν τελετές για αύριο.</div>`}
+  html += aiHtmlSection(t("Αύριο","Tomorrow"), aiHtmlCard(`${tomorrow.length} ${t("τελετές","ceremonies")}`, `
+    <div class="ai-meta">${t("Γρήγορη εικόνα επόμενης ημέρας.","Quick view of next day.")}</div>
+    ${tomorrow.slice(0, 5).map(c => `<div class="ai-line"><span>${esc(c.name || "-")}</span><b>${esc(c.time || "-")}</b></div>`).join("") || `<div class="ai-empty">${t("Δεν υπάρχουν τελετές για αύριο.","No ceremonies tomorrow.")}</div>`}
   `));
 
-  html += aiHtmlSection("Παραλαβές σήμερα", pickups.length ? pickups.map(x => `<div class="ai-line"><span>${esc(x.label)}</span><b>${x.count}</b></div>`).join("") : `<div class="ai-empty">Δεν έχουν δηλωθεί παραλαβές για σήμερα.</div>`);
+  html += aiHtmlSection(t("Παραλαβές σήμερα","Pickups today"), pickups.length ? pickups.map(x => `<div class="ai-line"><span>${esc(x.label)}</span><b>${x.count}</b></div>`).join("") : `<div class="ai-empty">${t("Δεν έχουν δηλωθεί παραλαβές για σήμερα.","No pickups registered for today.")}</div>`);
 
-  html += aiHtmlSection("Φόρτος προσωπικού σήμερα", staff.length ? staff.map(x => `<div class="ai-line"><span>${esc(x.name)}</span><b>${x.total}</b></div>`).join("") : `<div class="ai-empty">Δεν υπάρχουν αρκετά στοιχεία προσωπικού για σήμερα.</div>`);
+  html += aiHtmlSection(t("Φόρτος προσωπικού σήμερα","Staff workload today"), staff.length ? staff.map(x => `<div class="ai-line"><span>${esc(x.name)}</span><b>${x.total}</b></div>`).join("") : `<div class="ai-empty">${t("Δεν υπάρχουν αρκετά στοιχεία προσωπικού για σήμερα.","No staff data available for today.")}</div>`);
 
   if (todayNotes.length) html += aiRenderNotes(today, true);
   if (todayErrors.length) html += aiRenderErrors(today, true);
@@ -4173,16 +4173,16 @@ function aiRenderNotes(sourceList = ceremonies, embedded = false) {
   const notes = aiAnalyzeNotes(sourceList);
   const body = notes.length ? notes.map(item => {
     const level = item.priority === "high" ? "danger" : item.priority === "medium" ? "warning" : "";
-    const badges = item.signals.length ? `<div class="ai-badge-row">${item.signals.map(s => `<span class="ai-badge">${esc(s)}</span>`).join("")}</div>` : `<div class="ai-badge-row"><span class="ai-badge">ΣΗΜΕΙΩΣΗ</span></div>`;
+    const badges = item.signals.length ? `<div class=”ai-badge-row”>${item.signals.map(s => `<span class=”ai-badge”>${esc(s)}</span>`).join(“”)}</div>` : `<div class=”ai-badge-row”><span class=”ai-badge”>${t(“ΣΗΜΕΙΩΣΗ”,”NOTE”)}</span></div>`;
     return aiHtmlCard(aiCeremonyTitle(item.ceremony), `
-      <div class="ai-meta">Προτεραιότητα: <b>${item.priority === "high" ? "ΥΨΗΛΗ" : item.priority === "medium" ? "ΜΕΣΑΙΑ" : "ΚΑΝΟΝΙΚΗ"}</b></div>
-      <div class="ai-note-text">${esc(item.notes)}</div>
+      <div class=”ai-meta”>${t(“Προτεραιότητα:”,”Priority:”)} <b>${item.priority === “high” ? t(“ΥΨΗΛΗ”,”HIGH”) : item.priority === “medium” ? t(“ΜΕΣΑΙΑ”,”MEDIUM”) : t(“ΚΑΝΟΝΙΚΗ”,”NORMAL”)}</b></div>
+      <div class=”ai-note-text”>${esc(item.notes)}</div>
       ${badges}
-      <div class="ai-note-actions"><button type="button" class="ai-seen-btn" data-ai-seen-note="${esc(item.key)}">Το είδα</button></div>
+      <div class=”ai-note-actions”><button type=”button” class=”ai-seen-btn” data-ai-seen-note=”${esc(item.key)}”>${t(“Το είδα”,”Got it”)}</button></div>
     `, level);
-  }).join("") : `<div class="ai-empty">Δεν βρέθηκαν ενεργές σημειώσεις. Όσες πάτησες “Το είδα” μένουν στην καρτέλα της τελετής, απλώς δεν εμφανίζονται ξανά εδώ.</div>`;
+  }).join(“”) : `<div class=”ai-empty”>${t('Δεν βρέθηκαν ενεργές σημειώσεις. Όσες πάτησες “Το είδα” μένουν στην καρτέλα της τελετής, απλώς δεν εμφανίζονται ξανά εδώ.','No active notes found. Notes you marked as “Got it” remain on the ceremony tab but won\'t appear here again.')}</div>`;
 
-  return aiHtmlSection(embedded ? "Σημαντικές σημειώσεις" : "Ανάλυση σημειώσεων", body);
+  return aiHtmlSection(embedded ? t(“Σημαντικές σημειώσεις”,”Important notes”) : t(“Ανάλυση σημειώσεων”,”Notes analysis”), body);
 }
 
 function aiRenderErrors(sourceList = ceremonies, embedded = false) {
@@ -4190,13 +4190,13 @@ function aiRenderErrors(sourceList = ceremonies, embedded = false) {
   const body = errors.length ? errors.map(item => {
     const key = aiErrorKey(item);
     return aiHtmlCard(aiCeremonyTitle(item.ceremony), `
-      <div class="ai-meta">Λείπουν / θέλουν έλεγχο:</div>
-      <div class="ai-badge-row">${item.missing.map(m => `<span class="ai-badge">${esc(m)}</span>`).join("")}</div>
+      <div class=”ai-meta”>${t(“Λείπουν / θέλουν έλεγχο:”,”Missing / need check:”)}</div>
+      <div class=”ai-badge-row”>${item.missing.map(m => `<span class=”ai-badge”>${esc(m)}</span>`).join(“”)}</div>
       ${aiSeenButton(key)}
-    `, item.missing.length >= 3 ? "danger" : "warning");
-  }).join("") : `<div class="ai-card ai-ok"><div class="ai-card-title">Καθαρό</div><div class="ai-empty">Δεν βρέθηκαν ενεργές βασικές ελλείψεις. Όσα πάτησες “Το είδα” δεν εμφανίζονται ξανά εδώ.</div></div>`;
+    `, item.missing.length >= 3 ? “danger” : “warning”);
+  }).join(“”) : `<div class=”ai-card ai-ok”><div class=”ai-card-title”>${t(“Καθαρό”,”All clear”)}</div><div class=”ai-empty”>${t('Δεν βρέθηκαν ενεργές βασικές ελλείψεις. Όσα πάτησες “Το είδα” δεν εμφανίζονται ξανά εδώ.','No active key gaps found. Items you marked as “Got it” won\'t appear here again.')}</div></div>`;
 
-  return aiHtmlSection(embedded ? "Ελλείψεις σήμερα" : "Έλεγχος ελλείψεων", body);
+  return aiHtmlSection(embedded ? t(“Ελλείψεις σήμερα”,”Today's gaps”) : t(“Έλεγχος ελλείψεων”,”Gap check”), body);
 }
 
 function aiRenderWarehouse(embedded = false) {
@@ -4204,24 +4204,24 @@ function aiRenderWarehouse(embedded = false) {
   const body = alerts.length ? alerts.map(item => {
     const key = aiWarehouseAlertKey(item);
     return aiHtmlCard(`${item.type}: ${item.name}`, `
-      <div class="ai-line"><span>Απόθεμα</span><b>${item.qty}</b></div>
-      <div class="ai-meta">${item.type === "ΣΕΤ" ? "Κάτω από το όριο ασφαλείας." : "Χρειάζεται προσοχή στο απόθεμα."}</div>
+      <div class=”ai-line”><span>${t(“Απόθεμα”,”Stock”)}</span><b>${item.qty}</b></div>
+      <div class=”ai-meta”>${item.type === “ΣΕΤ” ? t(“Κάτω από το όριο ασφαλείας.”,”Below safety threshold.”) : t(“Χρειάζεται προσοχή στο απόθεμα.”,”Stock needs attention.”)}</div>
       ${aiSeenButton(key)}
-    `, item.qty === 0 ? "danger" : "warning");
-  }).join("") : `<div class="ai-card ai-ok"><div class="ai-card-title">Αποθήκη ΟΚ</div><div class="ai-empty">Δεν βρέθηκαν ενεργά χαμηλά κρίσιμα αποθέματα. Όσα πάτησες “Το είδα” δεν εμφανίζονται ξανά εδώ.</div></div>`;
+    `, item.qty === 0 ? “danger” : “warning”);
+  }).join(“”) : `<div class=”ai-card ai-ok”><div class=”ai-card-title”>${t(“Αποθήκη ΟΚ”,”Inventory OK”)}</div><div class=”ai-empty”>${t('Δεν βρέθηκαν ενεργά χαμηλά κρίσιμα αποθέματα. Όσα πάτησες “Το είδα” δεν εμφανίζονται ξανά εδώ.','No critical low stock found. Items you marked as “Got it” won\'t appear here again.')}</div></div>`;
 
-  return aiHtmlSection(embedded ? "Αποθήκη" : "Έλεγχος αποθήκης", body);
+  return aiHtmlSection(embedded ? t(“Αποθήκη”,”Inventory”) : t(“Έλεγχος αποθήκης”,”Inventory check”), body);
 }
 
 function aiRenderFull() {
   const week = aiCurrentWeekCeremonies();
   let html = aiRenderBriefing();
-  html += aiHtmlSection("Εβδομάδα", aiHtmlCard(`${week.length} τελετές αυτή την εβδομάδα`, `
-    <div class="ai-line"><span>Με σημειώσεις</span><b>${aiAnalyzeNotes(week).length}</b></div>
-    <div class="ai-line"><span>Με ελλείψεις</span><b>${aiAnalyzeErrors(week).length}</b></div>
-    <div class="ai-line"><span>Αποτεφρώσεις</span><b>${week.filter(c => String(c.burialType || "").trim() === "Αποτεφρωση").length}</b></div>
+  html += aiHtmlSection(t("Εβδομάδα","This week"), aiHtmlCard(`${week.length} ${t("τελετές αυτή την εβδομάδα","ceremonies this week")}`, `
+    <div class="ai-line"><span>${t("Με σημειώσεις","With notes")}</span><b>${aiAnalyzeNotes(week).length}</b></div>
+    <div class="ai-line"><span>${t("Με ελλείψεις","With gaps")}</span><b>${aiAnalyzeErrors(week).length}</b></div>
+    <div class="ai-line"><span>${t("Αποτεφρώσεις","Cremations")}</span><b>${week.filter(c => String(c.burialType || "").trim() === "Αποτεφρωση").length}</b></div>
   `));
-  html += aiHtmlSection("Φόρτος προσωπικού εβδομάδας", aiStaffLoad(week).length ? aiStaffLoad(week).map(x => `<div class="ai-line"><span>${esc(x.name)}</span><b>${x.total}</b></div>`).join("") : `<div class="ai-empty">Δεν υπάρχουν στοιχεία προσωπικού.</div>`);
+  html += aiHtmlSection(t("Φόρτος προσωπικού εβδομάδας","Staff workload this week"), aiStaffLoad(week).length ? aiStaffLoad(week).map(x => `<div class="ai-line"><span>${esc(x.name)}</span><b>${x.total}</b></div>`).join("") : `<div class="ai-empty">${t("Δεν υπάρχουν στοιχεία προσωπικού.","No staff data available.")}</div>`);
   return html;
 }
 
@@ -4490,7 +4490,7 @@ function aiLocalQuestionAnswer(question) {
     const notes = aiAnalyzeNotes(filterByScopeAndKeys(scopedByTime));
     const activeNotes = notes.filter(x => !aiIsNoteSeen(x.ceremony));
     const list = activeNotes.length ? activeNotes : notes;
-    const lines = [`Βρήκα ${list.length} σημειώσεις${activeNotes.length !== notes.length ? " (μαζί με όσες έχουν πατηθεί ως Το είδα)" : ""}.`];
+    const lines = [t(`Βρήκα ${list.length} σημειώσεις${activeNotes.length !== notes.length ? " (μαζί με όσες έχουν πατηθεί ως Το είδα)" : ""}.`, `Found ${list.length} note${list.length !== 1 ? "s" : ""}${activeNotes.length !== notes.length ? ' (including ones marked as "Got it")' : ""}.`)];
     list.slice(0, 15).forEach(x => lines.push(`• ${aiCeremonyTitle(x.ceremony)}: ${x.notes}`));
     return lines.join("\n");
   }
@@ -4554,16 +4554,16 @@ function aiLocalQuestionAnswer(question) {
   const tomorrow = aiTomorrowCeremonies();
   const week = aiCurrentWeekCeremonies();
   return [
-    "Δεν βρήκα ακριβή τύπο ερώτησης, αλλά διάβασα τα δεδομένα της εφαρμογής.",
-    `• Σήμερα: ${today.length} τελετές`,
-    `• Αύριο: ${tomorrow.length} τελετές`,
-    `• Εβδομάδα: ${week.length} τελετές`,
-    `• Ενεργές σημειώσεις: ${aiAnalyzeNotes(ceremonies).length}`,
-    `• Ελλείψεις: ${aiAnalyzeErrors(ceremonies).length}`,
-    `• Αποθήκη: ${aiAnalyzeWarehouse().length} ειδοποιήσεις`,
-    "",
-    "Ρώτα π.χ. “πόσες παραλαβές από Γεννηματά το 2026”, “ποια φέρετρα χρησιμοποιήθηκαν περισσότερο”, “ποιες τελετές έχει αύριο ο Σταύρος”, “ποιες σημειώσεις έχουν Καναδά”."
-  ].join("\n");
+    t(“Δεν βρήκα ακριβή τύπο ερώτησης, αλλά διάβασα τα δεδομένα της εφαρμογής.”,”I didn't find an exact question match, but I read the app data.”),
+    `• ${t(“Σήμερα”,”Today”)}: ${today.length} ${t(“τελετές”,”ceremonies”)}`,
+    `• ${t(“Αύριο”,”Tomorrow”)}: ${tomorrow.length} ${t(“τελετές”,”ceremonies”)}`,
+    `• ${t(“Εβδομάδα”,”This week”)}: ${week.length} ${t(“τελετές”,”ceremonies”)}`,
+    `• ${t(“Ενεργές σημειώσεις”,”Active notes”)}: ${aiAnalyzeNotes(ceremonies).length}`,
+    `• ${t(“Ελλείψεις”,”Gaps”)}: ${aiAnalyzeErrors(ceremonies).length}`,
+    `• ${t(“Αποθήκη”,”Inventory”)}: ${aiAnalyzeWarehouse().length} ${t(“ειδοποιήσεις”,”alerts”)}`,
+    “”,
+    t(“Ρώτα π.χ. “πόσες παραλαβές από Γεννηματά το 2026”, “ποια φέρετρα χρησιμοποιήθηκαν περισσότερο”, “ποιες τελετές έχει αύριο ο Σταύρος”, “ποιες σημειώσεις έχουν Καναδά”.”,”Try asking e.g. “how many pickups from Johnson in 2026”, “which coffins were used most”, “what ceremonies are tomorrow”, “which notes mention the cemetery”.”)
+  ].join(“\n”);
 }
 
 
@@ -4599,7 +4599,7 @@ function aiEnsureChatHistoryUI() {
   const wrap = document.createElement("div");
   wrap.className = "ai-chat-history-wrap";
   wrap.innerHTML = `
-    <div class="ai-section-title">Ιστορικό ερωτήσεων AI</div>
+    <div class="ai-section-title">${t("Ιστορικό ερωτήσεων AI","AI question history")}</div>
     <div id="aiChatHistoryBox" class="ai-chat-history"></div>
   `;
   output.parentNode.insertBefore(wrap, output.nextSibling);
@@ -4747,12 +4747,12 @@ async function aiRunCloud() {
             const c = aiFindCeremonyForCloudNote(n);
             const key = c ? aiNoteKey(c) : "";
             return aiHtmlCard(`${n.name || "-"} ${n.time ? "• " + n.time : ""}`, `
-              <div class="ai-meta">${esc(n.date || "χωρίς ημερομηνία")}</div>
+              <div class="ai-meta">${esc(n.date || t("χωρίς ημερομηνία","no date"))}</div>
               <div class="ai-note-text">${esc(n.notes || "")}</div>
-              ${key ? `<div class="ai-note-actions"><button type="button" class="ai-seen-btn" data-ai-seen-note="${esc(key)}">Το είδα</button></div>` : ""}
+              ${key ? `<div class="ai-note-actions"><button type="button" class="ai-seen-btn" data-ai-seen-note="${esc(key)}">${t("Το είδα","Got it")}</button></div>` : ""}
             `, "warning");
           }).join("")
-        : `<div class="ai-card ai-ok"><div class="ai-card-title">Σημειώσεις</div><div class="ai-empty">Δεν βρέθηκαν ειδικές σημειώσεις.</div></div>`;
+        : `<div class="ai-card ai-ok"><div class="ai-card-title">${t("Σημειώσεις","Notes")}</div><div class="ai-empty">${t("Δεν βρέθηκαν ειδικές σημειώσεις.","No special notes found.")}</div></div>`;
 
       const missingHtml = missing.length
         ? missing.slice(0, 30).map(m => {
@@ -4771,15 +4771,15 @@ async function aiRunCloud() {
             const key = aiAlertKey("cloud_stock", x);
             return `<div class="ai-card ai-warning"><div class="ai-line"><span>${esc(x)}</span></div>${aiSeenButton(key)}</div>`;
           }).join("")
-        : `<div class="ai-empty">Δεν βρέθηκαν ενεργά χαμηλά αποθέματα.</div>`;
+        : `<div class="ai-empty">${t("Δεν βρέθηκαν ενεργά χαμηλά αποθέματα.","No active low stock items found.")}</div>`;
 
       html = `
-        ${aiHtmlSection("Cloud AI Αναφορά", aiHtmlCard("Σύνοψη", `
-          <div class="ai-line"><span>Σύνολο τελετών</span><b>${summary.totalCeremonies ?? 0}</b></div>
-          <div class="ai-line"><span>Σήμερα</span><b>${summary.todayCeremonies ?? 0}</b></div>
-          <div class="ai-line"><span>Σημειώσεις</span><b>${summary.notesFound ?? 0}</b></div>
-          <div class="ai-line"><span>Ελλείψεις</span><b>${summary.missingItems ?? 0}</b></div>
-          <div class="ai-badge-row"><span class="ai-badge">Cloud AI ενεργό</span><span class="ai-badge">Supabase Edge Function</span></div>
+        ${aiHtmlSection(t("Cloud AI Αναφορά","Cloud AI Report"), aiHtmlCard(t("Σύνοψη","Summary"), `
+          <div class="ai-line"><span>${t("Σύνολο τελετών","Total ceremonies")}</span><b>${summary.totalCeremonies ?? 0}</b></div>
+          <div class="ai-line"><span>${t("Σήμερα","Today")}</span><b>${summary.todayCeremonies ?? 0}</b></div>
+          <div class="ai-line"><span>${t("Σημειώσεις","Notes")}</span><b>${summary.notesFound ?? 0}</b></div>
+          <div class="ai-line"><span>${t("Ελλείψεις","Gaps")}</span><b>${summary.missingItems ?? 0}</b></div>
+          <div class="ai-badge-row"><span class="ai-badge">${t("Cloud AI ενεργό","Cloud AI active")}</span><span class="ai-badge">Supabase Edge Function</span></div>
         `, "ok"))}
         ${aiHtmlSection("Briefing", briefingHtml)}
         ${aiHtmlSection("Σημειώσεις", notesHtml)}
@@ -5017,7 +5017,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const banner = document.createElement("div");
     banner.id = "demoBanner";
     banner.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,#c8a96e,#e8d5b0);color:#0f1523;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;box-shadow:0 2px 12px rgba(0,0,0,.3);";
-    banner.innerHTML = '<span>⚱️ DEMO OFFICE — Δοκιμαστικά δεδομένα · Καμία αλλαγή δεν αποθηκεύεται</span><a href="./login.html?tab=register" style="background:#0f1523;color:#c8a96e;padding:6px 14px;border-radius:6px;text-decoration:none;font-size:12px;white-space:nowrap;">Ξεκίνα δωρεάν →</a>';
+    banner.innerHTML = `<span>⚱️ DEMO OFFICE — ${t("Δοκιμαστικά δεδομένα · Καμία αλλαγή δεν αποθηκεύεται","Demo data · No changes are saved")}</span><a href="./login.html?tab=register" style="background:#0f1523;color:#c8a96e;padding:6px 14px;border-radius:6px;text-decoration:none;font-size:12px;white-space:nowrap;">${t("Ξεκίνα δωρεάν →","Start free →")}</a>`;
     document.body.prepend(banner);
     document.body.style.paddingTop = "42px";
   }
