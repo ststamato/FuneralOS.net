@@ -74,7 +74,7 @@
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
       gap: 10px;
-      margin-bottom: 28px;
+      margin-bottom: 16px;
     }
     .stat-card {
       background: #0d1626;
@@ -82,16 +82,18 @@
       border-radius: 14px;
       padding: 16px 14px 14px;
     }
-    .stat-card.gold  { border-color: rgba(200,169,110,.25); }
-    .stat-card.green { border-color: rgba(34,197,94,.2); }
-    .stat-card.blue  { border-color: rgba(59,130,246,.2); }
+    .stat-card.gold   { border-color: rgba(200,169,110,.25); }
+    .stat-card.green  { border-color: rgba(34,197,94,.2); }
+    .stat-card.blue   { border-color: rgba(59,130,246,.2); }
+    .stat-card.purple { border-color: rgba(168,85,247,.2); }
     .stat-num {
       font-size: 34px; font-weight: 900; line-height: 1;
       color: #fff;
     }
-    .stat-card.gold  .stat-num { color: #c8a96e; }
-    .stat-card.green .stat-num { color: #22c55e; }
-    .stat-card.blue  .stat-num { color: #60a5fa; }
+    .stat-card.gold   .stat-num { color: #c8a96e; }
+    .stat-card.green  .stat-num { color: #22c55e; }
+    .stat-card.blue   .stat-num { color: #60a5fa; }
+    .stat-card.purple .stat-num { color: #a855f7; }
     .stat-lbl {
       font-size: 11px; font-weight: 700; letter-spacing: .06em;
       text-transform: uppercase; color: rgba(255,255,255,.35);
@@ -100,6 +102,43 @@
     #statsLoading {
       grid-column: 1/-1; text-align: center;
       padding: 24px; color: rgba(255,255,255,.35); font-size: 13px;
+    }
+
+    /* ── Ceremony chart ────────────────────────────────────────────────────── */
+    .ceremony-chart-wrap {
+      background: #0d1626;
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: 14px;
+      padding: 18px 20px 16px;
+      margin-bottom: 24px;
+    }
+    .ceremony-chart-title {
+      font-size: 11px; font-weight: 800; letter-spacing: .1em;
+      text-transform: uppercase; color: rgba(255,255,255,.3);
+      margin-bottom: 14px;
+    }
+    .chart-bars {
+      display: flex; align-items: flex-end; gap: 6px; height: 80px;
+    }
+    .chart-col {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; gap: 4px; height: 100%;
+    }
+    .chart-bar-wrap {
+      flex: 1; width: 100%; display: flex; align-items: flex-end;
+    }
+    .chart-bar {
+      width: 100%; border-radius: 4px 4px 0 0;
+      background: rgba(200,169,110,.25);
+      min-height: 3px; transition: height .3s;
+    }
+    .chart-bar.current { background: #c8a96e; }
+    .chart-month-lbl {
+      font-size: 10px; color: rgba(255,255,255,.3); font-weight: 600;
+      white-space: nowrap;
+    }
+    .chart-count-lbl {
+      font-size: 11px; color: rgba(255,255,255,.5); font-weight: 700;
     }
 
     /* ── Toolbar ──────────────────────────────────────────────────────────── */
@@ -337,6 +376,12 @@
     <div id="statsLoading">Φόρτωση δεδομένων...</div>
   </div>
 
+  <!-- Ceremony chart -->
+  <div class="ceremony-chart-wrap" id="ceremonyChart" style="display:none;">
+    <div class="ceremony-chart-title">Τελετές ανά μήνα — τελευταίοι 6 μήνες</div>
+    <div class="chart-bars" id="chartBars"></div>
+  </div>
+
   <!-- Toolbar -->
   <div class="toolbar">
     <input id="searchInput" type="search" placeholder="Αναζήτηση email ή γραφείου..." />
@@ -358,13 +403,14 @@
           <th>Email</th>
           <th class="hide-sm">Γραφείο</th>
           <th>Πλάνο</th>
+          <th class="hide-sm">Τελετές</th>
           <th class="hide-sm">Εγγραφή</th>
           <th>Τελευταία σύνδεση</th>
           <th></th>
         </tr>
       </thead>
       <tbody id="userTableBody">
-        <tr class="empty-row"><td colspan="6">Φόρτωση...</td></tr>
+        <tr class="empty-row"><td colspan="7">Φόρτωση...</td></tr>
       </tbody>
     </table>
   </div>
@@ -425,22 +471,26 @@
     return res.json();
   }
 
+  let ceremonyStats = null;
+
   // ── Load users ─────────────────────────────────────────────────────────────
   async function loadUsers() {
     document.getElementById("userTableBody").innerHTML =
-      '<tr class="empty-row"><td colspan="6">Φόρτωση δεδομένων...</td></tr>';
+      '<tr class="empty-row"><td colspan="7">Φόρτωση δεδομένων...</td></tr>';
     document.getElementById("statsGrid").innerHTML =
       '<div id="statsLoading">Φόρτωση δεδομένων...</div>';
 
     const data = await adminCall("list");
     if (data.error) {
       document.getElementById("userTableBody").innerHTML =
-        `<tr class="empty-row"><td colspan="6">Σφάλμα: ${data.error}</td></tr>`;
+        `<tr class="empty-row"><td colspan="7">Σφάλμα: ${data.error}</td></tr>`;
       return;
     }
 
-    allUsers = data.users || [];
+    allUsers      = data.users || [];
+    ceremonyStats = data.ceremony_stats || null;
     renderStats();
+    renderCeremonyChart();
     renderTable();
   }
 
@@ -450,6 +500,12 @@
     const free    = allUsers.filter(u => (u.plan || "free") === "free").length;
     const pro     = allUsers.filter(u => u.plan === "pro").length;
     const biz     = allUsers.filter(u => u.plan === "business").length;
+    const paid    = pro + biz;
+    const trial   = allUsers.filter(u => {
+      if ((u.plan || "free") !== "free") return false;
+      if (!u.created_at) return false;
+      return (Date.now() - new Date(u.created_at).getTime()) < 14 * 24 * 3600 * 1000;
+    }).length;
     const now     = Date.now();
     const d7      = 7  * 24 * 3600 * 1000;
     const d30     = 30 * 24 * 3600 * 1000;
@@ -462,22 +518,13 @@
       return d.getMonth() === curMon.getMonth() && d.getFullYear() === curMon.getFullYear();
     }).length;
 
+    const cerThisMonth = ceremonyStats?.this_month ?? "—";
+    const cerTotal     = ceremonyStats?.total ?? "—";
+
     document.getElementById("statsGrid").innerHTML = `
       <div class="stat-card">
         <div class="stat-num">${total}</div>
         <div class="stat-lbl">Σύνολο χρηστών</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-num">${free}</div>
-        <div class="stat-lbl">FREE</div>
-      </div>
-      <div class="stat-card gold">
-        <div class="stat-num">${pro}</div>
-        <div class="stat-lbl">PRO</div>
-      </div>
-      <div class="stat-card green">
-        <div class="stat-num">${biz}</div>
-        <div class="stat-lbl">BUSINESS</div>
       </div>
       <div class="stat-card blue">
         <div class="stat-num">${act7}</div>
@@ -487,11 +534,72 @@
         <div class="stat-num">${act30}</div>
         <div class="stat-lbl">Ενεργοί (30 ημέρες)</div>
       </div>
+      <div class="stat-card">
+        <div class="stat-num">${trial}</div>
+        <div class="stat-lbl">Δοκιμαστικοί (&lt;14 μέρες)</div>
+      </div>
+      <div class="stat-card gold">
+        <div class="stat-num">${paid}</div>
+        <div class="stat-lbl">Συνδρομητές (PRO+BIZ)</div>
+      </div>
+      <div class="stat-card gold">
+        <div class="stat-num">${pro}</div>
+        <div class="stat-lbl">PRO</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-num">${biz}</div>
+        <div class="stat-lbl">BUSINESS</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">${free}</div>
+        <div class="stat-lbl">FREE</div>
+      </div>
       <div class="stat-card green">
         <div class="stat-num">${newMon}</div>
         <div class="stat-lbl">Νέοι αυτό τον μήνα</div>
       </div>
+      <div class="stat-card purple">
+        <div class="stat-num">${cerThisMonth}</div>
+        <div class="stat-lbl">Τελετές αυτό τον μήνα</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">${cerTotal}</div>
+        <div class="stat-lbl">Σύνολο τελετών στη ΒΔ</div>
+      </div>
     `;
+  }
+
+  // ── Ceremony bar chart ─────────────────────────────────────────────────────
+  function renderCeremonyChart() {
+    const wrap = document.getElementById("ceremonyChart");
+    const barsEl = document.getElementById("chartBars");
+    if (!wrap || !barsEl || !ceremonyStats?.monthly_breakdown?.length) return;
+
+    const breakdown = ceremonyStats.monthly_breakdown;
+    const maxCount  = Math.max(...breakdown.map(b => b.count), 1);
+    const nowKey    = (() => {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    })();
+
+    const monthNames = ["Ιαν","Φεβ","Μαρ","Απρ","Μάι","Ιουν","Ιουλ","Αυγ","Σεπ","Οκτ","Νοε","Δεκ"];
+
+    barsEl.innerHTML = breakdown.map(({ month, count }) => {
+      const pct      = Math.round((count / maxCount) * 100);
+      const isCur    = month === nowKey;
+      const [yr, mo] = month.split("-");
+      const label    = monthNames[parseInt(mo, 10) - 1] + " " + yr.slice(2);
+      return `
+        <div class="chart-col">
+          <div class="chart-count-lbl">${count || ""}</div>
+          <div class="chart-bar-wrap">
+            <div class="chart-bar${isCur ? " current" : ""}" style="height:${pct}%"></div>
+          </div>
+          <div class="chart-month-lbl">${label}</div>
+        </div>`;
+    }).join("");
+
+    wrap.style.display = "";
   }
 
   // ── Table ──────────────────────────────────────────────────────────────────
@@ -511,19 +619,21 @@
 
     const tbody = document.getElementById("userTableBody");
     if (!users.length) {
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="6">Δεν βρέθηκαν χρήστες</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="7">Δεν βρέθηκαν χρήστες</td></tr>';
       return;
     }
 
     tbody.innerHTML = users.map(u => {
-      const plan    = u.plan || "free";
+      const plan     = u.plan || "free";
       const lastSeen = u.last_sign_in_at ? timeAgo(u.last_sign_in_at) : "—";
-      const signup  = u.created_at ? fmtDate(u.created_at) : "—";
+      const signup   = u.created_at ? fmtDate(u.created_at) : "—";
+      const cerCount = u.ceremony_count != null ? u.ceremony_count : "—";
       return `
         <tr onclick="openDrawer('${u.id}')">
           <td class="email">${esc(u.email)}</td>
           <td class="office hide-sm">${esc(u.office_name) || '<span style="opacity:.3">—</span>'}</td>
           <td><span class="badge badge-${plan}">${plan.toUpperCase()}</span></td>
+          <td class="date hide-sm" style="color:rgba(168,85,247,.9);font-weight:700;">${cerCount}</td>
           <td class="date hide-sm">${signup}</td>
           <td class="date">${lastSeen}</td>
           <td><button class="open-btn" onclick="event.stopPropagation();openDrawer('${u.id}')">Άνοιγμα →</button></td>
@@ -554,6 +664,15 @@
         <div class="drawer-meta-row">
           <div class="drawer-meta-item">Εγγραφή: <strong>${u.created_at ? fmtDate(u.created_at) : "—"}</strong></div>
           <div class="drawer-meta-item">Τελ. σύνδεση: <strong>${u.last_sign_in_at ? timeAgo(u.last_sign_in_at) : "—"}</strong></div>
+        </div>
+      </div>
+
+      <!-- Ceremony count -->
+      <div class="drawer-section">
+        <div class="drawer-section-title">Τελετές στη βάση</div>
+        <div class="info-row">
+          <span class="info-key">Σύνολο τελετών</span>
+          <span class="info-val" style="color:#a855f7;">${u.ceremony_count ?? 0}</span>
         </div>
       </div>
 
