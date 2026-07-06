@@ -139,7 +139,7 @@ async function sendReceiptEmail(
   productName: string
 ): Promise<void> {
   const planLabel = plan === "business" ? "Business" : "Pro";
-  const from = Deno.env.get("FROM_EMAIL") || "FuneralOS <billing@funeralos.gr>";
+  const from = Deno.env.get("FROM_EMAIL") || "FuneralOS <billing@funeralos.net>";
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
