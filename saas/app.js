@@ -92,7 +92,8 @@ let edgePushQueue = [];
 // ---------------- Safe DOM helpers ----------------
 const $ = (id) => document.getElementById(id);
 const val = (id) => ($(id)?.value ?? "");
-const setVal = (id, v) => { const el = $(id); if (el) el.value = v ?? ""; };
+const _enPickerSync = {}; // id → fn(value) syncs visible selects when setVal is called
+const setVal = (id, v) => { const el = $(id); if (el) el.value = v ?? ""; if (_enPickerSync[id]) _enPickerSync[id](v ?? ""); };
 const on = (el, ev, fn) => { if (el) el.addEventListener(ev, fn); };
 const esc = (s) =>
   String(s ?? "")
@@ -5011,6 +5012,120 @@ window.addEventListener("online", () => {
 });
 
 
+// ---- English select-based date picker (numeric months 1-12, no locale issues) ----
+function initEnDatePickers() {
+  if (window.__appLang !== "en") return;
+  const IDS = ["ceremonyDate","pickupDate","usaFcDod","usaStaffCert","usaFleetService","usaFleetInsurance"];
+  const CY = new Date().getFullYear();
+  const yearOpts = Array.from({length:16}, (_,i) => CY - 5 + i).map(y => `<option value="${y}">${y}</option>`).join("");
+
+  IDS.forEach(id => {
+    const hidden = $(id);
+    if (!hidden) return;
+
+    let initD = "", initM = "", initY = "";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(hidden.value)) {
+      const [y, m, d] = hidden.value.split("-");
+      initY = y; initM = String(+m); initD = String(+d);
+    }
+
+    hidden.style.cssText = "position:absolute;opacity:0;width:1px;height:1px;pointer-events:none;";
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "en-sel-wrapper";
+    hidden.parentNode.insertBefore(wrapper, hidden);
+    wrapper.appendChild(hidden);
+
+    const selD = document.createElement("select");
+    selD.className = "en-sel en-sel-sm";
+    selD.innerHTML = '<option value="">D</option>' +
+      Array.from({length:31}, (_,i) => `<option value="${i+1}">${i+1}</option>`).join("");
+    if (initD) selD.value = initD;
+
+    const selM = document.createElement("select");
+    selM.className = "en-sel en-sel-sm";
+    selM.innerHTML = '<option value="">M</option>' +
+      Array.from({length:12}, (_,i) => `<option value="${i+1}">${i+1}</option>`).join("");
+    if (initM) selM.value = initM;
+
+    const selY = document.createElement("select");
+    selY.className = "en-sel en-sel-lg";
+    selY.innerHTML = '<option value="">Year</option>' + yearOpts;
+    if (initY) selY.value = initY;
+
+    const s1 = Object.assign(document.createElement("span"), {className:"en-sel-sep",textContent:"/"});
+    const s2 = Object.assign(document.createElement("span"), {className:"en-sel-sep",textContent:"/"});
+    wrapper.append(selD, s1, selM, s2, selY);
+
+    function syncDate() {
+      const d = selD.value, m = selM.value, y = selY.value;
+      hidden.value = (d && m && y) ? `${y}-${String(+m).padStart(2,"0")}-${String(+d).padStart(2,"0")}` : "";
+      hidden.dispatchEvent(new Event("change", {bubbles:true}));
+    }
+    selD.onchange = selM.onchange = selY.onchange = syncDate;
+
+    _enPickerSync[id] = iso => {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+        const [y, m, d] = iso.split("-");
+        selD.value = String(+d); selM.value = String(+m); selY.value = y;
+      } else { selD.value = selM.value = selY.value = ""; }
+    };
+  });
+}
+
+// ---- English select-based time picker (24h format 0-23, no AM/PM issues) ----
+function initEnTimePickers() {
+  if (window.__appLang !== "en") return;
+  const IDS = ["ceremonyTime"];
+
+  IDS.forEach(id => {
+    const hidden = $(id);
+    if (!hidden) return;
+
+    let initH = "", initMin = "";
+    if (/^\d{2}:\d{2}$/.test(hidden.value)) {
+      const [h, m] = hidden.value.split(":");
+      initH = String(+h); initMin = String(+m);
+    }
+
+    hidden.style.cssText = "position:absolute;opacity:0;width:1px;height:1px;pointer-events:none;";
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "en-sel-wrapper";
+    hidden.parentNode.insertBefore(wrapper, hidden);
+    wrapper.appendChild(hidden);
+
+    const selH = document.createElement("select");
+    selH.className = "en-sel en-sel-sm";
+    selH.innerHTML = '<option value="">HH</option>' +
+      Array.from({length:24}, (_,i) => `<option value="${i}">${String(i).padStart(2,"0")}</option>`).join("");
+    if (initH !== "") selH.value = initH;
+
+    const selMin = document.createElement("select");
+    selMin.className = "en-sel en-sel-sm";
+    selMin.innerHTML = '<option value="">MM</option>' +
+      Array.from({length:60}, (_,i) => `<option value="${i}">${String(i).padStart(2,"0")}</option>`).join("");
+    if (initMin !== "") selMin.value = initMin;
+
+    const sep = Object.assign(document.createElement("span"), {className:"en-sel-sep",textContent:":"});
+    wrapper.append(selH, sep, selMin);
+
+    function syncTime() {
+      const h = selH.value, m = selMin.value;
+      hidden.value = (h !== "" && m !== "") ? `${String(+h).padStart(2,"0")}:${String(+m).padStart(2,"0")}` : "";
+      hidden.dispatchEvent(new Event("change", {bubbles:true}));
+    }
+    selH.onchange = selMin.onchange = syncTime;
+
+    _enPickerSync[id] = hhmm => {
+      if (/^\d{2}:\d{2}$/.test(hhmm)) {
+        const [h, m] = hhmm.split(":");
+        selH.value = String(+h); selMin.value = String(+m);
+      } else { selH.value = selMin.value = ""; }
+    };
+  });
+}
+
 // ---------------- Init ----------------
 document.addEventListener("DOMContentLoaded", async () => {
   // Check for team invite link (?invite=TOKEN) — handled after auth in freemium.js
@@ -5043,6 +5158,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderTrashPanel();
     bindAIAssistantActions();
     aiEnsureChatHistoryUI();
+    initEnDatePickers();
+    initEnTimePickers();
 
     if ($("addCustomListBtn")) $("addCustomListBtn").onclick = openNewCustomListModal;
 
