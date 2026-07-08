@@ -5144,84 +5144,89 @@ function initEnDatePickers() {
   });
 }
 
-// ---------------- English time picker (replaces iOS native picker) ----------------
+// ---------------- English time picker — iOS drum-wheel style ----------------
 function initEnTimePickers() {
   if (window.__appLang !== "en") return;
-  const IDS = ["ceremonyTime"];
+  const IDS  = ["ceremonyTime"];
+  const ITEM = 44; // px per row — matches iOS touch target
 
   let popup = null, curTarget = null;
-  let curH = 12, curM = 0, curAP = "AM";
 
   function closePopup() {
     if (popup) { popup.remove(); popup = null; curTarget = null; }
   }
 
-  function toHHMM(h, m, ap) {
-    const h24 = (h % 12) + (ap === "PM" ? 12 : 0);
-    return String(h24).padStart(2, "0") + ":" + String(m).padStart(2, "0");
+  function makeDrumCol(items, startIdx) {
+    const col = document.createElement("div");
+    col.className = "etp-drum-col";
+    // 2 blank pads top & bottom so first/last item can reach center
+    for (let i = 0; i < 2; i++) col.insertAdjacentHTML("beforeend", `<div class="etp-drum-item etp-drum-pad"></div>`);
+    items.forEach(txt => col.insertAdjacentHTML("beforeend", `<div class="etp-drum-item">${txt}</div>`));
+    for (let i = 0; i < 2; i++) col.insertAdjacentHTML("beforeend", `<div class="etp-drum-item etp-drum-pad"></div>`);
+    // debounce snap
+    let t;
+    col.addEventListener("scroll", () => {
+      clearTimeout(t);
+      t = setTimeout(() => {
+        const idx = Math.round(col.scrollTop / ITEM);
+        col.scrollTo({ top: idx * ITEM, behavior: "smooth" });
+      }, 80);
+    }, { passive: true });
+    requestAnimationFrame(() => { col.scrollTop = startIdx * ITEM; });
+    return col;
   }
 
-  function openPopup(id, triggerEl) {
+  function readIdx(col) { return Math.round(col.scrollTop / ITEM); }
+
+  function openPopup(id) {
     closePopup();
     curTarget = id;
     const hidden = $(id);
     const curVal = hidden ? hidden.value : "";
+    let iH = 11, iM = 0, iAP = 0; // default 12:00 AM
     if (curVal && /^\d{2}:\d{2}$/.test(curVal)) {
       let [h, m] = curVal.split(":").map(Number);
-      curAP = h >= 12 ? "PM" : "AM";
-      curH  = h % 12 || 12;
-      curM  = m;
-    } else { curH = 12; curM = 0; curAP = "AM"; }
+      iAP = h >= 12 ? 1 : 0;
+      h   = h % 12 || 12;
+      iH  = h - 1;
+      iM  = m;
+    }
+
+    const colH  = makeDrumCol(Array.from({length:12}, (_,i)=>String(i+1)), iH);
+    const colM  = makeDrumCol(Array.from({length:60}, (_,i)=>String(i).padStart(2,"0")), iM);
+    const colAP = makeDrumCol(["AM","PM"], iAP);
+
     popup = document.createElement("div");
-    popup.className = "etp-popup";
-    renderPopup();
-    document.body.appendChild(popup);
-    positionPopup(triggerEl);
-  }
-
-  function positionPopup(triggerEl) {
-    const rect = triggerEl.getBoundingClientRect();
-    const pw = 240, ph = 170;
-    let top = rect.bottom + 6, left = rect.left;
-    if (top + ph > window.innerHeight - 10) top = Math.max(10, rect.top - ph - 6);
-    if (left + pw > window.innerWidth  - 10) left = Math.max(10, window.innerWidth - pw - 10);
-    popup.style.top  = top  + "px";
-    popup.style.left = left + "px";
-  }
-
-  function renderPopup() {
+    popup.className = "etp-drum-popup";
     popup.innerHTML = `
-      <div class="etp-row">
-        <div class="etp-col">
-          <button class="etp-arr" id="etp_hu">&#9650;</button>
-          <span class="etp-val">${String(curH).padStart(2,"0")}</span>
-          <button class="etp-arr" id="etp_hd">&#9660;</button>
-        </div>
-        <div class="etp-colon">:</div>
-        <div class="etp-col">
-          <button class="etp-arr" id="etp_mu">&#9650;</button>
-          <span class="etp-val">${String(curM).padStart(2,"0")}</span>
-          <button class="etp-arr" id="etp_md">&#9660;</button>
-        </div>
-        <div class="etp-ap-col">
-          <button class="etp-ampm${curAP==="AM"?" etp-ampm-sel":""}" id="etp_am">AM</button>
-          <button class="etp-ampm${curAP==="PM"?" etp-ampm-sel":""}" id="etp_pm">PM</button>
-        </div>
+      <div class="etp-drum-toolbar">
+        <button class="etp-drum-reset">Reset</button>
+        <button class="etp-drum-done">&#10003;</button>
       </div>
-      <div class="etp-footer">
-        <button class="etp-ok">Set</button>
-        <button class="etp-clr">Clear</button>
+      <div class="etp-drum-stage">
+        <div class="etp-drum-select-bar"></div>
       </div>`;
 
-    const sp = e => e.stopPropagation();
-    popup.querySelector("#etp_hu").onclick = e => { sp(e); curH = curH >= 12 ? 1 : curH + 1; renderPopup(); };
-    popup.querySelector("#etp_hd").onclick = e => { sp(e); curH = curH <= 1 ? 12 : curH - 1; renderPopup(); };
-    popup.querySelector("#etp_mu").onclick = e => { sp(e); curM = (curM + 5) % 60; renderPopup(); };
-    popup.querySelector("#etp_md").onclick = e => { sp(e); curM = (curM - 5 + 60) % 60; renderPopup(); };
-    popup.querySelector("#etp_am").onclick = e => { sp(e); curAP = "AM"; renderPopup(); };
-    popup.querySelector("#etp_pm").onclick = e => { sp(e); curAP = "PM"; renderPopup(); };
-    popup.querySelector(".etp-ok").onclick  = e => { sp(e); selectTime(toHHMM(curH, curM, curAP)); };
-    popup.querySelector(".etp-clr").onclick = e => { sp(e); selectTime(""); };
+    const stage = popup.querySelector(".etp-drum-stage");
+    const bar   = stage.querySelector(".etp-drum-select-bar");
+    const sep   = document.createElement("div");
+    sep.className = "etp-drum-sep"; sep.textContent = ":";
+    stage.insertBefore(colH,  bar);
+    stage.insertBefore(sep,   bar);
+    stage.insertBefore(colM,  bar);
+    stage.insertBefore(colAP, bar);
+
+    popup.querySelector(".etp-drum-reset").onclick = e => { e.stopPropagation(); selectTime(""); };
+    popup.querySelector(".etp-drum-done").onclick  = e => {
+      e.stopPropagation();
+      const h   = readIdx(colH) + 1;
+      const m   = readIdx(colM);
+      const ap  = readIdx(colAP);
+      const h24 = (h % 12) + (ap ? 12 : 0);
+      selectTime(String(h24).padStart(2,"0") + ":" + String(m).padStart(2,"0"));
+    };
+
+    document.body.appendChild(popup);
   }
 
   function selectTime(hhmm) {
@@ -5238,23 +5243,17 @@ function initEnTimePickers() {
   IDS.forEach(id => {
     const hidden = $(id);
     if (!hidden) return;
-
     const wrapper = document.createElement("div");
     wrapper.className = "edp-wrapper";
     hidden.parentNode.insertBefore(wrapper, hidden);
     wrapper.appendChild(hidden);
     hidden.style.cssText = "position:absolute;opacity:0;width:1px;height:1px;pointer-events:none;";
-
     const display = document.createElement("input");
-    display.type        = "text";
-    display.id          = id + "_etp";
-    display.className   = "edp-trigger";
-    display.placeholder = "Select time…";
-    display.readOnly    = true;
-    display.value       = etpFormatDisplay(hidden.value);
+    display.type="text"; display.id=id+"_etp"; display.className="edp-trigger";
+    display.placeholder="Select time…"; display.readOnly=true;
+    display.value = etpFormatDisplay(hidden.value);
     wrapper.appendChild(display);
-
-    display.addEventListener("click", e => { e.stopPropagation(); openPopup(id, display); });
+    display.addEventListener("click", e => { e.stopPropagation(); openPopup(id); });
   });
 }
 

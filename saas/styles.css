@@ -1771,37 +1771,51 @@ body::before{
 }
 .edp-clear:hover { background: rgba(255,255,255,.05); }
 
-/* ── English custom time picker ── */
-.etp-popup {
-  position: fixed; z-index: 99999;
-  background: #1a2035; border: 1px solid #2e3650;
-  border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,.55);
-  padding: 16px 20px; width: 230px;
+/* ── English time picker — iOS drum-wheel style ── */
+.etp-drum-popup {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 99999;
+  background: #f2f2f7; border-radius: 16px 16px 0 0;
+  box-shadow: 0 -4px 30px rgba(0,0,0,.22); overflow: hidden;
 }
-.etp-row { display: flex; align-items: center; justify-content: center; gap: 10px; }
-.etp-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.etp-colon { font-size: 28px; font-weight: 700; color: #c8a96e; align-self: center; margin: 0 2px; }
-.etp-arr {
-  background: none; border: none; color: #c8a96e;
-  font-size: 14px; cursor: pointer; padding: 5px 12px; border-radius: 6px; line-height: 1;
+.etp-drum-toolbar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 20px; border-bottom: 1px solid #c6c6c8; background: #f2f2f7;
 }
-.etp-arr:hover { background: rgba(200,169,110,.15); }
-.etp-val { font-size: 30px; font-weight: 700; color: #e8dcc8; min-width: 46px; text-align: center; }
-.etp-ap-col { display: flex; flex-direction: column; gap: 6px; margin-left: 6px; align-self: center; }
-.etp-ampm {
-  background: none; border: 1px solid #2e3650; color: #8a9bb8;
-  border-radius: 6px; padding: 6px 10px; font-size: 13px; cursor: pointer; font-weight: 600;
+.etp-drum-reset {
+  background: none; border: none; color: #1c1c1e;
+  font-size: 17px; cursor: pointer; font-family: -apple-system, sans-serif; padding: 2px 0;
 }
-.etp-ampm:hover { background: rgba(200,169,110,.1); }
-.etp-ampm-sel { background: #c8a96e !important; color: #0f1523 !important; border-color: #c8a96e !important; }
-.etp-footer { margin-top: 14px; display: flex; gap: 8px; justify-content: center; }
-.etp-ok {
-  background: #c8a96e; border: none; color: #0f1523;
-  border-radius: 8px; padding: 8px 22px; font-size: 14px; font-weight: 700; cursor: pointer;
+.etp-drum-done {
+  background: none; border: none; color: #007aff; font-size: 22px;
+  font-weight: 600; cursor: pointer; font-family: -apple-system, sans-serif; padding: 2px 0;
 }
-.etp-ok:hover { background: #d4b87a; }
-.etp-clr {
-  background: none; border: 1px solid #2e3650; color: #8a9bb8;
-  border-radius: 8px; padding: 8px 14px; font-size: 14px; cursor: pointer;
+.etp-drum-stage {
+  display: flex; align-items: center; justify-content: center;
+  position: relative; background: #fff; height: 220px; padding: 0 24px;
 }
-.etp-clr:hover { background: rgba(255,255,255,.05); }
+.etp-drum-col {
+  flex: 1; height: 220px; overflow-y: scroll;
+  scroll-snap-type: y mandatory; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to bottom,
+    transparent 0%, rgba(0,0,0,.3) 18%, black 36%, black 64%, rgba(0,0,0,.3) 82%, transparent 100%);
+  mask-image: linear-gradient(to bottom,
+    transparent 0%, rgba(0,0,0,.3) 18%, black 36%, black 64%, rgba(0,0,0,.3) 82%, transparent 100%);
+}
+.etp-drum-col::-webkit-scrollbar { display: none; }
+.etp-drum-item {
+  height: 44px; display: flex; align-items: center; justify-content: center;
+  font-size: 22px; color: #1c1c1e; font-family: -apple-system, sans-serif;
+  scroll-snap-align: center; user-select: none; -webkit-user-select: none;
+}
+.etp-drum-pad { pointer-events: none; }
+.etp-drum-sep {
+  font-size: 28px; color: #1c1c1e; padding: 0 6px; flex-shrink: 0;
+  font-family: -apple-system, sans-serif; margin-bottom: 2px;
+}
+.etp-drum-select-bar {
+  position: absolute; left: 0; right: 0;
+  top: 50%; transform: translateY(-50%); height: 44px;
+  border-top: 0.5px solid #c6c6c8; border-bottom: 0.5px solid #c6c6c8;
+  pointer-events: none;
+}
