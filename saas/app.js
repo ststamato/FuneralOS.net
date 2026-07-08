@@ -5199,12 +5199,12 @@ function initEnTimePickers() {
     popup = document.createElement("div");
     popup.className = "etp-drum-popup";
     popup.innerHTML = `
+      <div class="etp-drum-stage">
+        <div class="etp-drum-select-bar"></div>
+      </div>
       <div class="etp-drum-toolbar">
         <button class="etp-drum-reset">Reset</button>
         <button class="etp-drum-done">&#10003;</button>
-      </div>
-      <div class="etp-drum-stage">
-        <div class="etp-drum-select-bar"></div>
       </div>`;
 
     const stage = popup.querySelector(".etp-drum-stage");
@@ -5227,6 +5227,16 @@ function initEnTimePickers() {
     };
 
     document.body.appendChild(popup);
+
+    // Position near trigger
+    const trigger = $(id + "_etp");
+    if (trigger) {
+      const rect = trigger.getBoundingClientRect();
+      const popH = 290;
+      let top = rect.top - popH - 10;
+      if (top < 20) top = Math.min(rect.bottom + 10, window.innerHeight - popH - 20);
+      popup.style.top = Math.max(20, top) + "px";
+    }
   }
 
   function selectTime(hhmm) {
