@@ -1,108 +1,75 @@
--- FuneralOS — Supabase Database Setup
--- Run this in: Supabase Dashboard → SQL Editor → Run
+-- FuneralOS — Supabase Database Setup (Authoritative)
+-- Run once in: Supabase Dashboard → SQL Editor → New query → Paste → Run
+-- Safe to re-run: all statements are idempotent (IF NOT EXISTS / OR REPLACE / DROP IF EXISTS)
 
--- ── App State (main data storage per user) ────────────────────────────────
+-- ── Utility ───────────────────────────────────────────────────────────────────
+
+create or replace function public.generate_referral_code(p_user_id uuid)
+returns text language plpgsql as $$
+begin
+  return 'FOS-' || upper(substring(replace(p_user_id::text, '-', '') from 1 for 6));
+end;
+$$;
+
+-- ── Tables ────────────────────────────────────────────────────────────────────
+
+-- App State (main data storage per user)
 create table if not exists app_state (
-  id uuid primary key references auth.users(id) on delete cascade,
-  payload jsonb not null default '{}'::jsonb,
+  id         uuid primary key references auth.users(id) on delete cascade,
+  payload    jsonb not null default '{}'::jsonb,
   updated_at timestamptz default now()
 );
 
--- ── Office Events (real-time change log) ──────────────────────────────────
+-- Office Events (real-time change log)
 create table if not exists office_events (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users(id) on delete cascade,
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid references auth.users(id) on delete cascade,
   event_type text not null,
-  payload jsonb,
+  payload    jsonb,
   created_at timestamptz default now()
 );
 
--- ── AI Usage (daily rate limiting) ───────────────────────────────────────
+-- AI Usage (daily rate limiting)
 create table if not exists ai_usage (
-  user_id text primary key,
-  calls_today integer default 0,
-  reset_date text
+  user_id     uuid primary key references auth.users(id) on delete cascade,
+  calls_today smallint not null default 0,
+  reset_date  date     not null default current_date
 );
 
--- ── Profiles (referral system) ────────────────────────────────────────────
+-- Profiles (referral system)
 create table if not exists profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
-  referral_code text unique,
-  referral_credits integer default 0,
+  id                  uuid primary key references auth.users(id) on delete cascade,
+  referral_code       text unique not null,
+  referral_credits    integer not null default 0,
   referral_plan_until timestamptz,
-  created_at timestamptz default now()
+  referred_by         text,
+  created_at          timestamptz not null default now()
 );
 
--- ── Referrals ─────────────────────────────────────────────────────────────
+-- Referrals
 create table if not exists referrals (
-  id uuid primary key default gen_random_uuid(),
-  referrer_id uuid references auth.users(id) on delete cascade,
-  referred_id uuid references auth.users(id) on delete cascade,
-  status text default 'pending',
-  created_at timestamptz default now()
+  id             uuid primary key default gen_random_uuid(),
+  referral_code  text not null,
+  referrer_id    uuid references auth.users(id) on delete cascade,
+  referred_id    uuid references auth.users(id) on delete cascade,
+  referred_email text,
+  status         text not null default 'pending',
+  created_at     timestamptz not null default now(),
+  rewarded_at    timestamptz
 );
 
--- ── Row Level Security ────────────────────────────────────────────────────
-alter table app_state     enable row level security;
-alter table office_events enable row level security;
-alter table ai_usage      enable row level security;
-alter table profiles      enable row level security;
-alter table referrals     enable row level security;
-
--- app_state: each user can only read/write their own row
-create policy "user own state" on app_state
-  for all using (auth.uid() = id);
-
--- office_events: authenticated users can insert; read own
-create policy "user own events" on office_events
-  for all using (auth.uid() = user_id);
-
--- ai_usage: authenticated users can read/write their own
-create policy "user own ai_usage" on ai_usage
-  for all using (auth.uid()::text = user_id);
-
--- profiles: user reads/writes own
-create policy "user own profile" on profiles
-  for all using (auth.uid() = id);
-
--- referrals: user reads own referrals
-create policy "user own referrals" on referrals
-  for select using (auth.uid() = referrer_id or auth.uid() = referred_id);
-create policy "insert referral" on referrals
-  for insert with check (auth.uid() = referred_id);
-
--- ── Team / Multi-user ────────────────────────────────────────────────────
-
--- Update app_state RLS: allow user OR office member to access office's state
--- office_id in user JWT metadata = the admin's user_id whose app_state row they share
-drop policy if exists "user own state" on app_state;
-create policy "user or office member state access" on app_state
-  for all using (
-    id = auth.uid()
-    or id = (auth.jwt() -> 'user_metadata' ->> 'office_id')::uuid
-  );
-
--- Office members: who belongs to which office (office_id = admin's user_id)
+-- Office Members (team / multi-user)
 create table if not exists office_members (
-  id          uuid primary key default gen_random_uuid(),
-  office_id   uuid references auth.users(id) on delete cascade,
-  user_id     uuid references auth.users(id) on delete cascade,
-  role        text not null check (role in ('admin', 'editor')),
-  invited_by  uuid references auth.users(id) on delete set null,
-  joined_at   timestamptz default now(),
+  id         uuid primary key default gen_random_uuid(),
+  office_id  uuid references auth.users(id) on delete cascade,
+  user_id    uuid references auth.users(id) on delete cascade,
+  role       text not null check (role in ('admin', 'editor')),
+  invited_by uuid references auth.users(id) on delete set null,
+  joined_at  timestamptz default now(),
   unique (office_id, user_id)
 );
 
-alter table office_members enable row level security;
-create policy "office members see each other" on office_members
-  for select using (
-    office_id = auth.uid()
-    or office_id = (auth.jwt() -> 'user_metadata' ->> 'office_id')::uuid
-  );
-create policy "office admin can remove members" on office_members
-  for delete using (office_id = auth.uid());
-
--- Office invites (managed server-side via service role only)
+-- Office Invites (service-role access only — no client RLS policies)
 create table if not exists office_invites (
   id          uuid primary key default gen_random_uuid(),
   office_id   uuid references auth.users(id) on delete cascade,
@@ -116,20 +83,133 @@ create table if not exists office_invites (
   unique (office_id, email)
 );
 
-alter table office_invites enable row level security;
--- No client-side RLS — all access via service role in Edge Functions
+-- ── Row Level Security ────────────────────────────────────────────────────────
 
--- ── Auto-create profile on signup ─────────────────────────────────────────
-create or replace function handle_new_user()
-returns trigger language plpgsql security definer as $$
+alter table app_state      enable row level security;
+alter table office_events  enable row level security;
+alter table ai_usage       enable row level security;
+alter table profiles       enable row level security;
+alter table referrals      enable row level security;
+alter table office_members enable row level security;
+alter table office_invites enable row level security;
+
+-- app_state: own row OR office member sharing admin's row
+drop policy if exists "user own state"                     on app_state;
+drop policy if exists "user or office member state access" on app_state;
+create policy "user or office member state access" on app_state
+  for all using (
+    id = auth.uid()
+    or id = (auth.jwt() -> 'user_metadata' ->> 'office_id')::uuid
+  );
+
+-- office_events
+drop policy if exists "user own events" on office_events;
+create policy "user own events" on office_events
+  for all using (auth.uid() = user_id);
+
+-- ai_usage
+drop policy if exists "user own ai_usage"      on ai_usage;
+drop policy if exists "Users view own ai usage" on ai_usage;
+create policy "user own ai_usage" on ai_usage
+  for all using (auth.uid() = user_id);
+
+-- profiles: read own, update own (insert via trigger only)
+drop policy if exists "user own profile"             on profiles;
+drop policy if exists "Users can view own profile"   on profiles;
+drop policy if exists "Users can update own profile" on profiles;
+create policy "Users can view own profile"   on profiles for select using (auth.uid() = id);
+create policy "Users can update own profile" on profiles for update using (auth.uid() = id);
+
+-- referrals: read own (as referrer or referred); insert via trigger only
+drop policy if exists "user own referrals"             on referrals;
+drop policy if exists "insert referral"                on referrals;
+drop policy if exists "Users can view their referrals" on referrals;
+create policy "Users can view their referrals" on referrals
+  for select using (referrer_id = auth.uid() or referred_id = auth.uid());
+
+-- office_members
+drop policy if exists "office members see each other"   on office_members;
+drop policy if exists "office admin can remove members" on office_members;
+create policy "office members see each other" on office_members
+  for select using (
+    office_id = auth.uid()
+    or office_id = (auth.jwt() -> 'user_metadata' ->> 'office_id')::uuid
+  );
+create policy "office admin can remove members" on office_members
+  for delete using (office_id = auth.uid());
+
+-- office_invites: no client policies — RLS blocks clients, service role bypasses RLS
+
+-- ── Triggers ─────────────────────────────────────────────────────────────────
+
+-- Auto-create profile on signup; record pending referral if referred_by is set
+create or replace function public.handle_new_user()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_ref_code    text;
+  v_referred_by text;
 begin
-  insert into profiles (id, referral_code)
-  values (new.id, lower(substring(new.id::text, 1, 8)));
+  v_ref_code    := generate_referral_code(new.id);
+  v_referred_by := new.raw_user_meta_data->>'referred_by';
+  insert into public.profiles (id, referral_code, referred_by)
+  values (new.id, v_ref_code, v_referred_by)
+  on conflict (id) do nothing;
+  if v_referred_by is not null and v_referred_by <> '' then
+    insert into public.referrals (referral_code, referred_id, referred_email, referrer_id)
+    select v_referred_by, new.id, new.email, p.id
+    from   public.profiles p
+    where  p.referral_code = v_referred_by
+    limit  1;
+  end if;
   return new;
 end;
 $$;
-
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
-  for each row execute function handle_new_user();
+  for each row execute procedure public.handle_new_user();
+
+-- Reward referrer when referred user upgrades to a paid plan.
+-- Reads from raw_app_meta_data (app_metadata, server-only) — not user_metadata.
+-- Idempotent with the webhook's rewardReferrer(): whichever runs first marks
+-- the referral 'rewarded'; the second finds nothing pending and is a no-op.
+create or replace function public.reward_referrer_on_upgrade()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_old_plan    text;
+  v_new_plan    text;
+  v_referred_by text;
+begin
+  v_old_plan := old.raw_app_meta_data->>'plan';
+  v_new_plan := new.raw_app_meta_data->>'plan';
+  if v_new_plan in ('pro', 'business')
+     and (v_old_plan is null or v_old_plan not in ('pro', 'business')) then
+    select referred_by into v_referred_by from public.profiles where id = new.id;
+    if v_referred_by is not null and v_referred_by <> '' then
+      update public.referrals
+      set    status = 'rewarded', rewarded_at = now()
+      where  referred_id = new.id and status = 'pending';
+      update public.profiles
+      set    referral_credits    = referral_credits + 1,
+             referral_plan_until = greatest(coalesce(referral_plan_until, now()), now())
+                                   + interval '1 month'
+      where  referral_code = v_referred_by;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists on_user_plan_upgrade on auth.users;
+create trigger on_user_plan_upgrade
+  after update on auth.users
+  for each row
+  when (old.raw_app_meta_data is distinct from new.raw_app_meta_data)
+  execute procedure public.reward_referrer_on_upgrade();
+
+-- ── Backfill existing users ───────────────────────────────────────────────────
+
+insert into public.profiles (id, referral_code)
+select id, generate_referral_code(id)
+from   auth.users
+where  id not in (select id from public.profiles)
+on conflict (id) do nothing;
