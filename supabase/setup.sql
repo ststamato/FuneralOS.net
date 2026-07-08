@@ -93,13 +93,17 @@ alter table referrals      enable row level security;
 alter table office_members enable row level security;
 alter table office_invites enable row level security;
 
--- app_state: own row OR office member sharing admin's row
+-- app_state: own row OR active office member (checked live in DB, not via stale JWT)
 drop policy if exists "user own state"                     on app_state;
 drop policy if exists "user or office member state access" on app_state;
 create policy "user or office member state access" on app_state
   for all using (
     id = auth.uid()
-    or id = (auth.jwt() -> 'user_metadata' ->> 'office_id')::uuid
+    or exists (
+      select 1 from office_members
+      where office_members.office_id = app_state.id
+        and office_members.user_id   = auth.uid()
+    )
   );
 
 -- office_events
@@ -127,13 +131,17 @@ drop policy if exists "Users can view their referrals" on referrals;
 create policy "Users can view their referrals" on referrals
   for select using (referrer_id = auth.uid() or referred_id = auth.uid());
 
--- office_members
+-- office_members: admin sees own office; members see their office (live DB check)
 drop policy if exists "office members see each other"   on office_members;
 drop policy if exists "office admin can remove members" on office_members;
 create policy "office members see each other" on office_members
   for select using (
     office_id = auth.uid()
-    or office_id = (auth.jwt() -> 'user_metadata' ->> 'office_id')::uuid
+    or exists (
+      select 1 from office_members om2
+      where om2.office_id = office_members.office_id
+        and om2.user_id   = auth.uid()
+    )
   );
 create policy "office admin can remove members" on office_members
   for delete using (office_id = auth.uid());
