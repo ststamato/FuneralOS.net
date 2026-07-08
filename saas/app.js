@@ -5228,14 +5228,25 @@ function initEnTimePickers() {
 
     document.body.appendChild(popup);
 
-    // Position near trigger
+    // Position near trigger, always within viewport
     const trigger = $(id + "_etp");
     if (trigger) {
-      const rect = trigger.getBoundingClientRect();
-      const popH = 290;
-      let top = rect.top - popH - 10;
-      if (top < 20) top = Math.min(rect.bottom + 10, window.innerHeight - popH - 20);
-      popup.style.top = Math.max(20, top) + "px";
+      const rect  = trigger.getBoundingClientRect();
+      const popW  = Math.min(window.innerWidth * 0.88, 340);
+      const popH  = popup.offsetHeight || 280;
+      const margin = 12;
+      // Prefer above the field; fall back to below
+      let top = rect.top - popH - margin;
+      if (top < margin) top = rect.bottom + margin;
+      // Clamp so it never goes off-screen bottom
+      top = Math.min(top, window.innerHeight - popH - margin);
+      top = Math.max(margin, top);
+      popup.style.top = top + "px";
+      // Horizontal: centered but clamped
+      let left = (window.innerWidth - popW) / 2;
+      left = Math.max(margin, Math.min(left, window.innerWidth - popW - margin));
+      popup.style.left  = left + "px";
+      popup.style.transform = "none";
     }
   }
 
