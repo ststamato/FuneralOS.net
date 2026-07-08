@@ -92,8 +92,15 @@ let edgePushQueue = [];
 // ---------------- Safe DOM helpers ----------------
 const $ = (id) => document.getElementById(id);
 const val = (id) => ($(id)?.value ?? "");
-const setVal = (id, v) => { const el = $(id); if (el) el.value = v ?? ""; };
+const setVal = (id, v) => { const el = $(id); if (el) el.value = v ?? ""; const dp = $(id + "_edp"); if (dp) dp.value = edpFormatDisplay(v ?? ""); };
 const on = (el, ev, fn) => { if (el) el.addEventListener(ev, fn); };
+
+function edpFormatDisplay(iso) {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "";
+  const M = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const [y, m, d] = iso.split("-").map(Number);
+  return M[m - 1] + " " + d + ", " + y;
+}
 const esc = (s) =>
   String(s ?? "")
     .replace(/&/g, "&amp;")
@@ -5010,6 +5017,125 @@ window.addEventListener("online", () => {
   if (localStorage.getItem(PENDING_SAVE_KEY) === "1") cloudSaveAll();
 });
 
+// ---------------- English date picker (replaces iOS native picker) ----------------
+function initEnDatePickers() {
+  if (window.__appLang !== "en") return;
+
+  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const DAYS   = ["Su","Mo","Tu","We","Th","Fr","Sa"];
+  const IDS    = ["ceremonyDate","pickupDate","usaFcDod","usaStaffCert","usaFleetService","usaFleetInsurance"];
+
+  let popup = null, curTarget = null, curYear = 0, curMonth = 0;
+
+  function closePopup() {
+    if (popup) { popup.remove(); popup = null; curTarget = null; }
+  }
+
+  function openPopup(id, triggerEl) {
+    closePopup();
+    curTarget = id;
+    const hidden = $(id);
+    const today  = new Date();
+    const curVal = hidden ? hidden.value : "";
+    if (curVal && /^\d{4}-\d{2}-\d{2}$/.test(curVal)) {
+      const [y, m] = curVal.split("-").map(Number);
+      curYear = y; curMonth = m - 1;
+    } else {
+      curYear = today.getFullYear(); curMonth = today.getMonth();
+    }
+    popup = document.createElement("div");
+    popup.className = "edp-popup";
+    renderPopup(popup, today, curVal);
+    document.body.appendChild(popup);
+    positionPopup(triggerEl);
+  }
+
+  function positionPopup(triggerEl) {
+    const rect = triggerEl.getBoundingClientRect();
+    const pw = 300, ph = 290;
+    let top = rect.bottom + 6, left = rect.left;
+    if (top + ph > window.innerHeight - 10) top = Math.max(10, rect.top - ph - 6);
+    if (left + pw > window.innerWidth  - 10) left = Math.max(10, window.innerWidth - pw - 10);
+    popup.style.top  = top  + "px";
+    popup.style.left = left + "px";
+  }
+
+  function renderPopup(el, today, selectedIso) {
+    const todayIso   = today.getFullYear() + "-" + String(today.getMonth()+1).padStart(2,"0") + "-" + String(today.getDate()).padStart(2,"0");
+    const firstDay   = new Date(curYear, curMonth, 1).getDay();
+    const daysInMon  = new Date(curYear, curMonth + 1, 0).getDate();
+
+    let html = `<div class="edp-header">
+      <button class="edp-nav" data-dir="-1">&#8249;</button>
+      <span class="edp-month-year">${MONTHS[curMonth]} ${curYear}</span>
+      <button class="edp-nav" data-dir="1">&#8250;</button>
+    </div>
+    <div class="edp-dow">${DAYS.map(d => `<span>${d}</span>`).join("")}</div>
+    <div class="edp-grid">`;
+
+    for (let i = 0; i < firstDay; i++) html += `<button class="edp-day edp-blank" disabled></button>`;
+    for (let d = 1; d <= daysInMon; d++) {
+      const iso = curYear + "-" + String(curMonth+1).padStart(2,"0") + "-" + String(d).padStart(2,"0");
+      let cls = "edp-day";
+      if (iso === todayIso)    cls += " edp-today";
+      if (iso === selectedIso) cls += " edp-sel";
+      html += `<button class="${cls}" data-iso="${iso}">${d}</button>`;
+    }
+    html += `</div><div class="edp-footer"><button class="edp-clear">Clear</button></div>`;
+    el.innerHTML = html;
+
+    el.querySelectorAll(".edp-nav").forEach(btn => btn.addEventListener("click", e => {
+      e.stopPropagation();
+      curMonth += Number(btn.dataset.dir);
+      if (curMonth < 0)  { curMonth = 11; curYear--; }
+      if (curMonth > 11) { curMonth = 0;  curYear++; }
+      renderPopup(el, today, selectedIso);
+    }));
+
+    el.querySelectorAll(".edp-day[data-iso]").forEach(btn => btn.addEventListener("click", e => {
+      e.stopPropagation();
+      selectDate(btn.dataset.iso);
+    }));
+
+    el.querySelector(".edp-clear").addEventListener("click", e => { e.stopPropagation(); selectDate(""); });
+  }
+
+  function selectDate(iso) {
+    const hidden  = $(curTarget);
+    const display = $(curTarget + "_edp");
+    if (hidden)  { hidden.value  = iso; hidden.dispatchEvent(new Event("change", { bubbles: true })); }
+    if (display) display.value = edpFormatDisplay(iso);
+    closePopup();
+  }
+
+  document.addEventListener("click",   e => { if (popup && !popup.contains(e.target)) closePopup(); });
+  document.addEventListener("keydown",  e => { if (e.key === "Escape") closePopup(); });
+  window.addEventListener("scroll",     () => { if (popup && curTarget) positionPopup($(curTarget + "_edp")); }, true);
+
+  IDS.forEach(id => {
+    const hidden = $(id);
+    if (!hidden) return;
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "edp-wrapper";
+    hidden.parentNode.insertBefore(wrapper, hidden);
+    wrapper.appendChild(hidden);
+
+    hidden.style.cssText = "position:absolute;opacity:0;width:1px;height:1px;pointer-events:none;";
+
+    const display = document.createElement("input");
+    display.type        = "text";
+    display.id          = id + "_edp";
+    display.className   = "edp-trigger";
+    display.placeholder = "Select date…";
+    display.readOnly    = true;
+    display.value       = edpFormatDisplay(hidden.value);
+    wrapper.appendChild(display);
+
+    display.addEventListener("click", e => { e.stopPropagation(); openPopup(id, display); });
+  });
+}
+
 // ---------------- Init ----------------
 document.addEventListener("DOMContentLoaded", async () => {
   // Check for team invite link (?invite=TOKEN) — handled after auth in freemium.js
@@ -5042,6 +5168,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderTrashPanel();
     bindAIAssistantActions();
     aiEnsureChatHistoryUI();
+    initEnDatePickers();
 
     if ($("addCustomListBtn")) $("addCustomListBtn").onclick = openNewCustomListModal;
 

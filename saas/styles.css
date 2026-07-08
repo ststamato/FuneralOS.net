@@ -1729,3 +1729,44 @@ body::before{
   .ceremony-card .ceremony-meta { flex-direction: column; gap: 3px; }
   .case-id-badge { font-size: 10px; }
 }
+
+/* ── English custom date picker ── */
+.edp-wrapper { position: relative; display: block; }
+.edp-trigger {
+  width: 100%; box-sizing: border-box; cursor: pointer;
+  background: var(--bg-input, #1e2433); border: 1px solid var(--border, #2e3650);
+  border-radius: 8px; color: var(--text, #e8dcc8); padding: 6px 10px;
+  font-size: 14px; text-align: left; display: block;
+}
+.edp-trigger::placeholder { color: #666; }
+.edp-popup {
+  position: fixed; z-index: 99999;
+  background: #1a2035; border: 1px solid #2e3650;
+  border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,.55);
+  padding: 14px; width: 300px;
+}
+.edp-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.edp-month-year { font-size: 15px; font-weight: 600; color: #c8a96e; }
+.edp-nav {
+  background: none; border: none; color: #c8a96e; font-size: 22px;
+  cursor: pointer; padding: 0 8px; line-height: 1; border-radius: 6px;
+}
+.edp-nav:hover { background: rgba(200,169,110,.15); }
+.edp-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 4px; }
+.edp-dow span { text-align: center; font-size: 11px; font-weight: 600; color: #8a9bb8; padding: 3px 0; }
+.edp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.edp-day {
+  text-align: center; padding: 7px 2px; border-radius: 6px;
+  cursor: pointer; font-size: 13px; color: #c8d8e8;
+  border: none; background: none; line-height: 1;
+}
+.edp-day:not(:disabled):hover { background: rgba(200,169,110,.22); }
+.edp-day.edp-today  { color: #c8a96e; font-weight: 700; }
+.edp-day.edp-sel    { background: #c8a96e !important; color: #0f1523; font-weight: 700; }
+.edp-day.edp-blank  { cursor: default; }
+.edp-footer { margin-top: 10px; text-align: center; }
+.edp-clear {
+  background: none; border: 1px solid #2e3650; color: #8a9bb8;
+  border-radius: 6px; padding: 4px 18px; font-size: 12px; cursor: pointer;
+}
+.edp-clear:hover { background: rgba(255,255,255,.05); }
