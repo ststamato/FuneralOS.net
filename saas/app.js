@@ -92,7 +92,7 @@ let edgePushQueue = [];
 // ---------------- Safe DOM helpers ----------------
 const $ = (id) => document.getElementById(id);
 const val = (id) => ($(id)?.value ?? "");
-const setVal = (id, v) => { const el = $(id); if (el) el.value = v ?? ""; const dp = $(id + "_edp"); if (dp) dp.value = edpFormatDisplay(v ?? ""); };
+const setVal = (id, v) => { const el = $(id); if (el) el.value = v ?? ""; const dp = $(id + "_edp"); if (dp) dp.value = edpFormatDisplay(v ?? ""); const tp = $(id + "_etp"); if (tp) tp.value = etpFormatDisplay(v ?? ""); };
 const on = (el, ev, fn) => { if (el) el.addEventListener(ev, fn); };
 
 function edpFormatDisplay(iso) {
@@ -100,6 +100,14 @@ function edpFormatDisplay(iso) {
   const M = ["January","February","March","April","May","June","July","August","September","October","November","December"];
   const [y, m, d] = iso.split("-").map(Number);
   return M[m - 1] + " " + d + ", " + y;
+}
+
+function etpFormatDisplay(hhmm) {
+  if (!hhmm || !/^\d{2}:\d{2}$/.test(hhmm)) return "";
+  let [h, m] = hhmm.split(":").map(Number);
+  const ap = h >= 12 ? "PM" : "AM";
+  h = h % 12 || 12;
+  return h + ":" + String(m).padStart(2, "0") + " " + ap;
 }
 const esc = (s) =>
   String(s ?? "")
@@ -5136,6 +5144,120 @@ function initEnDatePickers() {
   });
 }
 
+// ---------------- English time picker (replaces iOS native picker) ----------------
+function initEnTimePickers() {
+  if (window.__appLang !== "en") return;
+  const IDS = ["ceremonyTime"];
+
+  let popup = null, curTarget = null;
+  let curH = 12, curM = 0, curAP = "AM";
+
+  function closePopup() {
+    if (popup) { popup.remove(); popup = null; curTarget = null; }
+  }
+
+  function toHHMM(h, m, ap) {
+    const h24 = (h % 12) + (ap === "PM" ? 12 : 0);
+    return String(h24).padStart(2, "0") + ":" + String(m).padStart(2, "0");
+  }
+
+  function openPopup(id, triggerEl) {
+    closePopup();
+    curTarget = id;
+    const hidden = $(id);
+    const curVal = hidden ? hidden.value : "";
+    if (curVal && /^\d{2}:\d{2}$/.test(curVal)) {
+      let [h, m] = curVal.split(":").map(Number);
+      curAP = h >= 12 ? "PM" : "AM";
+      curH  = h % 12 || 12;
+      curM  = m;
+    } else { curH = 12; curM = 0; curAP = "AM"; }
+    popup = document.createElement("div");
+    popup.className = "etp-popup";
+    renderPopup();
+    document.body.appendChild(popup);
+    positionPopup(triggerEl);
+  }
+
+  function positionPopup(triggerEl) {
+    const rect = triggerEl.getBoundingClientRect();
+    const pw = 240, ph = 170;
+    let top = rect.bottom + 6, left = rect.left;
+    if (top + ph > window.innerHeight - 10) top = Math.max(10, rect.top - ph - 6);
+    if (left + pw > window.innerWidth  - 10) left = Math.max(10, window.innerWidth - pw - 10);
+    popup.style.top  = top  + "px";
+    popup.style.left = left + "px";
+  }
+
+  function renderPopup() {
+    popup.innerHTML = `
+      <div class="etp-row">
+        <div class="etp-col">
+          <button class="etp-arr" id="etp_hu">&#9650;</button>
+          <span class="etp-val">${String(curH).padStart(2,"0")}</span>
+          <button class="etp-arr" id="etp_hd">&#9660;</button>
+        </div>
+        <div class="etp-colon">:</div>
+        <div class="etp-col">
+          <button class="etp-arr" id="etp_mu">&#9650;</button>
+          <span class="etp-val">${String(curM).padStart(2,"0")}</span>
+          <button class="etp-arr" id="etp_md">&#9660;</button>
+        </div>
+        <div class="etp-ap-col">
+          <button class="etp-ampm${curAP==="AM"?" etp-ampm-sel":""}" id="etp_am">AM</button>
+          <button class="etp-ampm${curAP==="PM"?" etp-ampm-sel":""}" id="etp_pm">PM</button>
+        </div>
+      </div>
+      <div class="etp-footer">
+        <button class="etp-ok">Set</button>
+        <button class="etp-clr">Clear</button>
+      </div>`;
+
+    const sp = e => e.stopPropagation();
+    popup.querySelector("#etp_hu").onclick = e => { sp(e); curH = curH >= 12 ? 1 : curH + 1; renderPopup(); };
+    popup.querySelector("#etp_hd").onclick = e => { sp(e); curH = curH <= 1 ? 12 : curH - 1; renderPopup(); };
+    popup.querySelector("#etp_mu").onclick = e => { sp(e); curM = (curM + 5) % 60; renderPopup(); };
+    popup.querySelector("#etp_md").onclick = e => { sp(e); curM = (curM - 5 + 60) % 60; renderPopup(); };
+    popup.querySelector("#etp_am").onclick = e => { sp(e); curAP = "AM"; renderPopup(); };
+    popup.querySelector("#etp_pm").onclick = e => { sp(e); curAP = "PM"; renderPopup(); };
+    popup.querySelector(".etp-ok").onclick  = e => { sp(e); selectTime(toHHMM(curH, curM, curAP)); };
+    popup.querySelector(".etp-clr").onclick = e => { sp(e); selectTime(""); };
+  }
+
+  function selectTime(hhmm) {
+    const hidden  = $(curTarget);
+    const display = $(curTarget + "_etp");
+    if (hidden)  { hidden.value  = hhmm; hidden.dispatchEvent(new Event("change", { bubbles: true })); }
+    if (display) display.value = etpFormatDisplay(hhmm);
+    closePopup();
+  }
+
+  document.addEventListener("click",  e => { if (popup && !popup.contains(e.target)) closePopup(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") closePopup(); });
+
+  IDS.forEach(id => {
+    const hidden = $(id);
+    if (!hidden) return;
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "edp-wrapper";
+    hidden.parentNode.insertBefore(wrapper, hidden);
+    wrapper.appendChild(hidden);
+    hidden.style.cssText = "position:absolute;opacity:0;width:1px;height:1px;pointer-events:none;";
+
+    const display = document.createElement("input");
+    display.type        = "text";
+    display.id          = id + "_etp";
+    display.className   = "edp-trigger";
+    display.placeholder = "Select time…";
+    display.readOnly    = true;
+    display.value       = etpFormatDisplay(hidden.value);
+    wrapper.appendChild(display);
+
+    display.addEventListener("click", e => { e.stopPropagation(); openPopup(id, display); });
+  });
+}
+
 // ---------------- Init ----------------
 document.addEventListener("DOMContentLoaded", async () => {
   // Check for team invite link (?invite=TOKEN) — handled after auth in freemium.js
@@ -5169,6 +5291,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     bindAIAssistantActions();
     aiEnsureChatHistoryUI();
     initEnDatePickers();
+    initEnTimePickers();
 
     if ($("addCustomListBtn")) $("addCustomListBtn").onclick = openNewCustomListModal;
 
