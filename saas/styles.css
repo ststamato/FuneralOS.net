@@ -1674,3 +1674,58 @@ body::before{
    FuneralOS USA v3 - AI Operations Director
    ================================ */
 .usa-v3-ai-director{margin-top:18px;display:grid;gap:16px}.usa-v3-actions{display:flex;gap:10px;flex-wrap:wrap}.usa-secondary{border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:inherit;border-radius:14px;padding:10px 14px;font-weight:800;cursor:pointer}.usa-v3-score-row{display:grid;grid-template-columns:1.3fr repeat(3,1fr);gap:12px}.usa-v3-score-card,.usa-v3-mini-card{border:1px solid rgba(255,255,255,.12);background:linear-gradient(145deg,rgba(255,255,255,.10),rgba(255,255,255,.045));border-radius:18px;padding:16px;box-shadow:0 14px 34px rgba(0,0,0,.16)}.usa-v3-score-card span,.usa-v3-mini-card span{display:block;font-size:12px;letter-spacing:.08em;opacity:.72;font-weight:900}.usa-v3-score-card strong{display:block;font-size:46px;line-height:1;margin:10px 0 4px}.usa-v3-mini-card strong{display:block;font-size:24px;margin:10px 0 4px}.usa-v3-score-card small,.usa-v3-mini-card small{opacity:.72}.usa-v3-score-bar{height:10px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden;margin-top:12px}.usa-v3-score-bar i{display:block;height:100%;width:0%;border-radius:inherit;background:linear-gradient(90deg,#ef4444,#f59e0b,#22c55e);transition:width .35s ease}.usa-v3-brief{line-height:1.55}.usa-v3-brief h4{margin:0 0 8px;font-size:18px}.usa-v3-brief ul{margin:8px 0 0;padding-left:18px}.usa-v3-pill-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.usa-v3-pill{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.07);border-radius:999px;padding:6px 10px;font-size:12px;font-weight:800}.usa-v3-health-card{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.055);border-radius:16px;padding:12px;margin-bottom:10px}.usa-v3-health-top{display:flex;justify-content:space-between;gap:10px;align-items:center}.usa-v3-health-top h4{margin:0}.usa-v3-health-score{font-weight:900;border-radius:999px;padding:6px 10px;background:rgba(34,197,94,.16)}.usa-v3-health-score.warn{background:rgba(245,158,11,.18)}.usa-v3-health-score.risk{background:rgba(239,68,68,.18)}.usa-v3-health-card small{opacity:.72}.usa-v3-alert-urgent{border-left:4px solid #ef4444!important}.usa-v3-alert-warning{border-left:4px solid #f59e0b!important}.usa-v3-alert-ok{border-left:4px solid #22c55e!important}@media(max-width:900px){.usa-v3-score-row{grid-template-columns:1fr}.usa-v3-actions{width:100%}.usa-v3-actions button{flex:1}}
+
+/* ================================
+   Responsive Design — Mobile, Tablet, Desktop
+   ================================ */
+
+/* ── Scrollable tab bar on small screens ── */
+@media (max-width: 640px) {
+  .tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 6px;
+    padding: 8px 10px 6px;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab-button { font-size: 12px; padding: 7px 12px; white-space: nowrap; }
+  .new-ceremony { white-space: nowrap; font-size: 12px; padding: 7px 12px; }
+}
+
+/* ── Main content max-width centering for large desktops ── */
+@media (min-width: 1200px) {
+  .top-bar, .tabs { max-width: 1080px; margin-left: auto; margin-right: auto; }
+  #tabContent { max-width: 1080px; margin: 0 auto; }
+}
+
+/* ── Mobile content padding ── */
+@media (max-width: 480px) {
+  #tabContent { padding: 10px; }
+  .ceremony-card { padding: 12px 10px; }
+  .dash-card { padding: 12px 10px; }
+}
+
+/* ── AI modal full-screen on mobile ── */
+@media (max-width: 600px) {
+  .modal { align-items: flex-end; }
+  .modal-content { width: 100vw; max-width: 100vw; border-radius: 24px 24px 0 0; max-height: 92vh; }
+  .ai-modal-content { width: 100vw; max-width: 100vw; border-radius: 24px 24px 0 0; max-height: 92vh; }
+  .ai-output { max-height: 46vh; }
+  .ai-actions { gap: 5px; }
+  .ai-actions button, .ai-modal-actions button { padding: 7px 9px; font-size: 11px; }
+}
+
+/* ── Tablet — 2-column layout stays usable ── */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .top-bar { padding: 12px 20px 4px; }
+  .tabs { padding: 8px 20px 4px; }
+  #tabContent { padding: 14px 20px; }
+}
+
+/* ── Ceremony list readable on all screens ── */
+@media (max-width: 400px) {
+  .ceremony-card .ceremony-meta { flex-direction: column; gap: 3px; }
+  .case-id-badge { font-size: 10px; }
+}

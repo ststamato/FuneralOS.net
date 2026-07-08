@@ -428,10 +428,11 @@ async function copyCaseBridge(c) {
 }
 
 function normalizeTextKey(text) {
+  const loc = window.__appLang === "en" ? "en-US" : "el-GR";
   return String(text || "")
     .trim()
     .replace(/\s+/g, " ")
-    .toLocaleUpperCase("el-GR");
+    .toLocaleUpperCase(loc);
 }
 
 function normalizeSetName(text) {
@@ -443,12 +444,13 @@ function normalizeNameLabel(text) {
 }
 
 function normalizeSearchText(text) {
+  const loc = window.__appLang === "en" ? "en-US" : "el-GR";
   return String(text || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .trim()
     .replace(/\s+/g, " ")
-    .toLocaleUpperCase("el-GR");
+    .toLocaleUpperCase(loc);
 }
 
 function aiQuestionKeywords(question) {
@@ -3461,7 +3463,8 @@ function hermesEventTypeLabel(type) {
 function hermesFormatEventDate(iso) {
   const d = new Date(iso || "");
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString("el-GR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const loc = window.__appLang === "en" ? "en-US" : "el-GR";
+  return d.toLocaleString(loc, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", hour12: window.__appLang === "en" });
 }
 
 function hermesBuildEventLog() {
@@ -4300,13 +4303,13 @@ function aiBuildCloudPayload() {
 
 function aiCloudFallbackHtml(errorText = "") {
   const local = aiRenderFull();
-  const warning = aiHtmlSection("Cloud AI", aiHtmlCard("Δεν έχει ενεργοποιηθεί ακόμα το Supabase Edge AI", `
-    <div class="ai-meta">Η εφαρμογή δεν σταματάει. Τρέχει αμέσως ο τοπικός AI V1.</div>
+  const warning = aiHtmlSection("Cloud AI", aiHtmlCard(t("Δεν έχει ενεργοποιηθεί ακόμα το Supabase Edge AI","Supabase Edge AI not yet active"), `
+    <div class="ai-meta">${t("Η εφαρμογή δεν σταματάει. Τρέχει αμέσως ο τοπικός AI V1.","The app continues running on local AI V1.")}</div>
     ${errorText ? `<div class="ai-note-text">${esc(errorText)}</div>` : ""}
     <div class="ai-badge-row">
       <span class="ai-badge">Cloudflare OK</span>
       <span class="ai-badge">Supabase OK</span>
-      <span class="ai-badge">Fallback V1 ενεργό</span>
+      <span class="ai-badge">${t("Fallback V1 ενεργό","Local AI V1 active")}</span>
     </div>
   `, "warning"));
   return warning + local;
@@ -4610,19 +4613,19 @@ async function aiAskQuestion() {
   const input = $("aiQuestionInput");
   const out = $("aiAssistantOutput");
   const question = String(input?.value || "").trim();
-  if (!question) return alert("Γράψε πρώτα την ερώτηση.");
+  if (!question) return alert(t("Γράψε πρώτα την ερώτηση.","Please type a question first."));
   if (!out) return;
 
   const { remaining, used, limit } = aiGetCloudUsage();
   if (remaining === 0) {
-    out.innerHTML = aiHtmlSection("Cloud AI", aiHtmlCard("Όριο ημερήσιων χρήσεων", `
-      <div class="ai-meta">Έχεις χρησιμοποιήσει ${used}/${limit} Cloud AI κλήσεις για σήμερα. Επαναφέρεται αύριο.</div>
+    out.innerHTML = aiHtmlSection("Cloud AI", aiHtmlCard(t("Όριο ημερήσιων χρήσεων","Daily usage limit"), `
+      <div class="ai-meta">${t(`Έχεις χρησιμοποιήσει ${used}/${limit} Cloud AI κλήσεις για σήμερα. Επαναφέρεται αύριο.`,`You have used ${used}/${limit} Cloud AI calls today. Resets tomorrow.`)}</div>
     `, "warning"));
     return;
   }
 
   aiLastMode = "question";
-  out.innerHTML = aiHtmlSection("Ερώτηση", aiHtmlCard(question, `<div class="ai-meta">Ρωτάω τον βοηθό AI…</div>`));
+  out.innerHTML = aiHtmlSection(t("Ερώτηση","Question"), aiHtmlCard(question, `<div class="ai-meta">${t("Ρωτάω τον βοηθό AI…","Asking the AI assistant…")}</div>`));
 
   const payload = aiBuildCloudPayload();
   payload.question = question;
@@ -4640,31 +4643,31 @@ async function aiAskQuestion() {
     clearTimeout(timer);
     if (res.status === 429) {
       const limitData = await res.json().catch(() => ({}));
-      out.innerHTML = aiHtmlSection("Cloud AI", aiHtmlCard("Όριο ημερήσιων χρήσεων", `
-        <div class="ai-meta">Έχεις χρησιμοποιήσει ${limitData.used ?? AI_CLOUD_DAILY_LIMIT}/${limitData.limit ?? AI_CLOUD_DAILY_LIMIT} Cloud AI κλήσεις για σήμερα. Επαναφέρεται αύριο.</div>
+      out.innerHTML = aiHtmlSection("Cloud AI", aiHtmlCard(t("Όριο ημερήσιων χρήσεων","Daily usage limit"), `
+        <div class="ai-meta">${t(`Έχεις χρησιμοποιήσει ${limitData.used ?? AI_CLOUD_DAILY_LIMIT}/${limitData.limit ?? AI_CLOUD_DAILY_LIMIT} Cloud AI κλήσεις για σήμερα. Επαναφέρεται αύριο.`,`You have used ${limitData.used ?? AI_CLOUD_DAILY_LIMIT}/${limitData.limit ?? AI_CLOUD_DAILY_LIMIT} Cloud AI calls today. Resets tomorrow.`)}</div>
       `, "warning"));
       aiUpdateCloudUsageBadge();
       return;
     }
-    if (!res.ok) throw new Error(`Edge Function απάντησε ${res.status}`);
+    if (!res.ok) throw new Error(`Edge Function responded ${res.status}`);
     const data = await res.json();
     aiIncrementCloudUsage();
     const answer = String(data.answer || data.report || "").trim() || aiLocalQuestionAnswer(question);
-    const html = aiHtmlSection("Απάντηση AI", aiHtmlCard(question, `
+    const html = aiHtmlSection(t("Απάντηση AI","AI Answer"), aiHtmlCard(question, `
       <div class="ai-note-text">${esc(answer)}</div>
-      <div class="ai-badge-row"><span class="ai-badge">Ερώτηση</span><span class="ai-badge">Cloud/Local AI</span></div>
+      <div class="ai-badge-row"><span class="ai-badge">${t("Ερώτηση","Question")}</span><span class="ai-badge">Cloud/Local AI</span></div>
     `, "ok"));
     out.innerHTML = html;
-    aiLastReportText = `Ερώτηση: ${question}\n\n${answer}`;
+    aiLastReportText = `${t("Ερώτηση","Question")}: ${question}\n\n${answer}`;
   } catch (e) {
     clearTimeout(timer);
     const answer = aiLocalQuestionAnswer(question);
-    const html = aiHtmlSection("Απάντηση AI", aiHtmlCard(question, `
-      <div class="ai-meta">Δεν απάντησε το Cloud AI, οπότε απαντά ο τοπικός βοηθός.</div>
+    const html = aiHtmlSection(t("Απάντηση AI","AI Answer"), aiHtmlCard(question, `
+      <div class="ai-meta">${t("Δεν απάντησε το Cloud AI, οπότε απαντά ο τοπικός βοηθός.","Cloud AI did not respond, using local assistant.")}</div>
       <div class="ai-note-text">${esc(answer)}</div>
     `, "warning"));
     out.innerHTML = html;
-    aiLastReportText = `Ερώτηση: ${question}\n\n${answer}`;
+    aiLastReportText = `${t("Ερώτηση","Question")}: ${question}\n\n${answer}`;
   }
 }
 
@@ -4675,15 +4678,15 @@ async function aiRunCloud() {
 
   const { remaining, used, limit } = aiGetCloudUsage();
   if (remaining === 0) {
-    out.innerHTML = aiHtmlSection("Cloud AI", aiHtmlCard("Όριο ημερήσιων χρήσεων", `
-      <div class="ai-meta">Έχεις χρησιμοποιήσει ${used}/${limit} Cloud AI κλήσεις για σήμερα. Επαναφέρεται αύριο.</div>
-      <div class="ai-badge-row"><span class="ai-badge">Τοπικός AI διαθέσιμος</span></div>
+    out.innerHTML = aiHtmlSection("Cloud AI", aiHtmlCard(t("Όριο ημερήσιων χρήσεων","Daily usage limit"), `
+      <div class="ai-meta">${t(`Έχεις χρησιμοποιήσει ${used}/${limit} Cloud AI κλήσεις για σήμερα. Επαναφέρεται αύριο.`,`You have used ${used}/${limit} Cloud AI calls today. Resets tomorrow.`)}</div>
+      <div class="ai-badge-row"><span class="ai-badge">${t("Τοπικός AI διαθέσιμος","Local AI available")}</span></div>
     `, "warning"));
     return;
   }
 
-  out.innerHTML = aiHtmlSection("Cloud AI", aiHtmlCard("Στέλνω snapshot στο Supabase Edge Function…", `
-    <div class="ai-meta">Σύνδεση με Supabase Cloud AI.</div>
+  out.innerHTML = aiHtmlSection("Cloud AI", aiHtmlCard(t("Στέλνω snapshot στο Supabase Edge Function…","Sending snapshot to Supabase Edge Function…"), `
+    <div class="ai-meta">${t("Σύνδεση με Supabase Cloud AI.","Connecting to Supabase Cloud AI.")}</div>
   `));
 
   const controller = new AbortController();
@@ -4701,14 +4704,14 @@ async function aiRunCloud() {
 
     if (res.status === 429) {
       const limitData = await res.json().catch(() => ({}));
-      out.innerHTML = aiHtmlSection("Cloud AI", aiHtmlCard("Όριο ημερήσιων χρήσεων", `
-        <div class="ai-meta">Έχεις χρησιμοποιήσει ${limitData.used ?? AI_CLOUD_DAILY_LIMIT}/${limitData.limit ?? AI_CLOUD_DAILY_LIMIT} Cloud AI κλήσεις για σήμερα. Επαναφέρεται αύριο.</div>
-        <div class="ai-badge-row"><span class="ai-badge">Τοπικός AI διαθέσιμος</span></div>
+      out.innerHTML = aiHtmlSection("Cloud AI", aiHtmlCard(t("Όριο ημερήσιων χρήσεων","Daily usage limit"), `
+        <div class="ai-meta">${t(`Έχεις χρησιμοποιήσει ${limitData.used ?? AI_CLOUD_DAILY_LIMIT}/${limitData.limit ?? AI_CLOUD_DAILY_LIMIT} Cloud AI κλήσεις για σήμερα. Επαναφέρεται αύριο.`,`You have used ${limitData.used ?? AI_CLOUD_DAILY_LIMIT}/${limitData.limit ?? AI_CLOUD_DAILY_LIMIT} Cloud AI calls today. Resets tomorrow.`)}</div>
+        <div class="ai-badge-row"><span class="ai-badge">${t("Τοπικός AI διαθέσιμος","Local AI available")}</span></div>
       `, "warning"));
       aiUpdateCloudUsageBadge();
       return;
     }
-    if (!res.ok) throw new Error(`Edge Function απάντησε ${res.status}`);
+    if (!res.ok) throw new Error(`Edge Function responded ${res.status}`);
 
     const data = await res.json();
     aiIncrementCloudUsage();
@@ -4722,9 +4725,9 @@ async function aiRunCloud() {
     let textReport = "";
 
     if (directAnswer) {
-      html = aiHtmlSection("Cloud AI Αναφορά", aiHtmlCard("Απάντηση Supabase Edge AI", `
+      html = aiHtmlSection(t("Cloud AI Αναφορά","Cloud AI Report"), aiHtmlCard(t("Απάντηση Supabase Edge AI","Supabase Edge AI Response"), `
         <div class="ai-note-text">${esc(directAnswer)}</div>
-        <div class="ai-badge-row"><span class="ai-badge">Cloud AI ενεργό</span><span class="ai-badge">Supabase Edge Function</span></div>
+        <div class="ai-badge-row"><span class="ai-badge">${t("Cloud AI ενεργό","Cloud AI active")}</span><span class="ai-badge">Supabase Edge Function</span></div>
       `, "ok"));
       textReport = directAnswer;
     } else {
@@ -4740,7 +4743,7 @@ async function aiRunCloud() {
 
       const briefingHtml = briefing.length
         ? briefing.map(x => `<div class="ai-line"><span>${esc(x)}</span></div>`).join("")
-        : `<div class="ai-empty">Το Cloud AI απάντησε, αλλά δεν έστειλε briefing.</div>`;
+        : `<div class="ai-empty">${t("Το Cloud AI απάντησε, αλλά δεν έστειλε briefing.","Cloud AI responded but sent no briefing.")}</div>`;
 
       const notesHtml = notes.length
         ? notes.slice(0, 30).map(n => {
@@ -4758,12 +4761,12 @@ async function aiRunCloud() {
         ? missing.slice(0, 30).map(m => {
             const key = aiAlertKey("cloud_missing", `${m.name || ""}|${m.date || ""}|${m.time || ""}|${(m.missing || []).join("|")}`);
             return aiHtmlCard(`${m.name || "-"} ${m.time ? "• " + m.time : ""}`, `
-              <div class="ai-meta">${esc(m.date || "χωρίς ημερομηνία")}</div>
+              <div class="ai-meta">${esc(m.date || t("χωρίς ημερομηνία","no date"))}</div>
               <div class="ai-badge-row">${(m.missing || []).map(x => `<span class="ai-badge">${esc(x)}</span>`).join("")}</div>
               ${aiSeenButton(key)}
             `, "danger");
           }).join("")
-        : `<div class="ai-card ai-ok"><div class="ai-card-title">Ελλείψεις</div><div class="ai-empty">Δεν βρέθηκαν ενεργές βασικές ελλείψεις.</div></div>`;
+        : `<div class="ai-card ai-ok"><div class="ai-card-title">${t("Ελλείψεις","Gaps")}</div><div class="ai-empty">${t("Δεν βρέθηκαν ενεργές βασικές ελλείψεις.","No active critical gaps found.")}</div></div>`;
 
       const stockItems = [...lowCoffins.map(x => `Φέρετρο ${x}`), ...lowSets.map(x => `ΣΕΤ ${x}`)];
       const stockHtml = stockItems.length
@@ -4782,22 +4785,22 @@ async function aiRunCloud() {
           <div class="ai-badge-row"><span class="ai-badge">${t("Cloud AI ενεργό","Cloud AI active")}</span><span class="ai-badge">Supabase Edge Function</span></div>
         `, "ok"))}
         ${aiHtmlSection("Briefing", briefingHtml)}
-        ${aiHtmlSection("Σημειώσεις", notesHtml)}
-        ${aiHtmlSection("Ελλείψεις", missingHtml)}
-        ${aiHtmlSection("Αποθήκη", stockHtml)}
+        ${aiHtmlSection(t("Σημειώσεις","Notes"), notesHtml)}
+        ${aiHtmlSection(t("Ελλείψεις","Gaps"), missingHtml)}
+        ${aiHtmlSection(t("Αποθήκη","Inventory"), stockHtml)}
       `;
 
       textReport = aiStripHtmlToText(html);
     }
 
     out.innerHTML = html;
-    aiLastReportText = `Cloud AI Βοηθός Σταυρακάκη — ${formatTimestamp(nowTs())}\n\n${textReport}`;
+    aiLastReportText = `${t("Cloud AI Βοηθός","Cloud AI Assistant")} — ${formatTimestamp(nowTs())}\n\n${textReport}`;
   } catch (e) {
     clearTimeout(timer);
-    const msg = e?.name === "AbortError" ? "Χρονικό όριο σύνδεσης με Cloud AI." : (e?.message || "Άγνωστο σφάλμα Cloud AI.");
+    const msg = e?.name === "AbortError" ? t("Χρονικό όριο σύνδεσης με Cloud AI.","Cloud AI connection timed out.") : (e?.message || t("Άγνωστο σφάλμα Cloud AI.","Unknown Cloud AI error."));
     const html = aiCloudFallbackHtml(msg);
     out.innerHTML = html;
-    aiLastReportText = `AI Βοηθός Σταυρακάκη — fallback V1 — ${formatTimestamp(nowTs())}\n\n${aiStripHtmlToText(html)}`;
+    aiLastReportText = `${t("AI Βοηθός","AI Assistant")} — fallback V1 — ${formatTimestamp(nowTs())}\n\n${aiStripHtmlToText(html)}`;
   }
 }
 
@@ -4820,7 +4823,7 @@ function aiRun(mode = "full") {
   else html = aiRenderFull();
 
   out.innerHTML = html;
-  aiLastReportText = `AI Βοηθός Σταυρακάκη — ${formatTimestamp(nowTs())}\n\n${aiStripHtmlToText(html)}`;
+  aiLastReportText = `${t("AI Βοηθός","AI Assistant")} — ${formatTimestamp(nowTs())}\n\n${aiStripHtmlToText(html)}`;
 }
 
 function openAIAssistant() {
@@ -4840,11 +4843,11 @@ async function copyAIReport() {
   try {
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(aiLastReportText || "");
-      alert("Η αναφορά AI αντιγράφηκε.");
+      alert(t("Η αναφορά AI αντιγράφηκε.","AI report copied."));
       return;
     }
   } catch {}
-  window.prompt("Αντέγραψε την αναφορά:", aiLastReportText || "");
+  window.prompt(t("Αντέγραψε την αναφορά:","Copy the AI report:"), aiLastReportText || "");
 }
 
 function bindAIAssistantActions() {
@@ -5687,6 +5690,7 @@ function renderHistory() {
 // Προσθετικό: δεν πειράζει τη Βίβλο, μόνο προσθέτει αναζήτηση.
 // =========================================================
 function v38Norm(text) {
+  const loc = window.__appLang === "en" ? "en-US" : "el-GR";
   return String(text || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -5694,7 +5698,7 @@ function v38Norm(text) {
     .replace(/Σ/g, "Σ")
     .trim()
     .replace(/\s+/g, " ")
-    .toLocaleUpperCase("el-GR");
+    .toLocaleUpperCase(loc);
 }
 
 function v38SwitchTab(tabName) {
