@@ -93,11 +93,16 @@ alter table referrals      enable row level security;
 alter table office_members enable row level security;
 alter table office_invites enable row level security;
 
--- app_state: own row OR active office member (checked live in DB, not via stale JWT)
+-- app_state: role-differentiated access
 drop policy if exists "user own state"                     on app_state;
 drop policy if exists "user or office member state access" on app_state;
-create policy "user or office member state access" on app_state
-  for all using (
+drop policy if exists "app_state select"                   on app_state;
+drop policy if exists "app_state write"                    on app_state;
+drop policy if exists "app_state delete"                   on app_state;
+
+-- Read: owner OR any office member (admin or editor)
+create policy "app_state select" on app_state
+  for select using (
     id = auth.uid()
     or exists (
       select 1 from office_members
@@ -106,10 +111,54 @@ create policy "user or office member state access" on app_state
     )
   );
 
--- office_events
-drop policy if exists "user own events" on office_events;
-create policy "user own events" on office_events
-  for all using (auth.uid() = user_id);
+-- Insert / Update: owner OR any office member (editors need to save work)
+create policy "app_state write" on app_state
+  for insert with check (
+    id = auth.uid()
+    or exists (
+      select 1 from office_members
+      where office_members.office_id = app_state.id
+        and office_members.user_id   = auth.uid()
+    )
+  );
+create policy "app_state update" on app_state
+  for update using (
+    id = auth.uid()
+    or exists (
+      select 1 from office_members
+      where office_members.office_id = app_state.id
+        and office_members.user_id   = auth.uid()
+    )
+  );
+
+-- Delete: owner only (prevents editors from wiping all office data)
+create policy "app_state delete" on app_state
+  for delete using (id = auth.uid());
+
+-- office_events: read all events in own office; write own events only
+drop policy if exists "user own events"         on office_events;
+drop policy if exists "office_events select"    on office_events;
+drop policy if exists "office_events insert"    on office_events;
+
+-- All office members see the whole office's event log
+create policy "office_events select" on office_events
+  for select using (
+    user_id = auth.uid()
+    or exists (
+      select 1 from office_members
+      where office_members.office_id = office_events.user_id
+        and office_members.user_id   = auth.uid()
+    )
+    or exists (
+      select 1 from office_members
+      where office_members.office_id = auth.uid()
+        and office_members.user_id   = office_events.user_id
+    )
+  );
+
+-- Anyone can insert their own events
+create policy "office_events insert" on office_events
+  for insert with check (auth.uid() = user_id);
 
 -- ai_usage
 drop policy if exists "user own ai_usage"      on ai_usage;
