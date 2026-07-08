@@ -1809,10 +1809,6 @@ body::before{
   background: #fff; border-radius: 16px;
   box-shadow: 0 10px 50px rgba(0,0,0,.28); overflow: hidden;
 }
-.etp-backdrop {
-  position: fixed; inset: 0; z-index: 99998;
-  background: rgba(0,0,0,.18);
-}
 .etp-drum-stage {
   display: flex; align-items: center; justify-content: center;
   position: relative; background: #fff; height: 132px; padding: 0 20px;

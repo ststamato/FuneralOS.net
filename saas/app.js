@@ -5148,33 +5148,32 @@ function initEnDatePickers() {
 function initEnTimePickers() {
   if (window.__appLang !== "en") return;
   const IDS  = ["ceremonyTime"];
-  const ITEM = 44;  // px per drum row
-  const ROWS = 3;   // visible rows (compact: 1 above + selected + 1 below)
-  const PADS = 1;   // pads per side — MUST equal (ROWS-1)/2 for scroll math to work
+  const ITEM = 44; // px per drum row
 
-  let popup = null, backdrop = null, curTarget = null;
+  let popup = null, curTarget = null, _outsideHandler = null;
 
   function closeAll() {
-    if (backdrop) { backdrop.remove(); backdrop = null; }
-    if (popup)    { popup.remove();    popup    = null; }
+    if (_outsideHandler) {
+      document.removeEventListener("touchstart", _outsideHandler);
+      document.removeEventListener("click",      _outsideHandler);
+      _outsideHandler = null;
+    }
+    if (popup) { popup.remove(); popup = null; }
     curTarget = null;
   }
 
-  // 1 pad at top/bottom so first & last real item can reach the center row.
-  // Math: scrollTop = startIdx × ITEM always centers the correct item.
+  // 1 pad per side + 3 visible rows: scrollTop = startIdx × ITEM centers the item.
   function makeDrumCol(items, startIdx) {
     const col = document.createElement("div");
     col.className = "etp-drum-col";
     col.insertAdjacentHTML("beforeend", `<div class="etp-drum-item etp-drum-pad"></div>`);
     items.forEach(txt => col.insertAdjacentHTML("beforeend", `<div class="etp-drum-item">${txt}</div>`));
     col.insertAdjacentHTML("beforeend", `<div class="etp-drum-item etp-drum-pad"></div>`);
-    // Debounce snap — settles after user lifts finger
     let t;
     col.addEventListener("scroll", () => {
       clearTimeout(t);
       t = setTimeout(() => col.scrollTo({ top: Math.round(col.scrollTop / ITEM) * ITEM, behavior: "smooth" }), 90);
     }, { passive: true });
-    // Set initial position after layout
     setTimeout(() => { col.scrollTop = startIdx * ITEM; }, 0);
     return col;
   }
@@ -5191,13 +5190,12 @@ function initEnTimePickers() {
       let [h, m] = curVal.split(":").map(Number);
       iAP = h >= 12 ? 1 : 0;
       h   = h % 12 || 12;
-      iH  = h - 1;
-      iM  = m;
+      iH  = h - 1; iM = m;
     }
 
-    const colH  = makeDrumCol(Array.from({length:12}, (_,i) => String(i + 1)),                  iH);
-    const colM  = makeDrumCol(Array.from({length:60}, (_,i) => String(i).padStart(2, "0")),     iM);
-    const colAP = makeDrumCol(["AM", "PM"],                                                      iAP);
+    const colH  = makeDrumCol(Array.from({length:12}, (_,i) => String(i+1)),               iH);
+    const colM  = makeDrumCol(Array.from({length:60}, (_,i) => String(i).padStart(2,"0")), iM);
+    const colAP = makeDrumCol(["AM","PM"],                                                   iAP);
 
     popup = document.createElement("div");
     popup.className = "etp-drum-popup";
@@ -5210,23 +5208,24 @@ function initEnTimePickers() {
 
     const stage = popup.querySelector(".etp-drum-stage");
     const bar   = stage.querySelector(".etp-drum-select-bar");
-    const sep   = Object.assign(document.createElement("div"), { className: "etp-drum-sep", textContent: ":" });
+    const sep   = Object.assign(document.createElement("div"), { className:"etp-drum-sep", textContent:":" });
     stage.insertBefore(colH,  bar);
     stage.insertBefore(sep,   bar);
     stage.insertBefore(colM,  bar);
     stage.insertBefore(colAP, bar);
 
-    // Use touchstart (fires before click, more reliable on iOS inside scroll containers)
+    // Bind button: touchstart fires first on iOS, stopPropagation keeps
+    // the document outside-handler from seeing the same event.
     function bindBtn(sel, fn) {
       const btn = popup.querySelector(sel);
-      let fired = false;
+      let tapped = false;
       btn.addEventListener("touchstart", e => {
         e.preventDefault(); e.stopPropagation();
-        fired = true; fn();
+        tapped = true; fn();
       }, { passive: false });
       btn.addEventListener("click", e => {
         e.stopPropagation();
-        if (fired) { fired = false; return; } // already handled by touchstart
+        if (tapped) { tapped = false; return; }
         fn();
       });
     }
@@ -5237,42 +5236,43 @@ function initEnTimePickers() {
       const m   = readIdx(colM);
       const ap  = readIdx(colAP);
       const h24 = (h % 12) + (ap ? 12 : 0);
-      selectTime(String(h24).padStart(2, "0") + ":" + String(m).padStart(2, "0"));
+      selectTime(String(h24).padStart(2,"0") + ":" + String(m).padStart(2,"0"));
     });
 
-    // Backdrop closes picker when tapping outside
-    backdrop = document.createElement("div");
-    backdrop.className = "etp-backdrop";
-    backdrop.addEventListener("touchstart", e => { e.preventDefault(); closeAll(); }, { passive: false });
-    backdrop.addEventListener("click", () => closeAll());
-
-    document.body.appendChild(backdrop);
     document.body.appendChild(popup);
-    document.addEventListener("keydown", _etpEsc);
 
-    // Position: centered horizontally, above or below trigger
+    // Position above (preferred) or below the trigger
     const trigger = $(id + "_etp");
     if (trigger) {
-      const rect   = trigger.getBoundingClientRect();
-      const popH   = popup.offsetHeight || 200;
-      const popW   = Math.min(window.innerWidth * 0.88, 340);
-      const margin = 12;
-      let top = rect.top - popH - margin;
-      if (top < margin) top = rect.bottom + margin;
-      top = Math.min(top, window.innerHeight - popH - margin);
-      top = Math.max(margin, top);
-      popup.style.top   = top + "px";
-      popup.style.left  = Math.max(margin, (window.innerWidth - popW) / 2) + "px";
+      const rect  = trigger.getBoundingClientRect();
+      const popH  = popup.offsetHeight || 196;
+      const popW  = Math.min(window.innerWidth * 0.88, 340);
+      const mg    = 12;
+      let top = rect.top - popH - mg;
+      if (top < mg) top = rect.bottom + mg;
+      top = Math.min(top, window.innerHeight - popH - mg);
+      top = Math.max(mg, top);
+      popup.style.top       = top + "px";
+      popup.style.left      = Math.max(mg, (window.innerWidth - popW) / 2) + "px";
       popup.style.transform = "none";
     }
+
+    // Register outside-close handler after a short delay so the tap that
+    // opened the picker doesn't immediately close it again.
+    setTimeout(() => {
+      _outsideHandler = e => { if (popup && !popup.contains(e.target)) closeAll(); };
+      document.addEventListener("touchstart", _outsideHandler, { passive: true });
+      document.addEventListener("click",      _outsideHandler);
+    }, 60);
+
+    document.addEventListener("keydown", function _esc(e) {
+      if (e.key === "Escape") { closeAll(); document.removeEventListener("keydown", _esc); }
+    });
   }
 
-  function _etpEsc(e) { if (e.key === "Escape") { closeAll(); document.removeEventListener("keydown", _etpEsc); } }
-
   function selectTime(hhmm) {
-    const id = curTarget;          // capture before closeAll() clears it
+    const id = curTarget;   // capture before closeAll() clears it
     closeAll();
-    document.removeEventListener("keydown", _etpEsc);
     const hidden  = $(id);
     const display = $(id + "_etp");
     if (hidden)  { hidden.value = hhmm; hidden.dispatchEvent(new Event("change", { bubbles: true })); }
@@ -5288,8 +5288,8 @@ function initEnTimePickers() {
     wrapper.appendChild(hidden);
     hidden.style.cssText = "position:absolute;opacity:0;width:1px;height:1px;pointer-events:none;";
     const display = document.createElement("input");
-    display.type = "text"; display.id = id + "_etp"; display.className = "edp-trigger";
-    display.placeholder = "Select time…"; display.readOnly = true;
+    display.type="text"; display.id=id+"_etp"; display.className="edp-trigger";
+    display.placeholder="Select time…"; display.readOnly=true;
     display.value = etpFormatDisplay(hidden.value);
     wrapper.appendChild(display);
     display.addEventListener("click", e => { e.stopPropagation(); openPopup(id); });
