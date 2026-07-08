@@ -4046,21 +4046,21 @@ function aiAnalyzeNotes(sourceList = ceremonies, includeSeen = false) {
 
 function aiMissingForCeremony(c) {
   const missing = [];
-  if (aiIsBlank(c.name)) missing.push("όνομα θανόντα");
-  if (aiIsBlank(c.place)) missing.push("τοποθεσία τελετής");
-  if (aiIsBlank(c.responsible)) missing.push("υπεύθυνος");
-  if (aiIsBlank(c.coffin)) missing.push("φέρετρο");
-  if (aiIsBlank(c.set)) missing.push("ΣΕΤ");
-  if (aiIsBlank(c.pickup)) missing.push("παραλαβή");
+  if (aiIsBlank(c.name)) missing.push(t("όνομα θανόντα", "deceased name"));
+  if (aiIsBlank(c.place)) missing.push(t("τοποθεσία τελετής", "service location"));
+  if (aiIsBlank(c.responsible)) missing.push(t("υπεύθυνος", "director"));
+  if (aiIsBlank(c.coffin)) missing.push(t("φέρετρο", "casket"));
+  if (aiIsBlank(c.set)) missing.push(t("ΣΕΤ", "burial set"));
+  if (aiIsBlank(c.pickup)) missing.push(t("παραλαβή", "pickup"));
 
   const method = String(c.burialType || "Ταφή").trim();
   if (method === "Αποτεφρωση") {
-    if (!Number(c.cremationEscortCount || 0)) missing.push("συνοδοί αίθουσας αποτέφρωσης");
-    if (aiIsBlank(c.cremationParishNote)) missing.push("σημείωση ενορίας πριν την αποτέφρωση");
+    if (!Number(c.cremationEscortCount || 0)) missing.push(t("συνοδοί αίθουσας αποτέφρωσης", "cremation escorts"));
+    if (aiIsBlank(c.cremationParishNote)) missing.push(t("σημείωση ενορίας πριν την αποτέφρωση", "pre-cremation parish note"));
   } else {
-    if (aiIsBlank(c.graveType)) missing.push("τύπος τάφου");
-    if (c.graveType === "Οικογενειακός" && aiIsBlank(c.graveNumber)) missing.push("αριθμός οικογενειακού τάφου");
-    if (c.graveType === "Τριετία" && aiIsBlank(c.graveZone)) missing.push("ζώνη τριετίας");
+    if (aiIsBlank(c.graveType)) missing.push(t("τύπος τάφου", "grave type"));
+    if (c.graveType === "Οικογενειακός" && aiIsBlank(c.graveNumber)) missing.push(t("αριθμός οικογενειακού τάφου", "family grave number"));
+    if (c.graveType === "Τριετία" && aiIsBlank(c.graveZone)) missing.push(t("ζώνη τριετίας", "grave zone"));
   }
 
   return missing;
