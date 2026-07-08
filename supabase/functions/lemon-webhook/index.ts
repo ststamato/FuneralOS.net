@@ -211,8 +211,14 @@ Deno.serve(async (req: Request) => {
     if (status === "active" || status === "on_trial") {
       targetPlan = getPlanFromProductName(productName);
     }
-  } else if (["subscription_cancelled", "subscription_expired"].includes(eventName)) {
+  } else if (["subscription_cancelled", "subscription_expired", "subscription_paused"].includes(eventName)) {
     targetPlan = "free";
+  } else if (eventName === "subscription_payment_recovered") {
+    // Payment recovered after failure — re-activate the paid plan
+    targetPlan = getPlanFromProductName(productName);
+  } else if (eventName === "subscription_payment_failed") {
+    // Payment failed but Lemon Squeezy will retry — do not downgrade yet; just log
+    console.log(`Payment failed for ${email || customUserId}, product: ${productName} — awaiting retry`);
   } else if (eventName === "order_created") {
     // One-time purchase fallback — treat as pro upgrade
     targetPlan = getPlanFromProductName(productName) || "pro";
