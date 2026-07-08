@@ -7198,9 +7198,35 @@ document.addEventListener('DOMContentLoaded',seedOfficeKnowledge);
   }
 
   function backupJSON(){
-    const payload = { exported_at:new Date().toISOString(), ceremonies:allCeremonies(), warehouse:allWarehouse(), setsWarehouse:allSets(), version:'v1.2' };
-    const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='funeralos-backup-'+new Date().toISOString().slice(0,10)+'.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    // Mirror cloudSaveAll payload exactly so restore is lossless
+    let grCustomLists = customLists;
+    let enCustomLists = [];
+    if (window.__appLang === "en") {
+      enCustomLists = customLists;
+      try { grCustomLists = JSON.parse(localStorage.getItem("staurakaki_custom_lists_v1") || "[]"); } catch { grCustomLists = []; }
+    }
+    const payload = {
+      exported_at: new Date().toISOString(),
+      version: "v2.0",
+      ceremonies:        allCeremonies(),
+      deletedCeremonies: deletedCeremonies || [],
+      warehouse:         allWarehouse(),
+      setsWarehouse:     allSets(),
+      secondHelpers:     secondHelpers    || [],
+      changeLog:         changeLog        || [],
+      optionWarehouse:   optionWarehouse  || {},
+      aiChatHistory:     aiChatHistory    || [],
+      customFields:      customFields     || [],
+      customLists:       grCustomLists    || [],
+      enCustomLists:     enCustomLists    || [],
+      sectionData:       sectionData      || {},
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type: 'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'funeralos-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
   function exportCeremoniesCSV(){
@@ -7259,18 +7285,77 @@ window.restoreFromJSON = function() {
         alert("Invalid backup file — no ceremonies array found.");
         return;
       }
-      const count = data.ceremonies.length;
+      const count  = data.ceremonies.length;
       const wCount = Array.isArray(data.warehouse) ? data.warehouse.length : 0;
+      const cfCount = Array.isArray(data.customFields) ? data.customFields.length : 0;
       const confirmed = confirm(
         "Restore from backup?\n\n" +
-        "  Ceremonies: " + count + "\n" +
-        "  Inventory items: " + wCount + "\n\n" +
+        "  Ceremonies: "     + count  + "\n" +
+        "  Inventory items: " + wCount + "\n" +
+        "  Custom fields: "  + cfCount + "\n" +
+        "  Exported: "       + (data.exported_at || "unknown") + "\n\n" +
         "This will REPLACE all current data. This cannot be undone.\nContinue?"
       );
       if (!confirmed) return;
-      ceremonies = data.ceremonies;
-      if (Array.isArray(data.warehouse)) warehouse = data.warehouse;
-      if (Array.isArray(data.setsWarehouse)) setsWarehouse = data.setsWarehouse;
+
+      // Restore all data structures, applying the same normalization as loadData()
+      ceremonies = data.ceremonies.map(c => ({
+        id:                    c.id || String(nowTs()),
+        case_id:               ensureCeremonyCaseId(c),
+        date:                  c.date  || "",
+        time:                  c.time  || "",
+        name:                  c.name  ?? "",
+        place:                 c.place ?? "",
+        burialType:            c.burialType ?? "Ταφή",
+        cremationEscortCount:  Number(c.cremationEscortCount ?? 0) || 0,
+        cremationParishNote:   c.cremationParishNote ?? "",
+        responsible:           c.responsible   ?? "-",
+        secondPerson:          c.secondPerson  ?? "Κανένας",
+        pickupSecondPerson:    c.pickupSecondPerson ?? "",
+        suitcase:              c.suitcase ?? "-",
+        coffin:                c.coffin  ?? "",
+        set:                   c.set ? normalizeSetName(c.set) : "",
+        flowers:               c.flowers ?? "",
+        announcementStatus:    c.announcementStatus ?? "Δεν χρειάζεται",
+        decor:                 c.decor     ?? "",
+        decorNote:             c.decorNote ?? "",
+        pallbearers:           c.pallbearers  ?? "",
+        coffee:                c.coffee      ?? "",
+        coffeePlace:           c.coffeePlace ?? "",
+        pickup:                c.pickup     ?? "",
+        pickupDate:            c.pickupDate ?? "",
+        coldRoom:              c.coldRoom   ?? "",
+        graveType:             c.graveType   ?? "Τριετία",
+        graveNumber:           c.graveNumber ?? "",
+        graveZone:             c.graveZone   ?? "",
+        notes:                 c.notes ?? "",
+        customValues:          c.customValues && typeof c.customValues === "object" ? c.customValues : {},
+      }));
+
+      if (Array.isArray(data.deletedCeremonies)) deletedCeremonies = data.deletedCeremonies;
+      if (Array.isArray(data.warehouse))         warehouse         = data.warehouse;
+      if (Array.isArray(data.setsWarehouse))     setsWarehouse     = data.setsWarehouse;
+      if (Array.isArray(data.secondHelpers))     secondHelpers     = data.secondHelpers;
+      if (Array.isArray(data.changeLog))         changeLog         = data.changeLog;
+      if (Array.isArray(data.aiChatHistory))     aiChatHistory     = data.aiChatHistory;
+      if (Array.isArray(data.customFields))      customFields      = data.customFields;
+      if (data.optionWarehouse && typeof data.optionWarehouse === "object") optionWarehouse = data.optionWarehouse;
+
+      // customLists: mirror the lang-split logic from loadData()
+      if (window.__appLang === "en") {
+        if (Array.isArray(data.enCustomLists)) customLists = data.enCustomLists;
+        if (Array.isArray(data.customLists))
+          try { localStorage.setItem("staurakaki_custom_lists_v1", JSON.stringify(data.customLists)); } catch {}
+      } else {
+        if (Array.isArray(data.customLists)) customLists = data.customLists;
+      }
+
+      // sectionData is localStorage-only — restore to both memory and storage
+      if (data.sectionData && typeof data.sectionData === "object") {
+        sectionData = data.sectionData;
+        try { localStorage.setItem(SECTION_DATA_KEY, JSON.stringify(sectionData)); } catch {}
+      }
+
       await saveData();
       renderAll();
       alert("Restore complete. " + count + " ceremonies loaded.");
