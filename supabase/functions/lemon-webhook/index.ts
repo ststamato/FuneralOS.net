@@ -41,15 +41,15 @@ async function findUserByEmail(
   supabaseUrl: string,
   serviceKey: string,
   email: string
-): Promise<{ id: string; user_metadata: Record<string, unknown> } | null> {
-  // Search users list (up to 1000) for matching email
+): Promise<{ id: string; user_metadata: Record<string, unknown>; app_metadata: Record<string, unknown> } | null> {
+  // Use server-side email filter instead of fetching all users
   const res = await fetch(
-    `${supabaseUrl}/auth/v1/admin/users?per_page=1000`,
+    `${supabaseUrl}/auth/v1/admin/users?email=${encodeURIComponent(email)}&per_page=1`,
     { headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey } }
   );
   if (!res.ok) return null;
   const data = await res.json();
-  const users: Array<{ id: string; email: string; user_metadata: Record<string, unknown> }> =
+  const users: Array<{ id: string; email: string; user_metadata: Record<string, unknown>; app_metadata: Record<string, unknown> }> =
     data.users || [];
   return users.find(u => u.email?.toLowerCase() === email.toLowerCase()) ?? null;
 }
@@ -58,7 +58,7 @@ async function setUserPlan(
   supabaseUrl: string,
   serviceKey: string,
   userId: string,
-  currentMeta: Record<string, unknown>,
+  currentAppMeta: Record<string, unknown>,
   plan: string
 ): Promise<boolean> {
   const res = await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}`, {
@@ -68,7 +68,8 @@ async function setUserPlan(
       apikey: serviceKey,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ user_metadata: { ...currentMeta, plan } }),
+    // Write to app_metadata (server-only) so clients cannot self-upgrade
+    body: JSON.stringify({ app_metadata: { ...currentAppMeta, plan } }),
   });
   return res.ok;
 }
@@ -234,7 +235,7 @@ Deno.serve(async (req: Request) => {
     if (res.ok) {
       const u = await res.json();
       userId   = u.id;
-      userMeta = u.user_metadata || {};
+      userMeta = u.app_metadata || {};
       console.log(`Resolved user by custom_user_id: ${userId}`);
     } else {
       console.warn(`custom_user_id ${customUserId} not found, falling back to email lookup`);
@@ -245,7 +246,7 @@ Deno.serve(async (req: Request) => {
     const user = await findUserByEmail(supabaseUrl, serviceKey, email);
     if (user) {
       userId   = user.id;
-      userMeta = user.user_metadata || {};
+      userMeta = user.app_metadata || {};
       console.log(`Resolved user by email: ${userId}`);
     }
   }

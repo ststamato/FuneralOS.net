@@ -71,7 +71,9 @@
       window.__authUser = user;
       const OWNER_EMAILS = ["ststamato@gmail.com"];
       const isOwner = OWNER_EMAILS.includes(user.email);
-      window.__authPlan = isOwner ? "business" : (user.user_metadata?.plan || "free");
+      // Read plan from app_metadata (server-only, cannot be self-written by client).
+      // Fallback to user_metadata for accounts upgraded before this change.
+      window.__authPlan = isOwner ? "business" : (user.app_metadata?.plan || user.user_metadata?.plan || "free");
       // Owner: apply plan override from sessionStorage (for testing)
       if (isOwner) {
         const override = sessionStorage.getItem("__fos_plan_override");
