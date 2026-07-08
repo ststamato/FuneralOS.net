@@ -5150,16 +5150,11 @@ function initEnTimePickers() {
   const IDS  = ["ceremonyTime"];
   const ITEM = 44; // px per drum row
 
-  let popup = null, curTarget = null, _outsideHandler = null;
+  let popup = null, openId = null;
 
   function closeAll() {
-    if (_outsideHandler) {
-      document.removeEventListener("touchstart", _outsideHandler);
-      document.removeEventListener("click",      _outsideHandler);
-      _outsideHandler = null;
-    }
     if (popup) { popup.remove(); popup = null; }
-    curTarget = null;
+    openId = null;
   }
 
   // 1 pad per side + 3 visible rows: scrollTop = startIdx × ITEM centers the item.
@@ -5180,9 +5175,35 @@ function initEnTimePickers() {
 
   function readIdx(col) { return Math.round(col.scrollTop / ITEM); }
 
-  function openPopup(id) {
+  function selectTime(id, hhmm) {
     closeAll();
-    curTarget = id;
+    const hidden  = $(id);
+    const display = $(id + "_etp");
+    if (hidden)  { hidden.value = hhmm; hidden.dispatchEvent(new Event("change", { bubbles: true })); }
+    if (display) display.value = etpFormatDisplay(hhmm);
+  }
+
+  // touchend + e.preventDefault() prevents synthesized click from also firing on iOS.
+  // touchDone guard is a safety net in case the browser fires click anyway.
+  function bindAction(btn, fn) {
+    let touchDone = false;
+    btn.addEventListener("touchend", e => {
+      e.preventDefault();
+      touchDone = true;
+      fn();
+    }, { passive: false });
+    btn.addEventListener("click", () => {
+      if (touchDone) { touchDone = false; return; }
+      fn();
+    });
+  }
+
+  function openPopup(id) {
+    // Toggle: tap the field again while open → close without saving
+    if (popup && openId === id) { closeAll(); return; }
+    closeAll();
+    openId = id;
+
     const hidden = $(id);
     const curVal = hidden ? hidden.value : "";
     let iH = 11, iM = 0, iAP = 0;
@@ -5214,69 +5235,37 @@ function initEnTimePickers() {
     stage.insertBefore(colM,  bar);
     stage.insertBefore(colAP, bar);
 
-    // Bind button: touchstart fires first on iOS, stopPropagation keeps
-    // the document outside-handler from seeing the same event.
-    function bindBtn(sel, fn) {
-      const btn = popup.querySelector(sel);
-      let tapped = false;
-      btn.addEventListener("touchstart", e => {
-        e.preventDefault(); e.stopPropagation();
-        tapped = true; fn();
-      }, { passive: false });
-      btn.addEventListener("click", e => {
-        e.stopPropagation();
-        if (tapped) { tapped = false; return; }
-        fn();
-      });
-    }
-
-    bindBtn(".etp-drum-reset", () => selectTime(""));
-    bindBtn(".etp-drum-done",  () => {
+    bindAction(popup.querySelector(".etp-drum-reset"), () => selectTime(id, ""));
+    bindAction(popup.querySelector(".etp-drum-done"),  () => {
       const h   = readIdx(colH) + 1;
       const m   = readIdx(colM);
       const ap  = readIdx(colAP);
       const h24 = (h % 12) + (ap ? 12 : 0);
-      selectTime(String(h24).padStart(2,"0") + ":" + String(m).padStart(2,"0"));
+      selectTime(id, String(h24).padStart(2,"0") + ":" + String(m).padStart(2,"0"));
     });
 
     document.body.appendChild(popup);
 
-    // Position above (preferred) or below the trigger
+    // Position above (preferred) or below the trigger field
     const trigger = $(id + "_etp");
     if (trigger) {
-      const rect  = trigger.getBoundingClientRect();
-      const popH  = popup.offsetHeight || 196;
-      const popW  = Math.min(window.innerWidth * 0.88, 340);
-      const mg    = 12;
+      const rect = trigger.getBoundingClientRect();
+      const popH = popup.offsetHeight || 196;
+      const popW = Math.min(window.innerWidth * 0.88, 340);
+      const mg   = 12;
       let top = rect.top - popH - mg;
       if (top < mg) top = rect.bottom + mg;
       top = Math.min(top, window.innerHeight - popH - mg);
       top = Math.max(mg, top);
-      popup.style.top       = top + "px";
-      popup.style.left      = Math.max(mg, (window.innerWidth - popW) / 2) + "px";
+      popup.style.top  = top + "px";
+      popup.style.left = Math.max(mg, (window.innerWidth - popW) / 2) + "px";
       popup.style.transform = "none";
     }
 
-    // Register outside-close handler after a short delay so the tap that
-    // opened the picker doesn't immediately close it again.
-    setTimeout(() => {
-      _outsideHandler = e => { if (popup && !popup.contains(e.target)) closeAll(); };
-      document.addEventListener("touchstart", _outsideHandler, { passive: true });
-      document.addEventListener("click",      _outsideHandler);
-    }, 60);
-
+    // Esc key for desktop users
     document.addEventListener("keydown", function _esc(e) {
       if (e.key === "Escape") { closeAll(); document.removeEventListener("keydown", _esc); }
     });
-  }
-
-  function selectTime(hhmm) {
-    const id = curTarget;   // capture before closeAll() clears it
-    closeAll();
-    const hidden  = $(id);
-    const display = $(id + "_etp");
-    if (hidden)  { hidden.value = hhmm; hidden.dispatchEvent(new Event("change", { bubbles: true })); }
-    if (display) display.value = etpFormatDisplay(hhmm);
   }
 
   IDS.forEach(id => {
@@ -5292,6 +5281,7 @@ function initEnTimePickers() {
     display.placeholder="Select time…"; display.readOnly=true;
     display.value = etpFormatDisplay(hidden.value);
     wrapper.appendChild(display);
+    // Tap to open; tap again while open to cancel (toggle)
     display.addEventListener("click", e => { e.stopPropagation(); openPopup(id); });
   });
 }
