@@ -1,14 +1,9 @@
 # Cloudflare Pages — Redirects
 # (same format as Netlify _redirects)
 
-# Root → English version
-/                   /en/                302
+# Root → English version (302! forces this even when index.html exists at root)
+/                   /en/                302!
 
-# Clean URLs
-/en                 /en/index.html      200
-/en/app             /en/app.html        200
-/app                /app.html           200
+# Legacy root-level paths → English equivalents
 /login.html         /en/login.html      302
-
-# SPA fallback — must be last
-/*                  /index.html         200
+/app.html           /en/app.html        302
