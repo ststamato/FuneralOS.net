@@ -56,17 +56,19 @@ Deno.serve(async (req: Request) => {
   try {
     // ── LIST ALL USERS + stats ────────────────────────────────────────────────
     if (action === "list") {
-      const [usersRes, aiRes, profilesRes, referralsRes] = await Promise.all([
+      const [usersRes, aiRes, profilesRes, referralsRes, appStateRes] = await Promise.all([
         fetch(`${supabaseUrl}/auth/v1/admin/users?per_page=1000`, { headers: h }),
         fetch(`${supabaseUrl}/rest/v1/ai_usage?select=user_id,calls_today,reset_date`, { headers: h }),
         fetch(`${supabaseUrl}/rest/v1/profiles?select=id,referral_code,referral_credits,referral_plan_until`, { headers: h }),
         fetch(`${supabaseUrl}/rest/v1/referrals?select=referrer_id&status=eq.rewarded`, { headers: h }),
+        fetch(`${supabaseUrl}/rest/v1/app_state?select=id,payload`, { headers: h }),
       ]);
 
       const usersData   = await usersRes.json();
-      const aiRows      = aiRes.ok      ? await aiRes.json()      : [];
-      const profiles    = profilesRes.ok ? await profilesRes.json() : [];
+      const aiRows      = aiRes.ok       ? await aiRes.json()       : [];
+      const profiles    = profilesRes.ok  ? await profilesRes.json()  : [];
       const referrals   = referralsRes.ok ? await referralsRes.json() : [];
+      const appStateRows= appStateRes.ok  ? await appStateRes.json()  : [];
 
       // Build lookup maps
       const aiMap: Record<string, { calls_today: number; reset_date: string }> = {};
@@ -82,11 +84,46 @@ Deno.serve(async (req: Request) => {
         refCountMap[r.referrer_id] = (refCountMap[r.referrer_id] || 0) + 1;
       }
 
+      // ── Ceremony stats from app_state payloads ──────────────────────────────
+      // Build monthly breakdown for last 6 months (YYYY-MM keys)
+      const monthCounts: Record<string, number> = {};
+      const now = new Date();
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        monthCounts[key] = 0;
+      }
+
+      // Per-office ceremony count map (app_state id → count)
+      const officeCountMap: Record<string, number> = {};
+      let totalCeremonies = 0;
+
+      for (const row of appStateRows) {
+        const ceremonies: Array<{ date?: string }> = row.payload?.ceremonies || [];
+        officeCountMap[row.id as string] = ceremonies.length;
+        totalCeremonies += ceremonies.length;
+        for (const c of ceremonies) {
+          if (!c.date) continue;
+          const monthKey = c.date.slice(0, 7); // "YYYY-MM"
+          if (monthKey in monthCounts) monthCounts[monthKey]++;
+        }
+      }
+
+      const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+      const ceremony_stats = {
+        total:           totalCeremonies,
+        this_month:      monthCounts[thisMonthKey] || 0,
+        offices_with_data: appStateRows.length,
+        monthly_breakdown: Object.entries(monthCounts).map(([month, count]) => ({ month, count })),
+      };
+
       const today = new Date().toISOString().split("T")[0];
 
       const users = (usersData.users || []).map((u: Record<string, unknown>) => {
         const meta = (u.raw_user_metadata as Record<string, unknown>) || {};
         const ai   = aiMap[u.id as string] || null;
+        const officeId = (meta.office_id as string) || (u.id as string);
         return {
           id:              u.id,
           email:           u.email,
@@ -95,12 +132,13 @@ Deno.serve(async (req: Request) => {
           created_at:      u.created_at,
           last_sign_in_at: u.last_sign_in_at,
           ai_calls_today:  ai?.reset_date === today ? Number(ai.calls_today) : 0,
+          ceremony_count:  officeCountMap[officeId] || 0,
           referral:        profileMap[u.id as string] || null,
           referral_count:  refCountMap[u.id as string] || 0,
         };
       });
 
-      return json({ users });
+      return json({ users, ceremony_stats });
     }
 
     // ── SET PLAN ─────────────────────────────────────────────────────────────

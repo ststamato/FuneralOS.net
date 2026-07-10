@@ -16,8 +16,8 @@ Deno.serve(async (req: Request) => {
   const serviceKey  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const anonKey     = Deno.env.get("SUPABASE_ANON_KEY") || "";
   const resendKey   = Deno.env.get("RESEND_API_KEY") || "";
-  const fromEmail   = Deno.env.get("FROM_EMAIL") || "FuneralOS <team@funeralos.gr>";
-  const appUrl      = Deno.env.get("APP_URL") || "https://funeralos.gr/en/app.html";
+  const fromEmail   = Deno.env.get("FROM_EMAIL") || "FuneralOS <team@funeralos.net>";
+  const appUrl      = Deno.env.get("APP_URL") || "https://funeralos.net/en/app.html";
 
   // Authenticate caller
   const authHeader = req.headers.get("Authorization") || "";

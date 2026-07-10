@@ -544,7 +544,7 @@
       <form id="usaFirstCallForm" class="usa-form usa-panel">
         <div class="usa-form-grid">
           <label>Decedent Name<input id="usaFcDecedent" required placeholder="John Smith" /></label>
-          <label>Date of Death<input id="usaFcDod" type="date" /></label>
+          <label>Date of Death<input id="usaFcDod" type="date" lang="en-US" /></label>
           <label>Caller Name<input id="usaFcCaller" placeholder="Mary Smith" /></label>
           <label>Relationship<input id="usaFcRelationship" placeholder="Daughter / Spouse" /></label>
           <label>Phone<input id="usaFcPhone" placeholder="(555) 000-0000" /></label>
@@ -572,7 +572,7 @@
           <label>Name<input id="usaStaffName" placeholder="Michael Brown" /></label>
           <label>Role<select id="usaStaffRole"><option>Funeral Director</option><option>Removal Technician</option><option>Driver</option><option>Embalmer</option><option>Office Staff</option></select></label>
           <label>Shift<input id="usaStaffShift" placeholder="Today 8:00–17:00" /></label>
-          <label>Certification Expiration<input id="usaStaffCert" type="date" /></label>
+          <label>Certification Expiration<input id="usaStaffCert" type="date" lang="en-US" /></label>
         </div>
         <div class="modal-actions"><button type="submit" class="usa-primary">Add Staff Member</button></div>
       </form>
@@ -586,8 +586,8 @@
           <label>Vehicle Name<input id="usaFleetName" placeholder="Hearse 1" /></label>
           <label>Type<select id="usaFleetType"><option>Hearse</option><option>Removal Van</option><option>Limousine</option><option>Utility Vehicle</option></select></label>
           <label>Mileage<input id="usaFleetMileage" type="number" placeholder="84500" /></label>
-          <label>Next Service<input id="usaFleetService" type="date" /></label>
-          <label>Insurance Expiration<input id="usaFleetInsurance" type="date" /></label>
+          <label>Next Service<input id="usaFleetService" type="date" lang="en-US" /></label>
+          <label>Insurance Expiration<input id="usaFleetInsurance" type="date" lang="en-US" /></label>
           <label>Status<select id="usaFleetStatus"><option>Available</option><option>Assigned</option><option>In Service</option><option>Out of Service</option></select></label>
         </div>
         <div class="modal-actions"><button type="submit" class="usa-primary">Add Vehicle</button></div>
@@ -626,7 +626,7 @@
         <!-- Decedent -->
         <label>Decedent full name<input type="text" id="deceasedName" placeholder="Last, First M." /></label>
         <div class="form-grid-2">
-          <label>Date of death<input type="date" id="pickupDate" /></label>
+          <label>Date of death<input type="date" id="pickupDate" lang="en-US" /></label>
           <label>Disposition
             <select id="burialType">
               <option value="Ταφή">Burial</option>
@@ -667,8 +667,8 @@
         <!-- Service -->
         <p style="font-size:11px;font-weight:700;letter-spacing:.8px;color:rgba(200,169,110,.7);text-transform:uppercase;margin:12px 0 6px;">Service</p>
         <div class="form-grid-2">
-          <label>Service date<input type="date" id="ceremonyDate" /></label>
-          <label>Service time<input type="time" id="ceremonyTime" /></label>
+          <label>Service date<input type="date" id="ceremonyDate" lang="en-US" /></label>
+          <label>Service time<input type="time" id="ceremonyTime" lang="en-US" /></label>
         </div>
         <label>Service location<input type="text" id="ceremonyPlace" placeholder="e.g. Riverside Church / Greenwood Cemetery" /></label>
         <label>Embalmer<input type="text" id="ceremonyDecorNote" placeholder="Licensed embalmer name" /></label>
