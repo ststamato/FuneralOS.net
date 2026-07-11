@@ -250,6 +250,33 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true });
     }
 
+    // ── AUDIT LOG (recent office_events across all offices) ──────────────────
+    if (action === "audit_log") {
+      const limit  = Number(body.limit) || 100;
+      const offset = Number(body.offset) || 0;
+
+      // Fetch events + user emails in parallel
+      const [eventsRes, usersRes] = await Promise.all([
+        fetch(
+          `${supabaseUrl}/rest/v1/office_events?select=id,user_id,event_type,payload,created_at&order=created_at.desc&limit=${limit}&offset=${offset}`,
+          { headers: h }
+        ),
+        fetch(`${supabaseUrl}/auth/v1/admin/users?per_page=1000`, { headers: h }),
+      ]);
+
+      const events   = eventsRes.ok  ? await eventsRes.json()  : [];
+      const usersData= usersRes.ok   ? await usersRes.json()   : {};
+      const emailMap: Record<string, string> = {};
+      for (const u of (usersData.users || [])) emailMap[u.id] = u.email;
+
+      const enriched = (Array.isArray(events) ? events : []).map((e: Record<string, unknown>) => ({
+        ...e,
+        user_email: emailMap[e.user_id as string] || e.user_id,
+      }));
+
+      return json({ events: enriched });
+    }
+
     return json({ error: "Unknown action" }, 400);
 
   } catch (e) {

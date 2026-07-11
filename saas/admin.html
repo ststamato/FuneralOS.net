@@ -373,37 +373,70 @@
     <div class="chart-bars" id="chartBars"></div>
   </div>
 
-  <!-- Toolbar -->
-  <div class="toolbar">
-    <input id="searchInput" type="search" placeholder="Αναζήτηση email ή γραφείου..." />
-    <select id="planFilter">
-      <option value="">Όλα τα πλάνα</option>
-      <option value="free">FREE</option>
-      <option value="pro">PRO</option>
-      <option value="business">BUSINESS</option>
-    </select>
-    <button class="refresh-btn" onclick="loadUsers()">↺ Ανανέωση</button>
-    <span class="count-lbl" id="countLbl"></span>
+  <!-- Tab switcher -->
+  <div style="display:flex;gap:8px;margin-bottom:16px;">
+    <button id="tabUsers" onclick="switchTab('users')" style="padding:8px 20px;border-radius:8px;border:none;background:#c8a96e;color:#0f1523;font-weight:700;font-size:13px;cursor:pointer;">👥 Users</button>
+    <button id="tabAudit" onclick="switchTab('audit')" style="padding:8px 20px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.6);font-weight:700;font-size:13px;cursor:pointer;">📋 Audit Log</button>
   </div>
 
-  <!-- Users table -->
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Email</th>
-          <th class="hide-sm">Γραφείο</th>
-          <th>Πλάνο</th>
-          <th class="hide-sm">Τελετές</th>
-          <th class="hide-sm">Εγγραφή</th>
-          <th>Τελευταία σύνδεση</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody id="userTableBody">
-        <tr class="empty-row"><td colspan="7">Φόρτωση...</td></tr>
-      </tbody>
-    </table>
+  <!-- Users view -->
+  <div id="viewUsers">
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <input id="searchInput" type="search" placeholder="Αναζήτηση email ή γραφείου..." />
+      <select id="planFilter">
+        <option value="">Όλα τα πλάνα</option>
+        <option value="free">FREE</option>
+        <option value="pro">PRO</option>
+        <option value="business">BUSINESS</option>
+      </select>
+      <button class="refresh-btn" onclick="loadUsers()">↺ Ανανέωση</button>
+      <span class="count-lbl" id="countLbl"></span>
+    </div>
+
+    <!-- Users table -->
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th class="hide-sm">Γραφείο</th>
+            <th>Πλάνο</th>
+            <th class="hide-sm">Τελετές</th>
+            <th class="hide-sm">Εγγραφή</th>
+            <th>Τελευταία σύνδεση</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="userTableBody">
+          <tr class="empty-row"><td colspan="7">Φόρτωση...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Audit Log view -->
+  <div id="viewAudit" style="display:none;">
+    <div class="toolbar" style="margin-bottom:12px;">
+      <input id="auditSearch" type="search" placeholder="Αναζήτηση email, event type..." oninput="filterAudit()" />
+      <button class="refresh-btn" onclick="loadAuditLog()">↺ Ανανέωση</button>
+      <span class="count-lbl" id="auditCountLbl"></span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Ημερομηνία / Ώρα</th>
+            <th>Χρήστης</th>
+            <th>Ενέργεια</th>
+            <th>Λεπτομέρειες</th>
+          </tr>
+        </thead>
+        <tbody id="auditTableBody">
+          <tr class="empty-row"><td colspan="4">Φόρτωση...</td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
 </div>
@@ -878,10 +911,124 @@
     return new Date(iso).toLocaleDateString("el-GR", { day: "2-digit", month: "2-digit", year: "numeric" });
   }
 
+  function fmtDateTime(iso) {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    return d.toLocaleDateString("el-GR", { day: "2-digit", month: "2-digit", year: "numeric" })
+      + " " + d.toLocaleTimeString("el-GR", { hour: "2-digit", minute: "2-digit" });
+  }
+
   function esc(str) {
     if (!str) return "";
     return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
   }
+
+  // ── Tab switcher ────────────────────────────────────────────────────────────
+  let currentTab = "users";
+  let auditRows  = [];
+
+  window.switchTab = function(tab) {
+    currentTab = tab;
+    document.getElementById("viewUsers").style.display = tab === "users" ? "" : "none";
+    document.getElementById("viewAudit").style.display = tab === "audit" ? "" : "none";
+    document.getElementById("tabUsers").style.background = tab === "users" ? "#c8a96e" : "transparent";
+    document.getElementById("tabUsers").style.color      = tab === "users" ? "#0f1523" : "rgba(255,255,255,.6)";
+    document.getElementById("tabUsers").style.border     = tab === "users" ? "none" : "1px solid rgba(255,255,255,.15)";
+    document.getElementById("tabAudit").style.background = tab === "audit" ? "#c8a96e" : "transparent";
+    document.getElementById("tabAudit").style.color      = tab === "audit" ? "#0f1523" : "rgba(255,255,255,.6)";
+    document.getElementById("tabAudit").style.border     = tab === "audit" ? "none" : "1px solid rgba(255,255,255,.15)";
+    if (tab === "audit" && auditRows.length === 0) loadAuditLog();
+  };
+
+  // ── Audit Log ───────────────────────────────────────────────────────────────
+  const EVENT_LABELS = {
+    ceremony_created:  "➕ Created ceremony",
+    ceremony_updated:  "✏️ Updated ceremony",
+    ceremony_deleted:  "🗑 Deleted ceremony",
+    ceremony_restored: "♻️ Restored ceremony",
+    warehouse_updated: "📦 Updated warehouse",
+    flower_updated:    "🌸 Updated flowers",
+    supplier_updated:  "🤝 Updated supplier",
+    note_updated:      "📝 Updated note",
+    task_updated:      "✅ Updated task",
+    team_invite_sent:  "📧 Invited team member",
+    member_removed:    "❌ Removed team member",
+    plan_changed:      "💳 Plan changed",
+    backup_created:    "💾 Backup created",
+    restore_done:      "⬆️ Restore completed",
+    login:             "🔐 Logged in",
+    logout:            "🚪 Logged out",
+  };
+
+  function auditDetailSummary(event_type, payload) {
+    if (!payload) return "";
+    if (event_type === "ceremony_created" || event_type === "ceremony_updated") {
+      const name = payload.name || payload.deceasedName || "";
+      const date = payload.date || "";
+      return esc(name + (date ? " · " + date : ""));
+    }
+    if (event_type === "ceremony_deleted" || event_type === "ceremony_restored") {
+      return esc(payload.name || payload.deceasedName || payload.case_id || "");
+    }
+    if (event_type === "plan_changed") {
+      return esc((payload.old_plan || "?") + " → " + (payload.new_plan || "?"));
+    }
+    if (event_type === "team_invite_sent") return esc(payload.email || "");
+    if (event_type === "member_removed")   return esc(payload.email || payload.user_id || "");
+    const keys = Object.keys(payload).filter(k => k !== "case_id").slice(0,2);
+    return esc(keys.map(k => k + ": " + payload[k]).join(", "));
+  }
+
+  function renderAuditTable(rows) {
+    const tbody = document.getElementById("auditTableBody");
+    if (!rows.length) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="4">Δεν βρέθηκαν εγγραφές.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(e => {
+      const label  = EVENT_LABELS[e.event_type] || esc(e.event_type);
+      const detail = auditDetailSummary(e.event_type, e.payload);
+      return `<tr>
+        <td style="white-space:nowrap;font-variant-numeric:tabular-nums;font-size:12px;">${fmtDateTime(e.created_at)}</td>
+        <td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(e.user_email)}">${esc(e.user_email)}</td>
+        <td style="font-size:12px;white-space:nowrap;">${label}</td>
+        <td style="font-size:12px;color:rgba(255,255,255,.5);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${detail}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  async function loadAuditLog() {
+    document.getElementById("auditTableBody").innerHTML =
+      '<tr class="empty-row"><td colspan="4">Φόρτωση...</td></tr>';
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      const res = await fetch(ADMIN_FN, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token },
+        body: JSON.stringify({ action: "audit_log", limit: 200 }),
+      });
+      const json = await res.json();
+      auditRows = json.events || [];
+      document.getElementById("auditCountLbl").textContent = auditRows.length + " εγγραφές";
+      filterAudit();
+    } catch (err) {
+      document.getElementById("auditTableBody").innerHTML =
+        '<tr class="empty-row"><td colspan="4">Σφάλμα φόρτωσης: ' + esc(String(err)) + '</td></tr>';
+    }
+  }
+
+  window.loadAuditLog = loadAuditLog;
+
+  window.filterAudit = function() {
+    const q = (document.getElementById("auditSearch")?.value || "").toLowerCase();
+    const filtered = q
+      ? auditRows.filter(e =>
+          (e.user_email || "").toLowerCase().includes(q) ||
+          (e.event_type || "").toLowerCase().includes(q))
+      : auditRows;
+    document.getElementById("auditCountLbl").textContent = filtered.length + " εγγραφές";
+    renderAuditTable(filtered);
+  };
 
   init();
 })();

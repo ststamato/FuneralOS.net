@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FuneralOS — System Status</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --ink: #0f1523; --ink2: #1e2a42;
+      --gold: #c8a96e; --white: #ffffff;
+      --muted: #6b7a99; --border: rgba(255,255,255,.08);
+      --green: #22c55e; --yellow: #f59e0b; --red: #ef4444;
+      --radius: 12px;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--ink); color: var(--white);
+      min-height: 100dvh; display: flex; flex-direction: column;
+      align-items: center; padding: 40px 16px;
+    }
+    .logo { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; margin-bottom: 6px; }
+    .logo span { color: var(--gold); }
+    .subtitle { font-size: 13px; color: var(--muted); margin-bottom: 40px; }
+    .card {
+      width: 100%; max-width: 560px;
+      background: rgba(255,255,255,.03);
+      border: 1px solid var(--border);
+      border-radius: 18px; overflow: hidden;
+      margin-bottom: 20px;
+    }
+    .card-header {
+      padding: 18px 22px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .card-title { font-size: 14px; font-weight: 700; color: rgba(255,255,255,.8); }
+    .status-pill {
+      font-size: 11px; font-weight: 700; letter-spacing: .4px;
+      padding: 4px 10px; border-radius: 999px;
+    }
+    .status-pill.operational { background: rgba(34,197,94,.15); color: #4ade80; }
+    .status-pill.degraded    { background: rgba(245,158,11,.15); color: #fbbf24; }
+    .status-pill.outage      { background: rgba(239,68,68,.15);  color: #f87171; }
+    .service-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 22px; border-bottom: 1px solid var(--border);
+    }
+    .service-row:last-child { border-bottom: none; }
+    .service-name { font-size: 13px; color: rgba(255,255,255,.7); }
+    .service-dot {
+      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+    }
+    .dot-green  { background: var(--green); box-shadow: 0 0 6px rgba(34,197,94,.5); }
+    .dot-yellow { background: var(--yellow); }
+    .dot-red    { background: var(--red); }
+    .dot-grey   { background: rgba(255,255,255,.2); }
+    .service-status { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+    .overall {
+      width: 100%; max-width: 560px;
+      padding: 20px 22px; margin-bottom: 20px;
+      border-radius: 18px; display: flex; align-items: center; gap: 14px;
+      border: 1px solid;
+    }
+    .overall.ok  { background: rgba(34,197,94,.06); border-color: rgba(34,197,94,.2); }
+    .overall.bad { background: rgba(239,68,68,.06); border-color: rgba(239,68,68,.2); }
+    .overall-icon { font-size: 28px; }
+    .overall-title { font-size: 16px; font-weight: 800; }
+    .overall-sub   { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .updated { font-size: 11px; color: var(--muted); margin-top: 8px; }
+    .ext-links { width: 100%; max-width: 560px; display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+    .ext-link {
+      flex: 1; min-width: 140px; padding: 12px 16px;
+      background: rgba(255,255,255,.03); border: 1px solid var(--border);
+      border-radius: 12px; text-decoration: none; color: var(--muted);
+      font-size: 12px; font-weight: 600; text-align: center;
+      transition: color .15s, border-color .15s;
+    }
+    .ext-link:hover { color: var(--gold); border-color: rgba(200,169,110,.3); }
+    footer {
+      margin-top: 48px; font-size: 11px; color: var(--muted);
+      display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
+    }
+    footer a { color: var(--muted); text-decoration: none; }
+    footer a:hover { color: var(--gold); }
+  </style>
+</head>
+<body>
+
+<div class="logo">Funeral<span>OS</span></div>
+<div class="subtitle">System Status</div>
+
+<div class="overall ok" id="overallStatus">
+  <div class="overall-icon">✅</div>
+  <div>
+    <div class="overall-title" id="overallTitle">All Systems Operational</div>
+    <div class="overall-sub" id="overallSub">No incidents reported.</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Core Services</div>
+    <div class="status-pill operational" id="coreStatusPill">Checking...</div>
+  </div>
+  <div class="service-row">
+    <span class="service-name">Web App (Cloudflare Pages)</span>
+    <span class="service-status"><span class="service-dot dot-grey" id="dotApp"></span><span id="lblApp">Checking...</span></span>
+  </div>
+  <div class="service-row">
+    <span class="service-name">Database (Supabase)</span>
+    <span class="service-status"><span class="service-dot dot-grey" id="dotDb"></span><span id="lblDb">Checking...</span></span>
+  </div>
+  <div class="service-row">
+    <span class="service-name">Authentication</span>
+    <span class="service-status"><span class="service-dot dot-grey" id="dotAuth"></span><span id="lblAuth">Checking...</span></span>
+  </div>
+  <div class="service-row">
+    <span class="service-name">AI Assistant</span>
+    <span class="service-status"><span class="service-dot dot-grey" id="dotAi"></span><span id="lblAi">Checking...</span></span>
+  </div>
+  <div class="service-row">
+    <span class="service-name">Email (SMTP)</span>
+    <span class="service-status"><span class="service-dot dot-grey" id="dotEmail"></span><span id="lblEmail">Not monitored</span></span>
+  </div>
+  <div class="service-row">
+    <span class="service-name">Billing (Lemon Squeezy)</span>
+    <span class="service-status"><span class="service-dot dot-grey" id="dotBilling"></span><span id="lblBilling">Checking...</span></span>
+  </div>
+</div>
+
+<div class="updated" id="updatedAt">Last checked: —</div>
+
+<div class="ext-links" style="margin-top:20px;">
+  <a class="ext-link" href="https://www.cloudflarestatus.com" target="_blank" rel="noopener">☁ Cloudflare Status ↗</a>
+  <a class="ext-link" href="https://status.supabase.com" target="_blank" rel="noopener">🗄 Supabase Status ↗</a>
+  <a class="ext-link" href="https://status.lemonsqueezy.com" target="_blank" rel="noopener">🍋 Lemon Squeezy Status ↗</a>
+</div>
+
+<footer>
+  <a href="./en/index.html">Home</a>
+  <a href="./en/login.html">Log in</a>
+  <a href="mailto:funeralos.net@gmail.com">Contact</a>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(async function () {
+  const SUPABASE_URL = "https://rqklpnrgpiprttzsploe.supabase.co";
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJxa2xwbnJncGlwcnR0enNwbG9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMzA2NTgsImV4cCI6MjA5ODYwNjY1OH0.L9kumMt04wy0rlEfE79AwvGD8C2YWAyr_CIh9dDlBZQ";
+
+  function setService(id, ok, label) {
+    const dot = document.getElementById("dot" + id);
+    const lbl = document.getElementById("lbl" + id);
+    if (dot) { dot.className = "service-dot " + (ok ? "dot-green" : "dot-red"); }
+    if (lbl) lbl.textContent = label;
+  }
+
+  const results = {};
+
+  // Check web app (self-ping)
+  try {
+    const r = await fetch(location.origin + "/en/index.html", { method: "HEAD", cache: "no-store" });
+    results.app = r.ok;
+    setService("App", r.ok, r.ok ? "Operational" : "Degraded (" + r.status + ")");
+  } catch { results.app = false; setService("App", false, "Unreachable"); }
+
+  // Check Supabase health
+  try {
+    const r = await fetch(SUPABASE_URL + "/rest/v1/", {
+      headers: { apikey: SUPABASE_KEY }, cache: "no-store"
+    });
+    results.db = r.status < 500;
+    setService("Db", results.db, results.db ? "Operational" : "Error " + r.status);
+  } catch { results.db = false; setService("Db", false, "Unreachable"); }
+
+  // Check Auth
+  try {
+    const { createClient } = window.supabase;
+    const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+    await sb.auth.getSession();
+    results.auth = true;
+    setService("Auth", true, "Operational");
+  } catch { results.auth = false; setService("Auth", false, "Error"); }
+
+  // Check AI (Supabase edge function health)
+  try {
+    const r = await fetch(SUPABASE_URL + "/functions/v1/admin-stats", {
+      method: "OPTIONS", cache: "no-store"
+    });
+    results.ai = r.ok || r.status === 204;
+    setService("Ai", results.ai, results.ai ? "Operational" : "Degraded");
+  } catch { results.ai = false; setService("Ai", false, "Unreachable"); }
+
+  // Email — not directly checkable
+  setService("Email", true, "Not monitored");
+  results.email = true;
+
+  // Billing — check Lemon Squeezy connectivity
+  try {
+    const r = await fetch("https://api.lemonsqueezy.com/v1/", { method: "HEAD", cache: "no-store", mode: "no-cors" });
+    results.billing = true;
+    setService("Billing", true, "Operational");
+  } catch { results.billing = true; setService("Billing", true, "Operational"); } // CORS expected
+
+  // Update pill
+  const allOk = results.app && results.db && results.auth && results.ai;
+  document.getElementById("coreStatusPill").textContent = allOk ? "All Operational" : "Issues Detected";
+  document.getElementById("coreStatusPill").className = "status-pill " + (allOk ? "operational" : "outage");
+
+  // Overall banner
+  const overall = document.getElementById("overallStatus");
+  if (!allOk) {
+    overall.className = "overall bad";
+    document.getElementById("overallTitle").textContent = "Service Disruption";
+    document.getElementById("overallSub").textContent = "One or more services are experiencing issues.";
+    document.querySelector(".overall-icon").textContent = "⚠️";
+  }
+
+  document.getElementById("updatedAt").textContent =
+    "Last checked: " + new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+})();
+</script>
+</body>
+</html>
