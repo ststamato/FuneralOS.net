@@ -7,7 +7,7 @@ const CORS = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const OWNER_EMAILS = ["ststamato@gmail.com"];
+const OWNER_EMAILS = ["ststamato@gmail.com", "funeralos.net@gmail.com"];
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {

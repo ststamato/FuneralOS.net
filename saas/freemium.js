@@ -69,7 +69,7 @@
 
       const user = session.user;
       window.__authUser = user;
-      const OWNER_EMAILS = ["ststamato@gmail.com"];
+      const OWNER_EMAILS = ["ststamato@gmail.com", "funeralos.net@gmail.com"];
       const isOwner = OWNER_EMAILS.includes(user.email);
       // Read plan from app_metadata (server-only, cannot be self-written by client).
       // Fallback to user_metadata for accounts upgraded before this change.

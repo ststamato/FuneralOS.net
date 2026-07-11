@@ -74,7 +74,7 @@
       }
       const user = session.user;
       window.__authUser = user;
-      const OWNER_EMAILS = ["ststamato@gmail.com"];
+      const OWNER_EMAILS = ["ststamato@gmail.com", "funeralos.net@gmail.com"];
       const isOwner = OWNER_EMAILS.includes(user.email);
       window.__authPlan = isOwner ? "business" : (user.user_metadata?.plan || "free");
       // Owner: apply plan override from sessionStorage (for testing)
