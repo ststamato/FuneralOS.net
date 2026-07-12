@@ -347,11 +347,36 @@ function emitOfficeEvent(type, ceremony, extra = {}) {
   saveLocalOfficeEvent(event);
 
   if (!USE_CLOUD) return;
-  fetch(`${SUPABASE_URL}/rest/v1/office_events`, {
-    method: "POST",
-    headers: supabaseHeaders({ Prefer: "return=minimal" }),
-    body: JSON.stringify(event)
-  }).catch((e) => console.warn("office_events insert skipped", e));
+  // Insert cloud event asynchronously — non-blocking, silent on failure.
+  // Uses user JWT (not anon key) and maps to the table schema: event_type + user_id.
+  (async () => {
+    try {
+      const s = await getCloudSession();
+      if (!s) return;
+      await fetch(`${SUPABASE_URL}/rest/v1/office_events`, {
+        method: "POST",
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${s.token}`,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Prefer: "return=minimal",
+        },
+        body: JSON.stringify({
+          user_id: s.userId,
+          event_type: type,
+          payload: {
+            ...event.payload,
+            case_id: event.case_id,
+            app: event.app,
+            title: event.title,
+          },
+        }),
+      });
+    } catch (e) {
+      console.warn("office_events insert skipped", e);
+    }
+  })();
 }
 
 
@@ -916,7 +941,14 @@ function showSyncBadge(state) {
 async function getCloudSession() {
   try {
     if (window.__sb) {
-      const { data: { session } } = await window.__sb.auth.getSession();
+      let { data: { session } } = await window.__sb.auth.getSession();
+      // Refresh when token is expired or expiring within 60s.
+      // iOS Safari suspends background tabs and kills the SDK's auto-refresh timer,
+      // so we need to explicitly refresh here to avoid 401s after the phone sleeps.
+      if (session && session.expires_at && (session.expires_at * 1000 - Date.now() < 60000)) {
+        const { data } = await window.__sb.auth.refreshSession().catch(() => ({ data: null }));
+        if (data?.session) session = data.session;
+      }
       if (session?.user?.id) {
         const meta = session.user.user_metadata || {};
         window.__currentRole = meta.office_role || "admin";
@@ -1010,8 +1042,15 @@ async function cloudSaveAll() {
     try {
       if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 1500));
       const res = await fetch(`${base}/app_state`, { method: "POST", headers: reqHeaders, body: reqBody });
-      if (res.ok) saved = true;
-    } catch {}
+      if (res.ok) {
+        saved = true;
+      } else {
+        const errBody = await res.text().catch(() => "");
+        console.error(`[FuneralOS] Cloud save HTTP ${res.status} (attempt ${attempt + 1}):`, errBody);
+      }
+    } catch (e) {
+      console.error(`[FuneralOS] Cloud save network error (attempt ${attempt + 1}):`, e);
+    }
   }
 
   _cloudSaveInFlight = false;
