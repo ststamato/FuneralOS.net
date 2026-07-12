@@ -132,6 +132,29 @@
       font-size: 11px; color: rgba(255,255,255,.5); font-weight: 700;
     }
 
+    /* ── Charts row ───────────────────────────────────────────────────────── */
+    .charts-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    /* ── Recent signups feed ──────────────────────────────────────────────── */
+    .signup-feed-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.05);
+      cursor: pointer; transition: opacity .15s;
+    }
+    .signup-feed-item:last-child { border-bottom: none; }
+    .signup-feed-item:hover { opacity: .75; }
+    .signup-avatar {
+      width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+      background: rgba(200,169,110,.12); border: 1px solid rgba(200,169,110,.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 800; color: #c8a96e;
+    }
+
     /* ── Toolbar ──────────────────────────────────────────────────────────── */
     .toolbar {
       display: flex; align-items: center; gap: 10px;
@@ -333,6 +356,7 @@
 
     @media (max-width: 600px) {
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .charts-row { grid-template-columns: 1fr; }
       thead .hide-sm { display: none; }
       td.hide-sm { display: none; }
       .drawer { width: 100%; max-width: 100vw; }
@@ -367,10 +391,28 @@
     <div id="statsLoading">Φόρτωση δεδομένων...</div>
   </div>
 
+  <!-- Charts row: user growth + plan distribution -->
+  <div class="charts-row" id="chartsRow" style="display:none;">
+    <div class="ceremony-chart-wrap" style="margin-bottom:0;">
+      <div class="ceremony-chart-title">Νέοι χρήστες ανά μήνα</div>
+      <div class="chart-bars" id="userGrowthBars"></div>
+    </div>
+    <div class="ceremony-chart-wrap" style="margin-bottom:0;">
+      <div class="ceremony-chart-title">Κατανομή πλάνων</div>
+      <div id="donutChart" style="padding:4px 0;"></div>
+    </div>
+  </div>
+
   <!-- Ceremony chart -->
   <div class="ceremony-chart-wrap" id="ceremonyChart" style="display:none;">
     <div class="ceremony-chart-title">Τελετές ανά μήνα — τελευταίοι 6 μήνες</div>
     <div class="chart-bars" id="chartBars"></div>
+  </div>
+
+  <!-- Recent signups feed -->
+  <div class="ceremony-chart-wrap" id="recentSignupsWrap" style="display:none;margin-bottom:24px;">
+    <div class="ceremony-chart-title">Πρόσφατες εγγραφές</div>
+    <div id="recentSignups"></div>
   </div>
 
   <!-- Tab switcher -->
@@ -515,6 +557,9 @@
     ceremonyStats = data.ceremony_stats || null;
     renderStats();
     renderCeremonyChart();
+    renderUserGrowthChart();
+    renderDonutChart();
+    renderRecentSignups();
     renderTable();
   }
 
@@ -544,6 +589,8 @@
 
     const cerThisMonth = ceremonyStats?.this_month ?? "—";
     const cerTotal     = ceremonyStats?.total ?? "—";
+    const mrr          = pro * 99 + biz * 199;
+    const mrrLabel     = mrr > 0 ? "~$" + mrr.toLocaleString() : "$0";
 
     document.getElementById("statsGrid").innerHTML = `
       <div class="stat-card">
@@ -590,6 +637,10 @@
         <div class="stat-num">${cerTotal}</div>
         <div class="stat-lbl">Σύνολο τελετών στη ΒΔ</div>
       </div>
+      <div class="stat-card green">
+        <div class="stat-num" style="font-size:${mrr > 9999 ? '22px' : '28px'};">${mrrLabel}</div>
+        <div class="stat-lbl">MRR (εκτίμηση)</div>
+      </div>
     `;
   }
 
@@ -621,6 +672,134 @@
           </div>
           <div class="chart-month-lbl">${label}</div>
         </div>`;
+    }).join("");
+
+    wrap.style.display = "";
+  }
+
+  // ── User growth chart ──────────────────────────────────────────────────────
+  function renderUserGrowthChart() {
+    const el   = document.getElementById("userGrowthBars");
+    const wrap = document.getElementById("chartsRow");
+    if (!el || !allUsers.length) return;
+
+    const now    = new Date();
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({
+        month: d.getMonth(),
+        year:  d.getFullYear(),
+        key:   d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"),
+        count: 0,
+      });
+    }
+    for (const u of allUsers) {
+      if (!u.created_at) continue;
+      const d   = new Date(u.created_at);
+      const key = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+      const m   = months.find(x => x.key === key);
+      if (m) m.count++;
+    }
+
+    const maxCount  = Math.max(...months.map(m => m.count), 1);
+    const nowKey    = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+    const mnNames   = ["Ιαν","Φεβ","Μαρ","Απρ","Μάι","Ιουν","Ιουλ","Αυγ","Σεπ","Οκτ","Νοε","Δεκ"];
+
+    el.innerHTML = months.map(m => {
+      const pct   = Math.round((m.count / maxCount) * 100);
+      const isCur = m.key === nowKey;
+      const label = mnNames[m.month] + " " + String(m.year).slice(2);
+      return `<div class="chart-col">
+        <div class="chart-count-lbl">${m.count || ""}</div>
+        <div class="chart-bar-wrap">
+          <div class="chart-bar${isCur ? " current" : ""}" style="height:${pct}%"></div>
+        </div>
+        <div class="chart-month-lbl">${label}</div>
+      </div>`;
+    }).join("");
+
+    if (wrap) wrap.style.display = "grid";
+  }
+
+  // ── Plan donut chart ────────────────────────────────────────────────────────
+  function renderDonutChart() {
+    const el = document.getElementById("donutChart");
+    if (!el) return;
+
+    const total = allUsers.length;
+    if (!total) return;
+
+    const free = allUsers.filter(u => (u.plan || "free") === "free").length;
+    const pro  = allUsers.filter(u => u.plan === "pro").length;
+    const biz  = allUsers.filter(u => u.plan === "business").length;
+
+    const r = 45, cx = 60, cy = 60, sw = 16;
+    const C = 2 * Math.PI * r;
+
+    const segs = [
+      { count: biz,  color: "#22c55e", label: "BUSINESS" },
+      { count: pro,  color: "#c8a96e", label: "PRO" },
+      { count: free, color: "#2d3f5c", label: "FREE" },
+    ];
+
+    let accumulated = 0;
+    const paths = segs.map(s => {
+      if (!s.count) return "";
+      const dash   = (s.count / total) * C;
+      const offset = C / 4 - accumulated;
+      accumulated += dash;
+      return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.color}"
+        stroke-width="${sw}" stroke-dasharray="${dash} ${C - dash}"
+        stroke-dashoffset="${offset}" />`;
+    }).join("");
+
+    const legend = segs.map(s => {
+      const pct = Math.round((s.count / total) * 100);
+      return `<div style="display:flex;align-items:center;gap:6px;font-size:11px;">
+        <div style="width:8px;height:8px;border-radius:2px;background:${s.color};flex-shrink:0;"></div>
+        <span style="color:rgba(255,255,255,.5);">${s.label}</span>
+        <span style="margin-left:auto;color:#fff;font-weight:700;">${s.count}</span>
+        <span style="color:rgba(255,255,255,.3);">${pct}%</span>
+      </div>`;
+    }).join("");
+
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+        <svg width="120" height="120" viewBox="0 0 120 120" style="flex-shrink:0;">
+          <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,.05)" stroke-width="${sw}"/>
+          ${paths}
+          <text x="${cx}" y="${cy - 5}" text-anchor="middle" fill="#fff" font-size="17" font-weight="900">${total}</text>
+          <text x="${cx}" y="${cy + 11}" text-anchor="middle" fill="rgba(255,255,255,.35)" font-size="9" font-weight="700">USERS</text>
+        </svg>
+        <div style="flex:1;min-width:90px;display:flex;flex-direction:column;gap:10px;">${legend}</div>
+      </div>`;
+  }
+
+  // ── Recent signups ──────────────────────────────────────────────────────────
+  function renderRecentSignups() {
+    const el   = document.getElementById("recentSignups");
+    const wrap = document.getElementById("recentSignupsWrap");
+    if (!el || !wrap) return;
+
+    const sorted = [...allUsers]
+      .filter(u => u.created_at)
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .slice(0, 8);
+
+    if (!sorted.length) return;
+
+    el.innerHTML = sorted.map(u => {
+      const plan     = u.plan || "free";
+      const initials = (u.email || "?").substring(0, 2).toUpperCase();
+      return `<div class="signup-feed-item" onclick="openDrawer('${u.id}')">
+        <div class="signup-avatar">${initials}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:600;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(u.email)}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.35);">${esc(u.office_name) || "Χωρίς γραφείο"} · ${timeAgo(u.created_at)}</div>
+        </div>
+        <span class="badge badge-${plan}">${plan.toUpperCase()}</span>
+      </div>`;
     }).join("");
 
     wrap.style.display = "";
