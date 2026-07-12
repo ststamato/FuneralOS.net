@@ -965,14 +965,14 @@ async function getCloudSession() {
 }
 
 async function cloudLoadData() {
-  const base = `${SUPABASE_URL}/rest/v1`;
   const session = await getCloudSession();
   if (!session) throw new Error("No authenticated user for cloud load");
-  const res = await fetch(`${base}/app_state?id=eq.${session.rowId}&select=payload`, {
-    headers: { ...supabaseHeaders(), Authorization: `Bearer ${session.token}` }
-  });
-  if (!res.ok) throw new Error("Failed to load app_state from cloud");
-  const rows = await res.json();
+  if (!window.__sb) throw new Error("Supabase client not ready");
+  const { data: rows, error } = await window.__sb
+    .from("app_state")
+    .select("payload")
+    .eq("id", session.rowId);
+  if (error) throw new Error("Failed to load app_state: " + error.message);
   if (rows.length && rows[0].payload) {
     const p = rows[0].payload;
     if (Array.isArray(p.ceremonies)) ceremonies = p.ceremonies;
@@ -1012,7 +1012,6 @@ async function cloudSaveAll() {
   _cloudSaveInFlight = true;
   showSyncBadge("saving");
 
-  const base = `${SUPABASE_URL}/rest/v1`;
   const session = await getCloudSession();
   if (!session) {
     _cloudSaveInFlight = false;
@@ -1034,22 +1033,35 @@ async function cloudSaveAll() {
     sync_ts: Date.now(),
   };
 
-  const reqBody    = JSON.stringify([{ id: session.rowId, payload }]);
-  const reqHeaders = { ...supabaseHeaders({ Prefer: "resolution=merge-duplicates" }), Authorization: `Bearer ${session.token}` };
-
   let saved = false;
   for (let attempt = 0; attempt < 3 && !saved; attempt++) {
     try {
       if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 1500));
-      const res = await fetch(`${base}/app_state`, { method: "POST", headers: reqHeaders, body: reqBody });
-      if (res.ok) {
-        saved = true;
+      if (window.__sb) {
+        // Use the Supabase JS client — it handles auth token, on_conflict, and CORS automatically.
+        const { error } = await window.__sb
+          .from("app_state")
+          .upsert({ id: session.rowId, payload }, { onConflict: "id" });
+        if (!error) {
+          saved = true;
+        } else {
+          console.error(`[FuneralOS] Cloud save error (attempt ${attempt + 1}):`, error.message, error.details);
+        }
       } else {
-        const errBody = await res.text().catch(() => "");
-        console.error(`[FuneralOS] Cloud save HTTP ${res.status} (attempt ${attempt + 1}):`, errBody);
+        // Fallback: raw fetch
+        const base = `${SUPABASE_URL}/rest/v1`;
+        const reqBody    = JSON.stringify([{ id: session.rowId, payload }]);
+        const reqHeaders = { ...supabaseHeaders({ Prefer: "resolution=merge-duplicates,return=minimal" }), Authorization: `Bearer ${session.token}` };
+        const res = await fetch(`${base}/app_state`, { method: "POST", headers: reqHeaders, body: reqBody });
+        if (res.ok) {
+          saved = true;
+        } else {
+          const errBody = await res.text().catch(() => "");
+          console.error(`[FuneralOS] Cloud save HTTP ${res.status} (attempt ${attempt + 1}):`, errBody);
+        }
       }
     } catch (e) {
-      console.error(`[FuneralOS] Cloud save network error (attempt ${attempt + 1}):`, e);
+      console.error(`[FuneralOS] Cloud save error (attempt ${attempt + 1}):`, e);
     }
   }
 
