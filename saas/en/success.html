@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FuneralOS — Payment successful</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --ink: #0f1523; --gold: #c8a96e; --gold-light: #e8d5b0; --white: #fff; --muted: #6b7a99; --border: rgba(255,255,255,.1); --radius: 12px; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--ink); color: var(--white);
+      min-height: 100dvh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; padding: 24px;
+    }
+    .card {
+      width: 100%; max-width: 460px;
+      background: rgba(255,255,255,.04); border: 1px solid var(--border);
+      border-radius: 20px; padding: 48px 36px; text-align: center;
+    }
+    .logo { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; margin-bottom: 32px; }
+    .logo span { color: var(--gold); }
+    .check-circle {
+      width: 72px; height: 72px; border-radius: 50%;
+      background: rgba(34,197,94,.12); border: 2px solid rgba(34,197,94,.3);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 24px; font-size: 32px;
+    }
+    h1 { font-size: 22px; font-weight: 800; margin-bottom: 10px; }
+    .subtitle { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 32px; }
+    .plan-pill {
+      display: inline-block; padding: 6px 16px;
+      background: rgba(200,169,110,.12); border: 1px solid rgba(200,169,110,.3);
+      border-radius: 999px; font-size: 13px; font-weight: 700; color: var(--gold);
+      margin-bottom: 32px;
+    }
+    .steps { text-align: left; margin-bottom: 32px; }
+    .step { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px; }
+    .step-num {
+      width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+      background: rgba(200,169,110,.15); color: var(--gold);
+      font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center;
+    }
+    .step-text { font-size: 13px; color: var(--muted); line-height: 1.5; padding-top: 3px; }
+    .btn {
+      display: block; width: 100%; padding: 15px;
+      background: var(--gold); color: var(--ink);
+      border: none; border-radius: var(--radius);
+      font-size: 15px; font-weight: 800; cursor: pointer;
+      text-decoration: none; transition: background .15s;
+    }
+    .btn:hover { background: var(--gold-light); }
+    .btn-ghost {
+      display: block; margin-top: 10px; padding: 13px;
+      background: transparent; color: var(--muted);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      font-size: 14px; font-weight: 600; text-decoration: none;
+      transition: color .15s, border-color .15s;
+    }
+    .btn-ghost:hover { color: var(--gold); border-color: rgba(200,169,110,.3); }
+    .note { font-size: 11px; color: #3a4a66; margin-top: 20px; }
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(200,169,110,.3); border-top-color: var(--gold); border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #statusLine { font-size: 13px; color: var(--muted); margin-bottom: 24px; min-height: 20px; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">Funeral<span>OS</span></div>
+
+  <div class="check-circle">✓</div>
+  <h1>Payment successful!</h1>
+  <p class="subtitle">Your upgrade is being activated. This usually takes less than 30 seconds.</p>
+
+  <div class="plan-pill" id="planPill">Activating your plan…</div>
+
+  <p id="statusLine"><span class="spinner"></span> Checking account status…</p>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-text">Your payment was confirmed by Lemon Squeezy.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-text">Your plan is being automatically upgraded — no action needed.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-text">Open the app and sign out/in once to see your new plan badge.</div>
+    </div>
+  </div>
+
+  <a href="./app.html" class="btn" id="openAppBtn">Open FuneralOS →</a>
+  <a href="mailto:funeralos.net@gmail.com?subject=Upgrade%20help" class="btn-ghost">Need help? Contact support</a>
+  <p class="note">Order confirmation sent to the email you used at checkout. Billing managed by Lemon Squeezy.</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(async function () {
+  const SUPABASE_URL = "https://rqklpnrgpiprttzsploe.supabase.co";
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJxa2xwbnJncGlwcnR0enNwbG9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMzA2NTgsImV4cCI6MjA5ODYwNjY1OH0.L9kumMt04wy0rlEfE79AwvGD8C2YWAyr_CIh9dDlBZQ";
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const planPill  = document.getElementById("planPill");
+  const statusLine = document.getElementById("statusLine");
+
+  // Poll for plan upgrade (webhook may take a few seconds)
+  let attempts = 0;
+  const MAX_ATTEMPTS = 12;
+
+  async function checkPlan() {
+    try {
+      await sb.auth.refreshSession();
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) {
+        statusLine.textContent = "Sign in to see your updated plan.";
+        planPill.textContent = "Sign in required";
+        return;
+      }
+      const plan = session.user.user_metadata?.plan || "free";
+      if (plan !== "free") {
+        const label = { pro: "Pro Plan", business: "Business Plan" }[plan] || plan;
+        planPill.textContent = "✓ " + label + " active";
+        planPill.style.background = "rgba(34,197,94,.12)";
+        planPill.style.borderColor = "rgba(34,197,94,.3)";
+        planPill.style.color = "#4ade80";
+        statusLine.textContent = "Your account has been upgraded.";
+        return;
+      }
+    } catch (_) {}
+
+    attempts++;
+    if (attempts < MAX_ATTEMPTS) {
+      statusLine.innerHTML = '<span class="spinner"></span> Activating… (' + attempts + '/' + MAX_ATTEMPTS + ')';
+      setTimeout(checkPlan, 5000);
+    } else {
+      planPill.textContent = "Activation pending";
+      statusLine.textContent = "Taking longer than expected — try signing out and back in.";
+    }
+  }
+
+  checkPlan();
+})();
+</script>
+</body>
+</html>

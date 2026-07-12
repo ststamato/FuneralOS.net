@@ -7,3 +7,5 @@
 # Legacy root-level paths → English equivalents
 /login.html         /en/login.html      302
 /app.html           /en/app.html        302
+/reset.html         /en/reset.html      302
+/success.html       /en/success.html    302
