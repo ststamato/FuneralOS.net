@@ -1379,22 +1379,49 @@ async function loadData() {
     return;
   }
   if (USE_CLOUD) {
+    // Read local state first so we can compare with cloud after load
+    let localCeremonies = [];
+    let localSyncTs = 0;
+    try { localCeremonies = JSON.parse(localStorage.getItem(CEREMONIES_KEY)) || []; } catch {}
+    try { localSyncTs = JSON.parse(localStorage.getItem("staurakaki_sync_ts") || "0"); } catch {}
+
     try {
       await cloudLoadData();
-      localStorage.setItem(CEREMONIES_KEY, JSON.stringify(ceremonies));
-      localStorage.setItem(WAREHOUSE_KEY, JSON.stringify(warehouse));
-      localStorage.setItem(SETS_KEY, JSON.stringify(setsWarehouse));
-      localStorage.setItem(SECOND_HELPERS_KEY, JSON.stringify(secondHelpers));
-      localStorage.setItem(CHANGELOG_KEY, JSON.stringify(changeLog));
-      localStorage.setItem(PUSH_SUB_LOCAL_KEY, JSON.stringify(pushSubs || []));
-      localStorage.setItem(OPTIONS_KEY, JSON.stringify(optionWarehouse || {}));
-      localStorage.setItem(AI_SEEN_NOTES_KEY, JSON.stringify(aiSeenNotes || []));
-    localStorage.setItem(AI_SEEN_ALERTS_KEY, JSON.stringify(aiSeenAlerts || []));
-      localStorage.setItem(AI_SEEN_ALERTS_KEY, JSON.stringify(aiSeenAlerts || []));
-      localStorage.setItem(AI_CHAT_HISTORY_KEY, JSON.stringify(aiChatHistory || []));
-  localStorage.setItem(CUSTOM_FIELDS_KEY, JSON.stringify(customFields || []));
-      localStorage.setItem(CUSTOM_FIELDS_KEY, JSON.stringify(customFields || []));
-      localStorage.setItem(CUSTOM_LISTS_KEY, JSON.stringify(customLists || []));
+
+      // If cloud returned no ceremonies but local has data, cloud was never populated
+      // (all previous saves failed). Keep local data and push it to cloud.
+      const cloudEmpty = ceremonies.length === 0 && localCeremonies.length > 0;
+      if (cloudEmpty) {
+        ceremonies = localCeremonies;
+        try { warehouse     = JSON.parse(localStorage.getItem(WAREHOUSE_KEY))      || []; } catch {}
+        try { setsWarehouse = JSON.parse(localStorage.getItem(SETS_KEY))           || []; } catch {}
+        try { secondHelpers = JSON.parse(localStorage.getItem(SECOND_HELPERS_KEY)) || []; } catch {}
+        try { changeLog     = JSON.parse(localStorage.getItem(CHANGELOG_KEY))      || []; } catch {}
+        try { pushSubs      = JSON.parse(localStorage.getItem(PUSH_SUB_LOCAL_KEY)) || []; } catch {}
+        try { optionWarehouse = JSON.parse(localStorage.getItem(OPTIONS_KEY))      || {}; } catch {}
+        try { aiSeenNotes   = JSON.parse(localStorage.getItem(AI_SEEN_NOTES_KEY))  || []; } catch {}
+        try { aiSeenAlerts  = JSON.parse(localStorage.getItem(AI_SEEN_ALERTS_KEY)) || []; } catch {}
+        try { aiChatHistory = JSON.parse(localStorage.getItem(AI_CHAT_HISTORY_KEY))|| []; } catch {}
+        try { customFields  = JSON.parse(localStorage.getItem(CUSTOM_FIELDS_KEY))  || []; } catch {}
+        try { customLists   = JSON.parse(localStorage.getItem(CUSTOM_LISTS_KEY))   || []; } catch {}
+        try { sectionData   = JSON.parse(localStorage.getItem(SECTION_DATA_KEY))   || {}; } catch {}
+        try { deletedCeremonies = JSON.parse(localStorage.getItem(TRASH_KEY))      || []; } catch {}
+        // Push local data up to cloud so future loads get the real data
+        setTimeout(() => cloudSaveAll(), 3000);
+      } else {
+        localStorage.setItem(CEREMONIES_KEY,      JSON.stringify(ceremonies));
+        localStorage.setItem(WAREHOUSE_KEY,       JSON.stringify(warehouse));
+        localStorage.setItem(SETS_KEY,            JSON.stringify(setsWarehouse));
+        localStorage.setItem(SECOND_HELPERS_KEY,  JSON.stringify(secondHelpers));
+        localStorage.setItem(CHANGELOG_KEY,       JSON.stringify(changeLog));
+        localStorage.setItem(PUSH_SUB_LOCAL_KEY,  JSON.stringify(pushSubs || []));
+        localStorage.setItem(OPTIONS_KEY,         JSON.stringify(optionWarehouse || {}));
+        localStorage.setItem(AI_SEEN_NOTES_KEY,   JSON.stringify(aiSeenNotes || []));
+        localStorage.setItem(AI_SEEN_ALERTS_KEY,  JSON.stringify(aiSeenAlerts || []));
+        localStorage.setItem(AI_CHAT_HISTORY_KEY, JSON.stringify(aiChatHistory || []));
+        localStorage.setItem(CUSTOM_FIELDS_KEY,   JSON.stringify(customFields || []));
+        localStorage.setItem(CUSTOM_LISTS_KEY,    JSON.stringify(customLists || []));
+      }
     } catch (e) {
       console.error("Cloud load error, falling back to local", e);
       try { ceremonies = JSON.parse(localStorage.getItem(CEREMONIES_KEY)) || []; } catch { ceremonies = []; }
