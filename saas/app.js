@@ -964,6 +964,9 @@ async function getCloudSession() {
   return null;
 }
 
+// Returns true if a cloud row existed (even if empty), false if no row found at all.
+// "No row" means the account was never synced and local data should be pushed up.
+// "Row with empty ceremonies" means the admin intentionally has no cases — trust it.
 async function cloudLoadData() {
   const session = await getCloudSession();
   if (!session) throw new Error("No authenticated user for cloud load");
@@ -973,7 +976,8 @@ async function cloudLoadData() {
     .select("payload")
     .eq("id", session.rowId);
   if (error) throw new Error("Failed to load app_state: " + error.message);
-  if (rows.length && rows[0].payload) {
+  if (!rows.length) return false; // No row — account never synced
+  if (rows[0].payload) {
     const p = rows[0].payload;
     if (Array.isArray(p.ceremonies)) ceremonies = p.ceremonies;
     if (Array.isArray(p.warehouse)) warehouse = p.warehouse;
@@ -996,6 +1000,7 @@ async function cloudLoadData() {
       if (Array.isArray(p.customLists)) customLists = p.customLists;
     }
   }
+  return true; // Row existed — cloud is authoritative
 }
 
 async function cloudSaveAll() {
@@ -1379,36 +1384,29 @@ async function loadData() {
     return;
   }
   if (USE_CLOUD) {
-    // Read local state first so we can compare with cloud after load
-    let localCeremonies = [];
-    let localSyncTs = 0;
-    try { localCeremonies = JSON.parse(localStorage.getItem(CEREMONIES_KEY)) || []; } catch {}
-    try { localSyncTs = JSON.parse(localStorage.getItem("staurakaki_sync_ts") || "0"); } catch {}
-
     try {
-      await cloudLoadData();
+      const cloudRowExists = await cloudLoadData();
 
-      // If cloud returned no ceremonies but local has data, cloud was never populated
-      // (all previous saves failed). Keep local data and push it to cloud.
-      const cloudEmpty = ceremonies.length === 0 && localCeremonies.length > 0;
-      if (cloudEmpty) {
-        ceremonies = localCeremonies;
-        try { warehouse     = JSON.parse(localStorage.getItem(WAREHOUSE_KEY))      || []; } catch {}
-        try { setsWarehouse = JSON.parse(localStorage.getItem(SETS_KEY))           || []; } catch {}
-        try { secondHelpers = JSON.parse(localStorage.getItem(SECOND_HELPERS_KEY)) || []; } catch {}
-        try { changeLog     = JSON.parse(localStorage.getItem(CHANGELOG_KEY))      || []; } catch {}
-        try { pushSubs      = JSON.parse(localStorage.getItem(PUSH_SUB_LOCAL_KEY)) || []; } catch {}
-        try { optionWarehouse = JSON.parse(localStorage.getItem(OPTIONS_KEY))      || {}; } catch {}
-        try { aiSeenNotes   = JSON.parse(localStorage.getItem(AI_SEEN_NOTES_KEY))  || []; } catch {}
-        try { aiSeenAlerts  = JSON.parse(localStorage.getItem(AI_SEEN_ALERTS_KEY)) || []; } catch {}
-        try { aiChatHistory = JSON.parse(localStorage.getItem(AI_CHAT_HISTORY_KEY))|| []; } catch {}
-        try { customFields  = JSON.parse(localStorage.getItem(CUSTOM_FIELDS_KEY))  || []; } catch {}
-        try { customLists   = JSON.parse(localStorage.getItem(CUSTOM_LISTS_KEY))   || []; } catch {}
-        try { sectionData   = JSON.parse(localStorage.getItem(SECTION_DATA_KEY))   || {}; } catch {}
-        try { deletedCeremonies = JSON.parse(localStorage.getItem(TRASH_KEY))      || []; } catch {}
-        // Push local data up to cloud so future loads get the real data
+      if (!cloudRowExists) {
+        // No row in cloud — account was never synced (e.g. RLS blocked all previous saves).
+        // Load from localStorage and push it up so future loads get the real data.
+        try { ceremonies    = JSON.parse(localStorage.getItem(CEREMONIES_KEY))      || []; } catch {}
+        try { warehouse     = JSON.parse(localStorage.getItem(WAREHOUSE_KEY))       || []; } catch {}
+        try { setsWarehouse = JSON.parse(localStorage.getItem(SETS_KEY))            || []; } catch {}
+        try { secondHelpers = JSON.parse(localStorage.getItem(SECOND_HELPERS_KEY))  || []; } catch {}
+        try { changeLog     = JSON.parse(localStorage.getItem(CHANGELOG_KEY))       || []; } catch {}
+        try { pushSubs      = JSON.parse(localStorage.getItem(PUSH_SUB_LOCAL_KEY))  || []; } catch {}
+        try { optionWarehouse = JSON.parse(localStorage.getItem(OPTIONS_KEY))       || {}; } catch {}
+        try { aiSeenNotes   = JSON.parse(localStorage.getItem(AI_SEEN_NOTES_KEY))   || []; } catch {}
+        try { aiSeenAlerts  = JSON.parse(localStorage.getItem(AI_SEEN_ALERTS_KEY))  || []; } catch {}
+        try { aiChatHistory = JSON.parse(localStorage.getItem(AI_CHAT_HISTORY_KEY)) || []; } catch {}
+        try { customFields  = JSON.parse(localStorage.getItem(CUSTOM_FIELDS_KEY))   || []; } catch {}
+        try { customLists   = JSON.parse(localStorage.getItem(CUSTOM_LISTS_KEY))    || []; } catch {}
+        try { sectionData   = JSON.parse(localStorage.getItem(SECTION_DATA_KEY))    || {}; } catch {}
+        try { deletedCeremonies = JSON.parse(localStorage.getItem(TRASH_KEY))       || []; } catch {}
         setTimeout(() => cloudSaveAll(), 3000);
       } else {
+        // Cloud row exists — it is authoritative (covers intentionally-empty offices too)
         localStorage.setItem(CEREMONIES_KEY,      JSON.stringify(ceremonies));
         localStorage.setItem(WAREHOUSE_KEY,       JSON.stringify(warehouse));
         localStorage.setItem(SETS_KEY,            JSON.stringify(setsWarehouse));
