@@ -83,6 +83,20 @@ create table if not exists office_invites (
   unique (office_id, email)
 );
 
+-- ── RLS helper (SECURITY DEFINER breaks policy self-recursion) ───────────────
+
+-- Used by office_members SELECT policy and by app_state/office_events policies.
+-- Runs as the function owner (postgres) so RLS on office_members is bypassed
+-- for the inner lookup, eliminating the infinite-recursion error.
+create or replace function public.is_office_member(p_office_id uuid)
+returns boolean language sql security definer stable set search_path = public as $$
+  select exists (
+    select 1 from public.office_members
+    where office_id = p_office_id
+      and user_id   = auth.uid()
+  );
+$$;
+
 -- ── Row Level Security ────────────────────────────────────────────────────────
 
 alter table app_state      enable row level security;
@@ -98,37 +112,26 @@ drop policy if exists "user own state"                     on app_state;
 drop policy if exists "user or office member state access" on app_state;
 drop policy if exists "app_state select"                   on app_state;
 drop policy if exists "app_state write"                    on app_state;
+drop policy if exists "app_state update"                   on app_state;
 drop policy if exists "app_state delete"                   on app_state;
 
 -- Read: owner OR any office member (admin or editor)
 create policy "app_state select" on app_state
   for select using (
     id = auth.uid()
-    or exists (
-      select 1 from office_members
-      where office_members.office_id = app_state.id
-        and office_members.user_id   = auth.uid()
-    )
+    or public.is_office_member(app_state.id)
   );
 
 -- Insert / Update: owner OR any office member (editors need to save work)
 create policy "app_state write" on app_state
   for insert with check (
     id = auth.uid()
-    or exists (
-      select 1 from office_members
-      where office_members.office_id = app_state.id
-        and office_members.user_id   = auth.uid()
-    )
+    or public.is_office_member(app_state.id)
   );
 create policy "app_state update" on app_state
   for update using (
     id = auth.uid()
-    or exists (
-      select 1 from office_members
-      where office_members.office_id = app_state.id
-        and office_members.user_id   = auth.uid()
-    )
+    or public.is_office_member(app_state.id)
   );
 
 -- Delete: owner only (prevents editors from wiping all office data)
@@ -144,16 +147,8 @@ drop policy if exists "office_events insert"    on office_events;
 create policy "office_events select" on office_events
   for select using (
     user_id = auth.uid()
-    or exists (
-      select 1 from office_members
-      where office_members.office_id = office_events.user_id
-        and office_members.user_id   = auth.uid()
-    )
-    or exists (
-      select 1 from office_members
-      where office_members.office_id = auth.uid()
-        and office_members.user_id   = office_events.user_id
-    )
+    or public.is_office_member(office_events.user_id)
+    or public.is_office_member(auth.uid())
   );
 
 -- Anyone can insert their own events
@@ -166,11 +161,13 @@ drop policy if exists "Users view own ai usage" on ai_usage;
 create policy "user own ai_usage" on ai_usage
   for all using (auth.uid() = user_id);
 
--- profiles: read own, update own (insert via trigger only)
+-- profiles: read own, insert own (fallback when trigger misses), update own
 drop policy if exists "user own profile"             on profiles;
 drop policy if exists "Users can view own profile"   on profiles;
+drop policy if exists "Users can insert own profile" on profiles;
 drop policy if exists "Users can update own profile" on profiles;
 create policy "Users can view own profile"   on profiles for select using (auth.uid() = id);
+create policy "Users can insert own profile" on profiles for insert with check (auth.uid() = id);
 create policy "Users can update own profile" on profiles for update using (auth.uid() = id);
 
 -- referrals: read own (as referrer or referred); insert via trigger only
@@ -180,17 +177,13 @@ drop policy if exists "Users can view their referrals" on referrals;
 create policy "Users can view their referrals" on referrals
   for select using (referrer_id = auth.uid() or referred_id = auth.uid());
 
--- office_members: admin sees own office; members see their office (live DB check)
+-- office_members: uses is_office_member() to avoid self-referential recursion
 drop policy if exists "office members see each other"   on office_members;
 drop policy if exists "office admin can remove members" on office_members;
 create policy "office members see each other" on office_members
   for select using (
     office_id = auth.uid()
-    or exists (
-      select 1 from office_members om2
-      where om2.office_id = office_members.office_id
-        and om2.user_id   = auth.uid()
-    )
+    or public.is_office_member(office_members.office_id)
   );
 create policy "office admin can remove members" on office_members
   for delete using (office_id = auth.uid());
