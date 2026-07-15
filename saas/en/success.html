@@ -120,7 +120,7 @@
         planPill.textContent = "Sign in required";
         return;
       }
-      const plan = session.user.user_metadata?.plan || "free";
+      const plan = session.user.app_metadata?.plan || session.user.user_metadata?.plan || "free";
       if (plan !== "free") {
         const label = { pro: "Pro Plan", business: "Business Plan" }[plan] || plan;
         planPill.textContent = "✓ " + label + " active";
