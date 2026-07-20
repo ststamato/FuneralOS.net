@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>FuneralOS</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <link rel="manifest" href="../manifest.webmanifest" />
   <meta name="theme-color" content="#111827" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -50,6 +50,22 @@
     /* Hide Greek-only features in EN app */
     #v38SearchTrigger { display: none !important; }
     #sup42-openBtn { display: none !important; }
+
+    /* ── Responsive top-bar: compress on phones ── */
+    @media (max-width: 480px) {
+      .top-links { display: none; }
+      .lang-app { display: none; }
+      .plan-tiers { display: none; }
+      .user-chip { margin-left: auto; gap: 5px; }
+      #planBadge { display: inline-block !important; font-size: 10px !important; }
+    }
+    @media (max-width: 500px) {
+      .upgrade-box { padding: 24px 16px; }
+    }
+    @media (max-height: 500px) and (orientation: landscape) {
+      .upgrade-box { padding: 16px 20px; }
+      .upgrade-box .up-icon { display: none; }
+    }
   </style>
 </head>
 <body>
