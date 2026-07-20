@@ -1,7 +1,7 @@
 # Cloudflare Pages — Redirects
 
 # Root → English landing page (default for undecided visitors)
-/                   /en/                302!
+/                   /en/                302
 
 # Clean GR URLs — send to root-level GR files (email marketing: funeralos.net/gr)
 /gr/login           /login.html         200
