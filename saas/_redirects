@@ -1,11 +1,16 @@
 # Cloudflare Pages — Redirects
-# (same format as Netlify _redirects)
 
-# Root → English version (302! forces this even when index.html exists at root)
+# Root → English landing page (default for undecided visitors)
 /                   /en/                302!
 
-# Legacy root-level paths → English equivalents
-/login.html         /en/login.html      302
-/app.html           /en/app.html        302
-/reset.html         /en/reset.html      302
-/success.html       /en/success.html    302
+# Clean GR URLs — send to root-level GR files (email marketing: funeralos.net/gr)
+/gr/login           /login.html         200
+/gr/app             /app.html           200
+/gr/reset           /reset.html         200
+/gr/success         /success.html       200
+
+# Clean EN URLs — send to /en/ subfolder files (email marketing: funeralos.net/en)
+/en/login           /en/login.html      200
+/en/app             /en/app.html        200
+/en/reset           /en/reset.html      200
+/en/success         /en/success.html    200

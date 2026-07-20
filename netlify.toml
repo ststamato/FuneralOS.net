@@ -8,9 +8,36 @@
   status = 302
   force = true
 
+# Clean GR URLs — send to root-level GR files (email marketing: funeralos.net/gr)
+[[redirects]]
+  from = "/gr/login"
+  to = "/login.html"
+  status = 200
+
+[[redirects]]
+  from = "/gr/app"
+  to = "/app.html"
+  status = 200
+
+[[redirects]]
+  from = "/gr/reset"
+  to = "/reset.html"
+  status = 200
+
+[[redirects]]
+  from = "/gr/success"
+  to = "/success.html"
+  status = 200
+
+# Clean EN URLs — send to /en/ subfolder files
 [[redirects]]
   from = "/en"
   to = "/en/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/en/login"
+  to = "/en/login.html"
   status = 200
 
 [[redirects]]
@@ -19,15 +46,19 @@
   status = 200
 
 [[redirects]]
-  from = "/app"
-  to = "/app.html"
+  from = "/en/reset"
+  to = "/en/reset.html"
   status = 200
 
 [[redirects]]
-  from = "/login.html"
-  to = "/en/login.html"
-  status = 302
-  force = true
+  from = "/en/success"
+  to = "/en/success.html"
+  status = 200
+
+[[redirects]]
+  from = "/app"
+  to = "/app.html"
+  status = 200
 
 [[redirects]]
   from = "/*"
