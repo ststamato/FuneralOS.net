@@ -120,7 +120,7 @@
   </div>
 
   <div class="back-link">
-    <a href="index.html">← Επιστροφή στην αρχική</a>
+    <a href="/gr/">← Επιστροφή στην αρχική</a>
   </div>
 </div>
 
@@ -148,7 +148,7 @@
 
   // If already logged in, go to app
   sb.auth.getSession().then(({ data: { session } }) => {
-    if (session) window.location.href = './app.html';
+    if (session) window.location.href = '/gr/app';
   });
 
   function switchTab(tab) {
@@ -184,7 +184,7 @@
       showMsg('loginMsg', translateError(error.message), 'error');
       btn.disabled = false; btn.textContent = 'Σύνδεση';
     } else {
-      window.location.href = './app.html';
+      window.location.href = '/gr/app';
     }
   }
 
