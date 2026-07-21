@@ -63,7 +63,8 @@
     try {
       const { data: { session } } = await sb.auth.getSession();
       if (!session) {
-        window.location.href = "/gr/login";
+        await sb.auth.signOut();
+        window.location.href = "/login.html";
         return;
       }
 
@@ -152,7 +153,7 @@
     if (logoutBtn) {
       logoutBtn.onclick = async () => {
         await sb.auth.signOut();
-        window.location.href = "/gr/login";
+        window.location.href = "/login.html";
       };
     }
   }
