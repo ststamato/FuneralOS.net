@@ -69,7 +69,7 @@
     try {
       const { data: { session } } = await sb.auth.getSession();
       if (!session) {
-        window.location.href = "/en/login.html";
+        window.location.href = "/en/login";
         return;
       }
       const user = session.user;
@@ -117,7 +117,7 @@
     } catch (err) {
       console.error("Auth error:", err);
       const overlay = document.getElementById("authOverlay");
-      if (overlay) overlay.innerHTML = '<p style="color:#c8a96e;font-size:14px;">Connection error. <a href="/en/login.html" style="color:#fff;">Sign in →</a></p>';
+      if (overlay) overlay.innerHTML = '<p style="color:#c8a96e;font-size:14px;">Connection error. <a href="/en/login" style="color:#fff;">Sign in →</a></p>';
     }
   }
 
@@ -143,7 +143,7 @@
     const logoutBtn = document.getElementById("logoutBtn");
     if (logoutBtn) {
       logoutBtn.textContent = "Sign out";
-      logoutBtn.onclick = async () => { await sb.auth.signOut(); window.location.href = "/en/login.html"; };
+      logoutBtn.onclick = async () => { await sb.auth.signOut(); window.location.href = "/en/login"; };
     }
   }
 
