@@ -44,7 +44,7 @@
       bar.style.cssText = "position:fixed;bottom:0;left:0;right:0;z-index:99999;background:#0f1523;border-top:2px solid rgba(200,169,110,.35);padding:11px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;box-shadow:0 -4px 24px rgba(0,0,0,.5);";
       bar.innerHTML = '<span style="color:rgba(255,255,255,.7);">🔍 <b style="color:#c8a96e;">Demo mode</b> — fictional data, nothing is saved.</span>'
         + '<div style="display:flex;gap:10px;align-items:center;">'
-        + '<a href="../login.html?tab=register" style="background:linear-gradient(135deg,#c8a96e,#d4b97e);color:#0f1523;padding:8px 18px;border-radius:8px;font-weight:800;font-size:12px;text-decoration:none;white-space:nowrap;letter-spacing:.3px;">Start free →</a>'
+        + '<a href="/en/login.html?tab=register" style="background:linear-gradient(135deg,#c8a96e,#d4b97e);color:#0f1523;padding:8px 18px;border-radius:8px;font-weight:800;font-size:12px;text-decoration:none;white-space:nowrap;letter-spacing:.3px;">Start free →</a>'
         + '<button onclick="document.getElementById(\'__demo_bar\').style.display=\'none\'" style="background:transparent;border:none;color:rgba(255,255,255,.35);cursor:pointer;font-size:20px;padding:0 4px;line-height:1;" title="Close">×</button>'
         + '</div>';
       document.body.appendChild(bar);
@@ -70,7 +70,7 @@
       const { data: { session } } = await sb.auth.getSession();
       if (!session) {
         await sb.auth.signOut();
-        window.location.href = "/en/login.html";
+        window.location.href = "/en/login.html?cleared=1";
         return;
       }
       const user = session.user;
@@ -813,7 +813,7 @@
     const { data: { session } } = await sb.auth.getSession().catch(() => ({ data: {} }));
     if (!session) {
       // Not logged in — redirect to login with intent
-      const loginUrl = "login.html?invite=" + encodeURIComponent(token);
+      const loginUrl = "/en/login.html?invite=" + encodeURIComponent(token);
       location.replace(loginUrl);
       return;
     }

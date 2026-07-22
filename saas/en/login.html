@@ -130,9 +130,11 @@
     });
   }
 
-  sb.auth.getSession().then(({ data: { session } }) => {
-    if (session) window.location.href = '/en/app.html';
-  });
+  if (!urlParams.get('cleared')) {
+    sb.auth.getSession().then(({ data: { session } }) => {
+      if (session) window.location.href = '/en/app.html';
+    });
+  }
 
   function switchTab(tab) {
     document.getElementById('tabLogin').classList.toggle('active', tab === 'login');
