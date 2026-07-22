@@ -25,12 +25,12 @@
     window.__DEMO_MODE = true;
     window.__authPlan = "business";
     window.__authUser = { id: "demo", email: "demo@funeralos.net" };
-    window.__authOfficeName = "Staurakakis — Demo";
+    window.__authOfficeName = "Funeral Home — Demo";
     document.addEventListener("DOMContentLoaded", function () {
       const overlay = document.getElementById("authOverlay");
       if (overlay) overlay.style.display = "none";
       const brandPill = document.getElementById("brandPill");
-      if (brandPill) brandPill.textContent = "Staurakakis FH";
+      if (brandPill) brandPill.textContent = "Funeral Home";
       const badge = document.getElementById("planBadge");
       if (badge) { badge.textContent = "DEMO"; badge.className = "plan-badge pro"; }
       // Highlight correct plan tier
