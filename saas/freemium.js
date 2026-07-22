@@ -68,7 +68,12 @@
         return;
       }
 
-      const user = session.user;
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) {
+        await sb.auth.signOut();
+        window.location.href = "/login.html?cleared=1";
+        return;
+      }
       window.__authUser = user;
       const OWNER_EMAILS = ["ststamato@gmail.com", "funeralos.net@gmail.com"];
       const isOwner = OWNER_EMAILS.includes(user.email);

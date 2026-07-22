@@ -146,10 +146,12 @@
     });
   }
 
-  // If already logged in, go to app
-  sb.auth.getSession().then(({ data: { session } }) => {
-    if (session) window.location.href = '/app.html';
-  });
+  // If already logged in, go to app (skip if ?cleared=1 to break any redirect loop)
+  if (!urlParams.get('cleared')) {
+    sb.auth.getSession().then(({ data: { session } }) => {
+      if (session) window.location.href = '/app.html';
+    });
+  }
 
   function switchTab(tab) {
     document.getElementById('tabLogin').classList.toggle('active', tab === 'login');
