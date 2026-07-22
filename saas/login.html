@@ -149,7 +149,7 @@
   // If already logged in, go to app (skip if ?cleared=1 to break any redirect loop)
   if (!urlParams.get('cleared')) {
     sb.auth.getSession().then(({ data: { session } }) => {
-      if (session) window.location.href = '/app.html';
+      if (session) window.location.href = '/app';
     });
   }
 
@@ -186,7 +186,7 @@
       showMsg('loginMsg', translateError(error.message), 'error');
       btn.disabled = false; btn.textContent = 'Σύνδεση';
     } else {
-      window.location.href = '/app.html';
+      window.location.href = '/app';
     }
   }
 

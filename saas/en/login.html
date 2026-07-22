@@ -132,7 +132,7 @@
 
   if (!urlParams.get('cleared')) {
     sb.auth.getSession().then(({ data: { session } }) => {
-      if (session) window.location.href = '/en/app.html';
+      if (session) window.location.href = '/en/app';
     });
   }
 
@@ -160,7 +160,7 @@
       showMsg('loginMsg', translateError(error.message), 'error');
       btn.disabled = false; btn.textContent = 'Sign in';
     } else {
-      window.location.href = '/en/app.html';
+      window.location.href = '/en/app';
     }
   }
 
@@ -195,7 +195,7 @@
   async function resetPassword() {
     const email = document.getElementById('loginEmail').value.trim();
     if (!email) { showMsg('loginMsg', 'Enter your email address above first.', 'error'); return; }
-    const redirectTo = location.origin + location.pathname.replace(/login\.html$/, 'reset.html');
+    const redirectTo = location.origin + location.pathname.replace(/\/(login\.html|login)$/, '/reset.html');
     const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
     if (error) showMsg('loginMsg', error.message, 'error');
     else showMsg('loginMsg', 'Password reset email sent. Check your inbox.', 'success');
