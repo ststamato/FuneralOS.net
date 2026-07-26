@@ -7207,8 +7207,8 @@ document.addEventListener('DOMContentLoaded',seedOfficeKnowledge);
   const BUSINESS_PRICE = cfg.businessPrice || cfg.teamPrice || (isEN ? 199 : 129);
   const currency       = "$";
   const monthLabel     = isEN ? "month" : "μήνα";
-  const proUrl    = cfg.stripeProUrl    || "https://buy.stripe.com/PLACEHOLDER_PRO";
-  const teamUrl   = cfg.stripeTeamUrl   || "https://buy.stripe.com/PLACEHOLDER_TEAM";
+  const proUrl    = cfg.lemonProUrl  || cfg.stripeProUrl  || "";
+  const teamUrl   = cfg.lemonBizUrl  || cfg.stripeTeamUrl || "";
   const demoUrl   = cfg.demoBookingUrl  || "https://wa.me/306987171717?text=Hello%20FuneralOS%2C%20I%20would%20like%20a%20live%20demo";
 
   function safeEsc(s){ try { return typeof esc === 'function' ? esc(s) : String(s||'').replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); } catch(e){ return String(s||''); } }
