@@ -1,10 +1,11 @@
 {
   "name": "FuneralOS",
   "short_name": "FuneralOS",
-  "start_url": "/app",
+  "start_url": "/en/app",
+  "scope": "/en/",
   "display": "standalone",
   "background_color": "#0f1523",
   "theme_color": "#0f1523",
-  "lang": "el",
-  "description": "Η κάρτα του γραφείου κηδειών"
+  "lang": "en",
+  "description": "Funeral home management software"
 }
