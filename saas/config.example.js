@@ -8,6 +8,6 @@ window.FUNERALOS_CONFIG = {
   // Demo booking
   demoBookingUrl: "https://wa.me/REPLACE_NUMBER?text=Hello%20FuneralOS%2C%20I%20would%20like%20a%20live%20demo",
 
-  // Google Analytics 4 (add when ready)
-  // ga4MeasurementId: "G-XXXXXXXXXX"
+  // Google Analytics 4
+  ga4MeasurementId: "G-XXXXXXXXXX"
 };

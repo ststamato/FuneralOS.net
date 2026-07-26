@@ -6,6 +6,21 @@
   <meta name="google-site-verification" content="Pu-gv3A8Qy3VoOhz7IPdHP5qrIihAU5CND_M0MPWnmE" />
   <title>FuneralOS — Funeral Home Operations Software for the USA</title>
   <meta name="description" content="Case management, document tracking, staff scheduling and AI operations for US funeral homes. From first call to closed case." />
+  <script src="../config.js"></script>
+  <script>
+    (function(){
+      var id = window.FUNERALOS_CONFIG && window.FUNERALOS_CONFIG.ga4MeasurementId;
+      if (!id) return;
+      var s = document.createElement('script');
+      s.async = true; s.src = 'https://www.googletagmanager.com/gtag/js?id=' + id;
+      document.head.appendChild(s);
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      window.gtag = gtag;
+      gtag('js', new Date());
+      gtag('config', id);
+    })();
+  </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
