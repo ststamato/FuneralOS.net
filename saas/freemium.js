@@ -355,23 +355,40 @@
     // Gate: Ceremony limit (free only)
     const ceremonyForm = document.getElementById("ceremonyForm");
     if (ceremonyForm) {
-      ceremonyForm.addEventListener("submit", function (e) {
-        if (typeof editingId !== "undefined" && editingId !== null) return;
+      let __gateChecking = false;
+
+      function _clientCeremonyCount() {
         const now = new Date();
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
         const list = (typeof ceremonies !== "undefined" ? ceremonies : []);
-        const monthCount = list.filter(function (c) {
-          if (!c.date) return false;
-          return new Date(c.date) >= monthStart;
-        }).length;
-        if (monthCount >= FREE_CEREMONY_LIMIT) {
-          e.preventDefault();
-          e.stopImmediatePropagation();
+        return list.filter(function(c) { return c.date && new Date(c.date) >= monthStart; }).length;
+      }
+
+      ceremonyForm.addEventListener("submit", async function (e) {
+        if (typeof editingId !== "undefined" && editingId !== null) return;
+        if (__gateChecking) { __gateChecking = false; return; }
+
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        let count;
+        try {
+          const { data, error } = await sb.rpc("get_monthly_ceremony_count");
+          count = (!error && data != null) ? data : _clientCeremonyCount();
+        } catch (_) {
+          count = _clientCeremonyCount();
+        }
+
+        if (count >= FREE_CEREMONY_LIMIT) {
           showUpgradeModal(
             "Όριο τελετών",
             "Έχεις φτάσει τις " + FREE_CEREMONY_LIMIT + " τελετές αυτό τον μήνα για το δωρεάν πλάνο.\nΑναβάθμισε σε Pro ή Business για απεριόριστες τελετές."
           );
+          return;
         }
+
+        __gateChecking = true;
+        ceremonyForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
       }, true);
     }
   }

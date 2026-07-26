@@ -263,3 +263,38 @@ select id, generate_referral_code(id)
 from   auth.users
 where  id not in (select id from public.profiles)
 on conflict (id) do nothing;
+
+-- ── Free plan: server-side ceremony limit ─────────────────────────────────────
+
+create or replace function public.get_monthly_ceremony_count()
+returns integer language plpgsql security definer set search_path = public as $$
+declare
+  v_row_id uuid;
+  v_count  integer;
+begin
+  -- Mirror getCloudSession(): team members use the office owner's row
+  select coalesce(
+    nullif(raw_user_meta_data->>'office_id', '')::uuid,
+    id
+  )
+  into v_row_id
+  from auth.users
+  where id = auth.uid();
+
+  select count(*) into v_count
+  from app_state,
+    jsonb_array_elements(
+      case jsonb_typeof(payload->'ceremonies')
+        when 'array' then payload->'ceremonies'
+        else '[]'::jsonb
+      end
+    ) as c
+  where app_state.id = v_row_id
+    and (c->>'date') is not null
+    and (c->>'date') >= to_char(date_trunc('month', now()), 'YYYY-MM-DD');
+
+  return coalesce(v_count, 0);
+end;
+$$;
+
+grant execute on function public.get_monthly_ceremony_count() to authenticated;
