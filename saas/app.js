@@ -39,7 +39,7 @@ function supabaseHeaders(extra = {}) {
 
 // ---------------- PWA / PUSH ----------------
 const VAPID_PUBLIC_KEY =
-  "BHxEn3OlIaSVOmFsOlHkNBbVjiSIMMX-B-ov3wtEoF1it4Ocnkcu_WnuUKoYhwVwhUfPIwzU8wuQGDJZ";
+  "BOojYoP_CZywpO3AHQOvrGMr4C_EM97h-0UelIXrwE8drhzBnGgQYIRItc7GGASr8Y8dxTWAFQTSCplSzTHnELo";
 
 const SW_PATH = "/sw.js";
 const EDGE_FUNCTION_PUSH_SENDER = "push_sender";
