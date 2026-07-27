@@ -17,7 +17,7 @@ Deno.serve(async (req: Request) => {
   const anonKey     = Deno.env.get("SUPABASE_ANON_KEY") || "";
   const resendKey   = Deno.env.get("RESEND_API_KEY") || "";
   const fromEmail   = Deno.env.get("FROM_EMAIL") || "FuneralOS <team@funeralos.net>";
-  const appUrl      = Deno.env.get("APP_URL") || "https://funeralos.net/en/app.html";
+  const appUrl      = Deno.env.get("APP_URL") || "https://funeralos.net/en/app";
 
   // Authenticate caller
   const authHeader = req.headers.get("Authorization") || "";
