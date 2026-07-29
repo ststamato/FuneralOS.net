@@ -10,7 +10,7 @@ const CORS = {
 };
 
 const VAPID_PUBLIC_KEY =
-  "BK7NS0ErC-xKQaTiBFm48qDEZE9IZZtbWvTqgAQCrZMGTjzxZtZ2eDvVsJAL7jIvga47TZyc6c-fAtOgijKOLKM";
+  "BOojYoP_CZywpO3AHQOvrGMr4C_EM97h-0UelIXrwE8drhzBnGgQYIRItc7GGASr8Y8dxTWAFQTSCplSzTHnELo";
 const VAPID_SUBJECT = "mailto:Funeralos.net@gmail.com";
 
 function json(data: unknown, status = 200): Response {
