@@ -97,6 +97,36 @@ Deno.serve(async (req: Request) => {
         }).catch(e => console.error('[email]', e));
       }
 
+      // Create GitHub Issue so Claude Cowork can see it and propose fixes
+      const githubToken = Deno.env.get("GITHUB_TOKEN");
+      if (githubToken) {
+        const now = new Date().toISOString();
+        const issueBody = [
+          `**User:** ${userEmail}`,
+          `**Date:** ${now}`,
+          ``,
+          `**Message:**`,
+          message,
+          ``,
+          `---`,
+          `*Auto-created from FuneralOS support request. View in admin: https://funeralos.net/admin.html*`,
+        ].join("\n");
+        await fetch("https://api.github.com/repos/ststamato/FuneralOS.net/issues", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${githubToken}`,
+            "Content-Type": "application/json",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+          },
+          body: JSON.stringify({
+            title: `[Support] ${subject} — ${userEmail}`,
+            body: issueBody,
+            labels: ["support"],
+          }),
+        }).catch(e => console.error('[github]', e));
+      }
+
       return json({ ok: true });
     }
 
