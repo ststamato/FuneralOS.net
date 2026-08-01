@@ -199,7 +199,8 @@
     if (!error && referralCode) localStorage.removeItem('funeralos_ref');
 
     if (error) {
-      showMsg('registerMsg', translateError(error.message), 'error');
+      const msg = error.message && error.message !== '{}' ? error.message : null;
+      showMsg('registerMsg', translateError(msg), 'error');
       btn.disabled = false; btn.textContent = 'Create account';
     } else {
       showMsg('registerMsg', '✓ Account created! Check your email to confirm, then sign in.', 'success');
