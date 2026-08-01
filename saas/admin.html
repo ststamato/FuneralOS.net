@@ -419,6 +419,7 @@
   <div style="display:flex;gap:8px;margin-bottom:16px;">
     <button id="tabUsers" onclick="switchTab('users')" style="padding:8px 20px;border-radius:8px;border:none;background:#c8a96e;color:#0f1523;font-weight:700;font-size:13px;cursor:pointer;">👥 Users</button>
     <button id="tabAudit" onclick="switchTab('audit')" style="padding:8px 20px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.6);font-weight:700;font-size:13px;cursor:pointer;">📋 Audit Log</button>
+    <button id="tabSupport" onclick="switchTab('support')" style="padding:8px 20px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.6);font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;">🎫 Αιτήματα <span id="supportBadge" style="display:none;background:#f87171;color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:10px;min-width:16px;text-align:center;"></span></button>
   </div>
 
   <!-- Users view -->
@@ -452,6 +453,30 @@
         </thead>
         <tbody id="userTableBody">
           <tr class="empty-row"><td colspan="7">Φόρτωση...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Support Requests view -->
+  <div id="viewSupport" style="display:none;">
+    <div class="toolbar" style="margin-bottom:12px;">
+      <button class="refresh-btn" onclick="loadSupport()">↺ Ανανέωση</button>
+      <span class="count-lbl" id="supportCountLbl"></span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Ημερομηνία</th>
+            <th>Χρήστης</th>
+            <th>Θέμα</th>
+            <th>Status</th>
+            <th>Μήνυμα / Ενέργεια</th>
+          </tr>
+        </thead>
+        <tbody id="supportTableBody">
+          <tr class="empty-row"><td colspan="5">Φόρτωση...</td></tr>
         </tbody>
       </table>
     </div>
@@ -960,6 +985,13 @@
         <p style="font-size:11px;color:rgba(239,68,68,.45);margin-top:8px;">Deactivate = blocks login, keeps data. Delete = permanent, irreversible.</p>
       </div>
 
+      <!-- Admin Notes -->
+      <div class="drawer-section">
+        <div class="drawer-section-title">📝 Admin Notes</div>
+        <textarea id="adminNotesInput" style="width:100%;min-height:80px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.85);font-size:13px;padding:10px;resize:vertical;box-sizing:border-box;font-family:inherit;" placeholder="Προσωπικές σημειώσεις για αυτόν τον χρήστη...">${esc(u.admin_notes || "")}</textarea>
+        <button class="save-btn" style="margin-top:8px;" onclick="saveAdminNotes()">Αποθήκευση</button>
+      </div>
+
       <div class="drawer-feedback" id="drawerFeedback"></div>
     `;
 
@@ -1103,20 +1135,25 @@
   }
 
   // ── Tab switcher ────────────────────────────────────────────────────────────
-  let currentTab = "users";
-  let auditRows  = [];
+  let currentTab  = "users";
+  let auditRows   = [];
+  let supportRows = [];
 
   window.switchTab = function(tab) {
     currentTab = tab;
-    document.getElementById("viewUsers").style.display = tab === "users" ? "" : "none";
-    document.getElementById("viewAudit").style.display = tab === "audit" ? "" : "none";
-    document.getElementById("tabUsers").style.background = tab === "users" ? "#c8a96e" : "transparent";
-    document.getElementById("tabUsers").style.color      = tab === "users" ? "#0f1523" : "rgba(255,255,255,.6)";
-    document.getElementById("tabUsers").style.border     = tab === "users" ? "none" : "1px solid rgba(255,255,255,.15)";
-    document.getElementById("tabAudit").style.background = tab === "audit" ? "#c8a96e" : "transparent";
-    document.getElementById("tabAudit").style.color      = tab === "audit" ? "#0f1523" : "rgba(255,255,255,.6)";
-    document.getElementById("tabAudit").style.border     = tab === "audit" ? "none" : "1px solid rgba(255,255,255,.15)";
-    if (tab === "audit" && auditRows.length === 0) loadAuditLog();
+    document.getElementById("viewUsers").style.display   = tab === "users"   ? "" : "none";
+    document.getElementById("viewAudit").style.display   = tab === "audit"   ? "" : "none";
+    document.getElementById("viewSupport").style.display = tab === "support" ? "" : "none";
+    ["tabUsers", "tabAudit", "tabSupport"].forEach(function(id) {
+      const tabKey = id.replace("tab", "").toLowerCase();
+      const active = tabKey === tab;
+      const el = document.getElementById(id);
+      el.style.background = active ? "#c8a96e"                  : "transparent";
+      el.style.color      = active ? "#0f1523"                  : "rgba(255,255,255,.6)";
+      el.style.border     = active ? "none"                     : "1px solid rgba(255,255,255,.15)";
+    });
+    if (tab === "audit"   && auditRows.length   === 0) loadAuditLog();
+    if (tab === "support" && supportRows.length  === 0) loadSupport();
   };
 
   // ── Audit Log ───────────────────────────────────────────────────────────────
@@ -1208,6 +1245,97 @@
     document.getElementById("auditCountLbl").textContent = filtered.length + " εγγραφές";
     renderAuditTable(filtered);
   };
+
+  // ── Support Requests ────────────────────────────────────────────────────────
+  async function loadSupport() {
+    document.getElementById("supportTableBody").innerHTML =
+      '<tr class="empty-row"><td colspan="5">Φόρτωση...</td></tr>';
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      const res = await fetch(ADMIN_FN, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token },
+        body: JSON.stringify({ action: "support_list" }),
+      });
+      const data = await res.json();
+      supportRows = data.requests || [];
+      renderSupportTable(supportRows);
+      const open = supportRows.filter(function(r) { return r.status === "open"; }).length;
+      document.getElementById("supportCountLbl").textContent = supportRows.length + " αιτήματα (" + open + " ανοικτά)";
+      const badge = document.getElementById("supportBadge");
+      if (badge) { badge.textContent = open; badge.style.display = open > 0 ? "inline-flex" : "none"; }
+    } catch (err) {
+      document.getElementById("supportTableBody").innerHTML =
+        '<tr class="empty-row"><td colspan="5">Σφάλμα: ' + esc(String(err)) + '</td></tr>';
+    }
+  }
+
+  function renderSupportTable(rows) {
+    const tbody = document.getElementById("supportTableBody");
+    if (!rows.length) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Δεν υπάρχουν αιτήματα.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(function(r) {
+      const isOpen = r.status === "open";
+      return '<tr style="' + (isOpen ? "" : "opacity:.55;") + '">' +
+        '<td style="font-size:12px;white-space:nowrap;">' + fmtDate(r.created_at) + '</td>' +
+        '<td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc(r.user_email) + '">' + esc(r.user_email) + '</td>' +
+        '<td style="font-size:12px;">' + esc(r.subject) + '</td>' +
+        '<td style="font-size:11px;">' + (isOpen ? '<span style="color:#fbbf24;font-weight:700;">open</span>' : '<span style="color:#86efac;font-weight:700;">resolved</span>') + '</td>' +
+        '<td><details style="font-size:12px;">' +
+          '<summary style="cursor:pointer;color:rgba(255,255,255,.5);user-select:none;">Εμφάνιση</summary>' +
+          '<div style="white-space:pre-wrap;color:rgba(255,255,255,.8);margin-top:6px;line-height:1.5;">' + esc(r.message) + '</div>' +
+          (isOpen ? '<button onclick="resolveSupport(\'' + r.id + '\')" style="margin-top:8px;padding:4px 12px;background:rgba(34,197,94,.12);color:#86efac;border:1px solid rgba(34,197,94,.25);border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;">✓ Επίλυση</button>' : '') +
+        '</details></td>' +
+      '</tr>';
+    }).join("");
+  }
+
+  window.resolveSupport = async function(requestId) {
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      const res = await fetch(ADMIN_FN, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token },
+        body: JSON.stringify({ action: "support_resolve", requestId }),
+      });
+      const data = await res.json();
+      if (data?.ok) {
+        supportRows = supportRows.map(function(r) {
+          return r.id === requestId ? Object.assign({}, r, { status: "resolved", resolved_at: new Date().toISOString() }) : r;
+        });
+        renderSupportTable(supportRows);
+        const open = supportRows.filter(function(r) { return r.status === "open"; }).length;
+        document.getElementById("supportCountLbl").textContent = supportRows.length + " αιτήματα (" + open + " ανοικτά)";
+        const badge = document.getElementById("supportBadge");
+        if (badge) { badge.textContent = open; badge.style.display = open > 0 ? "inline-flex" : "none"; }
+      }
+    } catch (err) {
+      alert("Σφάλμα: " + err.message);
+    }
+  };
+
+  window.saveAdminNotes = async function() {
+    if (!activeUser) return;
+    const notes = (document.getElementById("adminNotesInput")?.value || "");
+    const fb = document.getElementById("drawerFeedback");
+    try {
+      const res = await adminCall("update_notes", { userId: activeUser.id, notes });
+      if (res?.ok) {
+        activeUser.admin_notes = notes;
+        const idx = allUsers.findIndex(function(u) { return u.id === activeUser.id; });
+        if (idx >= 0) allUsers[idx].admin_notes = notes;
+        if (fb) { fb.textContent = "✓ Notes αποθηκεύτηκαν"; fb.style.color = "#86efac"; }
+      } else {
+        if (fb) { fb.textContent = "Σφάλμα: " + (res?.error || ""); fb.style.color = "#f87171"; }
+      }
+    } catch (err) {
+      if (fb) { fb.textContent = "Σφάλμα: " + err.message; fb.style.color = "#f87171"; }
+    }
+  };
+
+  window.loadSupport = loadSupport;
 
   init();
 })();

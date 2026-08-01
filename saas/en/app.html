@@ -421,6 +421,23 @@
           <tbody id="customFieldsBody"></tbody>
         </table>
       </div>
+      <!-- Support panel -->
+      <div class="settings-panel">
+        <div class="settings-head">
+          <div>
+            <h3>💬 Support</h3>
+            <p class="warehouse-hint">Send us your request. We'll get back to you within 48 hours.</p>
+          </div>
+        </div>
+        <div style="margin-top:12px;">
+          <input id="supportSubject" type="text" maxlength="100" placeholder="Subject..." style="width:100%;padding:10px 12px;background:#0f1a2e;border:1px solid rgba(200,169,110,.3);border-radius:8px;color:#e0e8f0;font-size:14px;box-sizing:border-box;margin-bottom:10px;" />
+          <textarea id="supportMessage" maxlength="1000" placeholder="Describe your request..." style="width:100%;min-height:100px;padding:10px 12px;background:#0f1a2e;border:1px solid rgba(200,169,110,.3);border-radius:8px;color:#e0e8f0;font-size:14px;box-sizing:border-box;resize:vertical;"></textarea>
+          <div style="display:flex;align-items:center;gap:12px;margin-top:10px;">
+            <button onclick="submitSupport('en')" style="padding:10px 20px;background:#c8a96e;color:#0f1523;border:none;border-radius:9px;font-weight:700;font-size:13px;cursor:pointer;">Send</button>
+            <span id="supportFeedback" style="font-size:12px;"></span>
+          </div>
+        </div>
+      </div>
     </section>
 
     <section id="hermesTab" class="tab">

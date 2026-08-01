@@ -298,3 +298,26 @@ end;
 $$;
 
 grant execute on function public.get_monthly_ceremony_count() to authenticated;
+
+-- ── Support Requests ──────────────────────────────────────────────────────────
+
+create table if not exists support_requests (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid references auth.users(id) on delete cascade,
+  subject     text not null,
+  message     text not null,
+  status      text not null default 'open',
+  created_at  timestamptz not null default now(),
+  resolved_at timestamptz
+);
+
+alter table support_requests enable row level security;
+
+create policy "user insert own support" on support_requests
+  for insert with check (auth.uid() = user_id);
+
+create policy "user read own support" on support_requests
+  for select using (auth.uid() = user_id);
+
+-- Admin notes per user (stored in profiles)
+alter table profiles add column if not exists admin_notes text default '';
