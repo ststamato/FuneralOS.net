@@ -94,7 +94,7 @@ Deno.serve(async (req: Request) => {
             subject: `[Support] ${subject} — ${userEmail}`,
             html: `<p><strong>Χρήστης:</strong> ${userEmail}</p><p><strong>Ημερομηνία:</strong> ${now}</p><p><strong>Μήνυμα:</strong></p><p>${message.replace(/\n/g, "<br>")}</p><p><a href="https://funeralos.net/admin.html">→ Δες το αίτημα</a></p>`,
           }),
-        }).catch(() => {});
+        }).catch(e => console.error('[email]', e));
       }
 
       return json({ ok: true });
