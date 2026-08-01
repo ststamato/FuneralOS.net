@@ -7441,3 +7441,42 @@ window.restoreFromJSON = function() {
   };
   input.click();
 };
+
+// ── Support form ──────────────────────────────────────────────────────────────
+window.submitSupport = async function (lang) {
+  const subject = (document.getElementById("supportSubject")?.value || "").trim();
+  const message = (document.getElementById("supportMessage")?.value || "").trim();
+  const fb = document.getElementById("supportFeedback");
+  if (!subject || !message) {
+    if (fb) { fb.textContent = lang === "en" ? "Please fill in both fields." : "Συμπλήρωσε θέμα και μήνυμα."; fb.style.color = "#f87171"; }
+    return;
+  }
+  const session = await getCloudSession();
+  if (!session?.token) {
+    if (fb) { fb.textContent = lang === "en" ? "Not signed in." : "Δεν είσαι συνδεδεμένος."; fb.style.color = "#f87171"; }
+    return;
+  }
+  if (fb) { fb.textContent = lang === "en" ? "Sending…" : "Αποστολή…"; fb.style.color = "rgba(200,169,110,.7)"; }
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-stats`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
+      body: JSON.stringify({ action: "submit_support", subject, message }),
+    });
+    const data = await res.json();
+    if (data?.ok) {
+      document.getElementById("supportSubject").value = "";
+      document.getElementById("supportMessage").value = "";
+      if (fb) {
+        fb.textContent = lang === "en"
+          ? "Sent! We'll get back to you within 48 hours."
+          : "Το αίτημά σου στάλθηκε. Θα επικοινωνήσουμε μαζί σου εντός 48 ωρών.";
+        fb.style.color = "#86efac";
+      }
+    } else {
+      if (fb) { fb.textContent = data?.error || (lang === "en" ? "Error sending." : "Σφάλμα αποστολής."); fb.style.color = "#f87171"; }
+    }
+  } catch (err) {
+    if (fb) { fb.textContent = String(err); fb.style.color = "#f87171"; }
+  }
+};
