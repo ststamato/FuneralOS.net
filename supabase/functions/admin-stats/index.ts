@@ -109,7 +109,15 @@ Deno.serve(async (req: Request) => {
           message,
           ``,
           `---`,
-          `*Auto-created from FuneralOS support request. View in admin: https://funeralos.net/admin.html*`,
+          `> ⚠️ **Note for @claude:** This request affects only the user above, NOT the whole app.`,
+          `> Before opening a PR, check if this can be resolved with an admin action:`,
+          `> - Increase AI limit → \`update_ai_limit\` with \`user_id\` + \`limit\``,
+          `> - Change plan → \`update_plan\` with \`user_id\` + \`plan\``,
+          `> - Add a note → \`update_notes\` with \`user_id\` + \`notes\``,
+          `> - Mark resolved → \`support_resolve\` with \`id\``,
+          `> Only open a PR if this is a feature/bug affecting ALL users.`,
+          ``,
+          `*[Admin panel](https://funeralos.net/admin.html) · [CLAUDE.md](../blob/main/CLAUDE.md)*`,
         ].join("\n");
         await fetch("https://api.github.com/repos/ststamato/FuneralOS.net/issues", {
           method: "POST",

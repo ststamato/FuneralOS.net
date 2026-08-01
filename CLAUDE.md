@@ -71,8 +71,24 @@ RLS is enabled on all tables. Users can only read/write their own rows.
 2. Saved to `support_requests` table
 3. Email sent to `funeralos.net@gmail.com` via Resend
 4. GitHub Issue created in this repo with label `support`
-5. Owner reviews issue, comments `@claude [instruction]` to ask Claude for a code change
-6. Claude opens a PR → owner reviews + merges → Cloudflare auto-deploys
+5. Owner reviews issue and comments `@claude [instruction]`
+
+### IMPORTANT — Per-user vs global changes
+
+**Most support requests affect only the requesting user's data** — they are NOT global code changes.
+
+When responding to a support issue, first check if the request can be handled via an admin action:
+
+| User asks for… | Admin action to take |
+|---|---|
+| More AI credits / higher limit | `update_ai_limit` — `{ action: "update_ai_limit", user_id: "...", limit: N }` |
+| Plan upgrade/downgrade | `update_plan` — `{ action: "update_plan", user_id: "...", plan: "pro" }` |
+| Account note / custom setting | `update_notes` — `{ action: "update_notes", user_id: "...", notes: "..." }` |
+| Mark request resolved | `support_resolve` — `{ action: "support_resolve", id: "..." }` |
+
+These are called as `POST` to `https://rqklpnrgpiprttzsploe.supabase.co/functions/v1/admin-stats` with the owner's Bearer token. **No code change or PR is needed** for these — tell the admin which action to call with which parameters.
+
+Only open a PR when the request is a genuine **feature request or bug report** that requires a code change affecting all users.
 
 ## Code Conventions
 
