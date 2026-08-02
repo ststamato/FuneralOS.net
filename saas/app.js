@@ -7468,9 +7468,11 @@ window.submitSupport = async function (lang) {
       document.getElementById("supportSubject").value = "";
       document.getElementById("supportMessage").value = "";
       if (fb) {
+        const plan = window.__authPlan || "free";
+        const isPaid = plan === "pro" || plan === "business";
         fb.textContent = lang === "en"
-          ? "Sent! We'll get back to you within 48 hours."
-          : "Το αίτημά σου στάλθηκε. Θα επικοινωνήσουμε μαζί σου εντός 48 ωρών.";
+          ? (isPaid ? "Sent! We'll get back to you within 24 hours." : "Sent! We'll get back to you within 5 business days. Upgrade to Pro for priority support (24h).")
+          : (isPaid ? "Το αίτημά σου στάλθηκε. Θα επικοινωνήσουμε μαζί σου εντός 24 ωρών." : "Το αίτημά σου στάλθηκε. Θα επικοινωνήσουμε μαζί σου εντός 5 εργάσιμων ημερών. Αναβάθμισε σε Pro για προτεραιότητα (24ω).");
         fb.style.color = "#86efac";
       }
     } else {
