@@ -117,9 +117,9 @@ Deno.serve(async (req: Request) => {
           `> - Mark resolved → \`support_resolve\` with \`id\``,
           `> Only open a PR if this is a feature/bug affecting ALL users.`,
           ``,
-          `*[Admin panel](https://funeralos.net/admin.html) · [CLAUDE.md](../blob/main/CLAUDE.md)*`,
+          `*[Admin panel](https://funeralos.net/admin.html) · [CLAUDE.md](https://github.com/ststamato/karta-staurakaki/blob/main/CLAUDE.md)*`,
         ].join("\n");
-        await fetch("https://api.github.com/repos/ststamato/FuneralOS.net/issues", {
+        await fetch("https://api.github.com/repos/ststamato/karta-staurakaki/issues", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${githubToken}`,
