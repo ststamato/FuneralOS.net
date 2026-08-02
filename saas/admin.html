@@ -511,6 +511,25 @@
 <!-- Drawer overlay -->
 <div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
 
+<!-- Support Request Modal -->
+<div class="drawer-overlay" id="supportModalOverlay" onclick="closeSupportModal()" style="z-index:1100;"></div>
+<div id="supportModal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1101;background:#1a1a2e;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:28px;width:min(540px,90vw);max-height:80vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.6);">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;">
+    <div>
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.4);margin-bottom:4px;">Αίτημα Υποστήριξης</div>
+      <div id="smSubject" style="font-size:16px;font-weight:700;color:#fff;"></div>
+    </div>
+    <button onclick="closeSupportModal()" style="background:none;border:none;color:rgba(255,255,255,.4);font-size:20px;cursor:pointer;padding:0 4px;line-height:1;">✕</button>
+  </div>
+  <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
+    <div style="font-size:12px;color:rgba(255,255,255,.5);"><span style="color:rgba(255,255,255,.3);">Χρήστης: </span><span id="smUser"></span></div>
+    <div style="font-size:12px;color:rgba(255,255,255,.5);"><span style="color:rgba(255,255,255,.3);">Ημερομηνία: </span><span id="smDate"></span></div>
+    <div style="font-size:12px;" id="smStatusBadge"></div>
+  </div>
+  <div style="background:rgba(255,255,255,.05);border-radius:8px;padding:16px;font-size:13px;line-height:1.7;white-space:pre-wrap;color:rgba(255,255,255,.85);" id="smMessage"></div>
+  <div style="margin-top:18px;display:flex;justify-content:flex-end;" id="smActions"></div>
+</div>
+
 <!-- User detail drawer -->
 <div class="drawer" id="userDrawer">
   <!-- populated by openDrawer() -->
@@ -1276,21 +1295,40 @@
       tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Δεν υπάρχουν αιτήματα.</td></tr>';
       return;
     }
-    tbody.innerHTML = rows.map(function(r) {
+    tbody.innerHTML = rows.map(function(r, i) {
       const isOpen = r.status === "open";
       return '<tr style="' + (isOpen ? "" : "opacity:.55;") + '">' +
         '<td style="font-size:12px;white-space:nowrap;">' + fmtDate(r.created_at) + '</td>' +
         '<td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + esc(r.user_email) + '">' + esc(r.user_email) + '</td>' +
         '<td style="font-size:12px;">' + esc(r.subject) + '</td>' +
-        '<td style="font-size:11px;">' + (isOpen ? '<span style="color:#fbbf24;font-weight:700;">open</span>' : '<span style="color:#86efac;font-weight:700;">resolved</span>') + '</td>' +
-        '<td><details style="font-size:12px;">' +
-          '<summary style="cursor:pointer;color:rgba(255,255,255,.5);user-select:none;">Εμφάνιση</summary>' +
-          '<div style="white-space:pre-wrap;color:rgba(255,255,255,.8);margin-top:6px;line-height:1.5;">' + esc(r.message) + '</div>' +
-          (isOpen ? '<button onclick="resolveSupport(\'' + r.id + '\')" style="margin-top:8px;padding:4px 12px;background:rgba(34,197,94,.12);color:#86efac;border:1px solid rgba(34,197,94,.25);border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;">✓ Επίλυση</button>' : '') +
-        '</details></td>' +
+        '<td style="font-size:11px;">' + (isOpen ? '<span style="color:#fbbf24;font-weight:700;">● Ανοικτό</span>' : '<span style="color:#86efac;font-weight:700;">✓ Επιλύθηκε</span>') + '</td>' +
+        '<td><button onclick="openSupportModal(' + i + ')" style="padding:4px 12px;background:rgba(200,169,110,.12);color:rgba(200,169,110,.9);border:1px solid rgba(200,169,110,.25);border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;">Προβολή</button></td>' +
       '</tr>';
     }).join("");
   }
+
+  window.openSupportModal = function(idx) {
+    const r = supportRows[idx];
+    if (!r) return;
+    const isOpen = r.status === "open";
+    document.getElementById("smSubject").textContent   = r.subject;
+    document.getElementById("smUser").textContent      = r.user_email;
+    document.getElementById("smDate").textContent      = fmtDate(r.created_at);
+    document.getElementById("smMessage").textContent   = r.message;
+    document.getElementById("smStatusBadge").innerHTML = isOpen
+      ? '<span style="color:#fbbf24;font-weight:700;">● Ανοικτό</span>'
+      : '<span style="color:#86efac;font-weight:700;">✓ Επιλύθηκε</span>';
+    document.getElementById("smActions").innerHTML = isOpen
+      ? '<button onclick="resolveSupport(\'' + r.id + '\');closeSupportModal();" style="padding:6px 18px;background:rgba(34,197,94,.12);color:#86efac;border:1px solid rgba(34,197,94,.25);border-radius:8px;font-size:12px;cursor:pointer;font-weight:700;">✓ Επίλυση</button>'
+      : '';
+    document.getElementById("supportModal").style.display = "block";
+    document.getElementById("supportModalOverlay").classList.add("active");
+  };
+
+  window.closeSupportModal = function() {
+    document.getElementById("supportModal").style.display = "none";
+    document.getElementById("supportModalOverlay").classList.remove("active");
+  };
 
   window.resolveSupport = async function(requestId) {
     try {
