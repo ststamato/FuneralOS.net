@@ -1,4 +1,6 @@
+# Support handler
 name: Claude Support Handler
+: Claude Support Handler
 
 on:
   issues:
