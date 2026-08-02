@@ -81,26 +81,30 @@ Deno.serve(async (req: Request) => {
         return json({ error: "Failed to save: " + txt }, 500);
       }
 
-      const resendKey = Deno.env.get("RESEND_API_KEY");
-      const fromEmail = Deno.env.get("FROM_EMAIL") || "noreply@funeralos.net";
-      if (resendKey) {
-        const now = new Date().toLocaleString("el-GR", { timeZone: "Europe/Athens" });
-        await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            from: `FuneralOS <${fromEmail}>`,
-            to: ["funeralos.net@gmail.com"],
-            subject: `[Support] ${subject} — ${userEmail}`,
-            html: `<p><strong>Χρήστης:</strong> ${userEmail}</p><p><strong>Ημερομηνία:</strong> ${now}</p><p><strong>Μήνυμα:</strong></p><p>${message.replace(/\n/g, "<br>")}</p><p><a href="https://funeralos.net/admin.html">→ Δες το αίτημα</a></p>`,
-          }),
-        }).catch(e => console.error('[email]', e));
-      }
+      // Return immediately — background tasks run after response
+      const resendKey    = Deno.env.get("RESEND_API_KEY");
+      const fromEmail    = Deno.env.get("FROM_EMAIL") || "noreply@funeralos.net";
+      const githubToken  = Deno.env.get("GITHUB_TOKEN");
+      const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
 
-      // Create GitHub Issue + post Claude analysis as comment immediately
-      const githubToken   = Deno.env.get("GITHUB_TOKEN");
-      const anthropicKey  = Deno.env.get("ANTHROPIC_API_KEY");
-      if (githubToken) {
+      const background = async () => {
+        // Email
+        if (resendKey) {
+          const now = new Date().toLocaleString("el-GR", { timeZone: "Europe/Athens" });
+          await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              from: `FuneralOS <${fromEmail}>`,
+              to: ["funeralos.net@gmail.com"],
+              subject: `[Support] ${subject} — ${userEmail}`,
+              html: `<p><strong>Χρήστης:</strong> ${userEmail}</p><p><strong>Ημερομηνία:</strong> ${now}</p><p><strong>Μήνυμα:</strong></p><p>${message.replace(/\n/g, "<br>")}</p><p><a href="https://funeralos.net/admin.html">→ Δες το αίτημα</a></p>`,
+            }),
+          }).catch(e => console.error('[email]', e));
+        }
+
+        // GitHub issue + Claude comment
+        if (!githubToken) return;
         const nowIso = new Date().toISOString();
         const issueBody = [
           `**User:** ${userEmail}`,
@@ -129,17 +133,19 @@ Deno.serve(async (req: Request) => {
           }),
         });
 
-        if (issueRes.ok && anthropicKey) {
-          const issueData   = await issueRes.json();
-          const issueNumber = issueData.number as number;
+        if (!issueRes.ok) { console.error('[github]', await issueRes.text()); return; }
+        if (!anthropicKey) return;
 
-          const claudeMdRes = await fetch(
-            "https://raw.githubusercontent.com/ststamato/karta-staurakaki/main/CLAUDE.md",
-            { headers: { Authorization: `Bearer ${githubToken}` } }
-          );
-          const claudeMd = claudeMdRes.ok ? await claudeMdRes.text() : "";
+        const issueData   = await issueRes.json();
+        const issueNumber = issueData.number as number;
 
-          const prompt = `Είσαι ο AI βοηθός διαχείρισης για το FuneralOS, ένα ελληνικό SaaS για γραφεία τελετών.
+        const claudeMdRes = await fetch(
+          "https://raw.githubusercontent.com/ststamato/karta-staurakaki/main/CLAUDE.md",
+          { headers: { Authorization: `Bearer ${githubToken}` } }
+        );
+        const claudeMd = claudeMdRes.ok ? await claudeMdRes.text() : "";
+
+        const prompt = `Είσαι ο AI βοηθός διαχείρισης για το FuneralOS, ένα ελληνικό SaaS για γραφεία τελετών.
 
 ## Πλαίσιο project
 ${claudeMd}
@@ -162,45 +168,46 @@ ${message}
 3. Αν είναι **bug ή feature** για όλους τους χρήστες: περίγραψε ποιο αρχείο πρέπει να αλλαχτεί και πώς.
 4. Στο τέλος πρόσθεσε αν το αίτημα μπορεί να κλείσει αμέσως ή χρειάζεται PR.`;
 
-          const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: {
-              "x-api-key": anthropicKey,
-              "anthropic-version": "2023-06-01",
-              "content-type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "claude-3-5-sonnet-20241022",
-              max_tokens: 1024,
-              messages: [{ role: "user", content: prompt }],
-            }),
-          });
+        const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "x-api-key": anthropicKey,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "claude-3-5-sonnet-20241022",
+            max_tokens: 1024,
+            messages: [{ role: "user", content: prompt }],
+          }),
+        });
 
-          if (claudeRes.ok) {
-            const claudeData = await claudeRes.json();
-            const reply = claudeData.content?.[0]?.text as string | undefined;
-            if (reply) {
-              await fetch(
-                `https://api.github.com/repos/ststamato/karta-staurakaki/issues/${issueNumber}/comments`,
-                {
-                  method: "POST",
-                  headers: {
-                    Authorization: `Bearer ${githubToken}`,
-                    "Content-Type": "application/json",
-                    "Accept": "application/vnd.github+json",
-                    "X-GitHub-Api-Version": "2022-11-28",
-                  },
-                  body: JSON.stringify({ body: `🤖 **Claude:**\n\n${reply}` }),
-                }
-              ).catch(e => console.error('[github-comment]', e));
-            }
-          } else {
-            console.error('[claude]', await claudeRes.text());
+        if (claudeRes.ok) {
+          const claudeData = await claudeRes.json();
+          const reply = claudeData.content?.[0]?.text as string | undefined;
+          if (reply) {
+            await fetch(
+              `https://api.github.com/repos/ststamato/karta-staurakaki/issues/${issueNumber}/comments`,
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${githubToken}`,
+                  "Content-Type": "application/json",
+                  "Accept": "application/vnd.github+json",
+                  "X-GitHub-Api-Version": "2022-11-28",
+                },
+                body: JSON.stringify({ body: `🤖 **Claude:**\n\n${reply}` }),
+              }
+            ).catch(e => console.error('[github-comment]', e));
           }
-        } else if (!issueRes.ok) {
-          console.error('[github]', await issueRes.text());
+        } else {
+          console.error('[claude]', await claudeRes.text());
         }
-      }
+      };
+
+      // Run background work after response (avoids EarlyDrop timeout)
+      (globalThis as Record<string, unknown> & { EdgeRuntime?: { waitUntil: (p: Promise<unknown>) => void } })
+        .EdgeRuntime?.waitUntil(background());
 
       return json({ ok: true });
     }
