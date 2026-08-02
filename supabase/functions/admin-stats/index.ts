@@ -170,7 +170,7 @@ ${message}
               "content-type": "application/json",
             },
             body: JSON.stringify({
-              model: "claude-sonnet-5",
+              model: "claude-3-5-sonnet-20241022",
               max_tokens: 1024,
               messages: [{ role: "user", content: prompt }],
             }),
