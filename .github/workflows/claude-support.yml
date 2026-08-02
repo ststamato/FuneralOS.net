@@ -1,0 +1,90 @@
+name: Claude Support Handler
+
+on:
+  issues:
+    types: [opened, labeled]
+
+jobs:
+  handle:
+    # Run when issue has the 'support' label
+    if: contains(github.event.issue.labels.*.name, 'support')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Analyze and respond to support request
+        uses: actions/github-script@v7
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        with:
+          script: |
+            const fs = require('fs');
+
+            // Avoid duplicate comments if the action fires twice (opened + labeled)
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+            });
+            const alreadyHandled = comments.data.some(c =>
+              c.body.startsWith('🤖 **Claude:**')
+            );
+            if (alreadyHandled) return;
+
+            const claudeMd = fs.readFileSync('CLAUDE.md', 'utf8');
+            const issue = context.payload.issue;
+
+            const prompt = `Είσαι ο AI βοηθός διαχείρισης για το FuneralOS, ένα ελληνικό SaaS για γραφεία τελετών.
+
+## Πλαίσιο project
+${claudeMd}
+
+## Αίτημα υποστήριξης
+**Τίτλος:** ${issue.title}
+**Μήνυμα:**
+${issue.body}
+
+## Εργασία
+Αναλύσε το αίτημα και απάντησε στα ελληνικά. Κάνε το εξής:
+
+1. Πρώτα εξήγησε τι ζητά ο χρήστης με 1-2 προτάσεις.
+2. Αν είναι **per-user αλλαγή** (plan, AI limit, notes): δώσε ακριβώς το API call που πρέπει να γίνει:
+   \`\`\`
+   POST https://rqklpnrgpiprttzsploe.supabase.co/functions/v1/admin-stats
+   { "action": "...", "user_id": "...", ... }
+   \`\`\`
+   (χρησιμοποίησε το user_id από το issue αν υπάρχει, αλλιώς γράψε [USER_ID])
+3. Αν είναι **bug ή feature** για όλους τους χρήστες: περίγραψε ποιο αρχείο πρέπει να αλλαχτεί και πώς.
+4. Στο τέλος πρόσθεσε αν το αίτημα μπορεί να κλείσει αμέσως ή χρειάζεται PR.`;
+
+            const res = await fetch('https://api.anthropic.com/v1/messages', {
+              method: 'POST',
+              headers: {
+                'x-api-key': process.env.ANTHROPIC_API_KEY,
+                'anthropic-version': '2023-06-01',
+                'content-type': 'application/json',
+              },
+              body: JSON.stringify({
+                model: 'claude-sonnet-5',
+                max_tokens: 1024,
+                messages: [{ role: 'user', content: prompt }],
+              }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+              core.setFailed(`Anthropic API error: ${JSON.stringify(data)}`);
+              return;
+            }
+
+            const reply = data.content[0].text;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              body: `🤖 **Claude:**\n\n${reply}`,
+            });
