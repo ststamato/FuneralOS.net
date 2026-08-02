@@ -97,29 +97,24 @@ Deno.serve(async (req: Request) => {
         }).catch(e => console.error('[email]', e));
       }
 
-      // Create GitHub Issue so Claude Cowork can see it and propose fixes
-      const githubToken = Deno.env.get("GITHUB_TOKEN");
+      // Create GitHub Issue + post Claude analysis as comment immediately
+      const githubToken   = Deno.env.get("GITHUB_TOKEN");
+      const anthropicKey  = Deno.env.get("ANTHROPIC_API_KEY");
       if (githubToken) {
-        const now = new Date().toISOString();
+        const nowIso = new Date().toISOString();
         const issueBody = [
           `**User:** ${userEmail}`,
-          `**Date:** ${now}`,
+          `**user_id:** ${userId}`,
+          `**Date:** ${nowIso}`,
           ``,
           `**Message:**`,
           message,
           ``,
           `---`,
-          `> ⚠️ **Note for @claude:** This request affects only the user above, NOT the whole app.`,
-          `> Before opening a PR, check if this can be resolved with an admin action:`,
-          `> - Increase AI limit → \`update_ai_limit\` with \`user_id\` + \`limit\``,
-          `> - Change plan → \`update_plan\` with \`user_id\` + \`plan\``,
-          `> - Add a note → \`update_notes\` with \`user_id\` + \`notes\``,
-          `> - Mark resolved → \`support_resolve\` with \`id\``,
-          `> Only open a PR if this is a feature/bug affecting ALL users.`,
-          ``,
           `*[Admin panel](https://funeralos.net/admin.html) · [CLAUDE.md](https://github.com/ststamato/karta-staurakaki/blob/main/CLAUDE.md)*`,
         ].join("\n");
-        await fetch("https://api.github.com/repos/ststamato/karta-staurakaki/issues", {
+
+        const issueRes = await fetch("https://api.github.com/repos/ststamato/karta-staurakaki/issues", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${githubToken}`,
@@ -132,7 +127,79 @@ Deno.serve(async (req: Request) => {
             body: issueBody,
             labels: ["support"],
           }),
-        }).catch(e => console.error('[github]', e));
+        });
+
+        if (issueRes.ok && anthropicKey) {
+          const issueData   = await issueRes.json();
+          const issueNumber = issueData.number as number;
+
+          const claudeMdRes = await fetch(
+            "https://raw.githubusercontent.com/ststamato/karta-staurakaki/main/CLAUDE.md",
+            { headers: { Authorization: `Bearer ${githubToken}` } }
+          );
+          const claudeMd = claudeMdRes.ok ? await claudeMdRes.text() : "";
+
+          const prompt = `Είσαι ο AI βοηθός διαχείρισης για το FuneralOS, ένα ελληνικό SaaS για γραφεία τελετών.
+
+## Πλαίσιο project
+${claudeMd}
+
+## Αίτημα υποστήριξης
+**Τίτλος:** [Support] ${subject} — ${userEmail}
+**user_id:** ${userId}
+**Μήνυμα:**
+${message}
+
+## Εργασία
+Αναλύσε το αίτημα και απάντησε στα ελληνικά. Κάνε το εξής:
+
+1. Πρώτα εξήγησε τι ζητά ο χρήστης με 1-2 προτάσεις.
+2. Αν είναι **per-user αλλαγή** (plan, AI limit, notes): δώσε ακριβώς το API call που πρέπει να γίνει:
+   \`\`\`
+   POST https://rqklpnrgpiprttzsploe.supabase.co/functions/v1/admin-stats
+   { "action": "...", "user_id": "${userId}", ... }
+   \`\`\`
+3. Αν είναι **bug ή feature** για όλους τους χρήστες: περίγραψε ποιο αρχείο πρέπει να αλλαχτεί και πώς.
+4. Στο τέλος πρόσθεσε αν το αίτημα μπορεί να κλείσει αμέσως ή χρειάζεται PR.`;
+
+          const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+              "x-api-key": anthropicKey,
+              "anthropic-version": "2023-06-01",
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "claude-sonnet-5",
+              max_tokens: 1024,
+              messages: [{ role: "user", content: prompt }],
+            }),
+          });
+
+          if (claudeRes.ok) {
+            const claudeData = await claudeRes.json();
+            const reply = claudeData.content?.[0]?.text as string | undefined;
+            if (reply) {
+              await fetch(
+                `https://api.github.com/repos/ststamato/karta-staurakaki/issues/${issueNumber}/comments`,
+                {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${githubToken}`,
+                    "Content-Type": "application/json",
+                    "Accept": "application/vnd.github+json",
+                    "X-GitHub-Api-Version": "2022-11-28",
+                  },
+                  body: JSON.stringify({ body: `🤖 **Claude:**\n\n${reply}` }),
+                }
+              ).catch(e => console.error('[github-comment]', e));
+            }
+          } else {
+            console.error('[claude]', await claudeRes.text());
+          }
+        } else if (!issueRes.ok) {
+          console.error('[github]', await issueRes.text());
+        }
       }
 
       return json({ ok: true });
