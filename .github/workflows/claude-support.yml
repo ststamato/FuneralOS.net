@@ -3,11 +3,17 @@ name: Claude Support Handler
 on:
   issues:
     types: [opened, labeled]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Issue number to process'
+        required: true
+        type: number
 
 jobs:
   handle:
-    # Run when issue has the 'support' label
-    if: contains(github.event.issue.labels.*.name, 'support')
+    # Run when issue has the 'support' label (or manual dispatch)
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.issue.labels.*.name, 'support')
     runs-on: ubuntu-latest
     permissions:
       issues: write
@@ -23,11 +29,22 @@ jobs:
           script: |
             const fs = require('fs');
 
+            // Support both automatic (issues event) and manual (workflow_dispatch) triggers
+            const issueNumber = context.eventName === 'workflow_dispatch'
+              ? Number(context.payload.inputs.issue_number)
+              : context.payload.issue.number;
+
+            const { data: issueData } = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+            });
+
             // Avoid duplicate comments if the action fires twice (opened + labeled)
             const comments = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.payload.issue.number,
+              issue_number: issueNumber,
             });
             const alreadyHandled = comments.data.some(c =>
               c.body.startsWith('🤖 **Claude:**')
@@ -35,7 +52,7 @@ jobs:
             if (alreadyHandled) return;
 
             const claudeMd = fs.readFileSync('CLAUDE.md', 'utf8');
-            const issue = context.payload.issue;
+            const issue = issueData;
 
             const prompt = `Είσαι ο AI βοηθός διαχείρισης για το FuneralOS, ένα ελληνικό SaaS για γραφεία τελετών.
 
@@ -85,6 +102,6 @@ ${issue.body}
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: issue.number,
+              issue_number: issueNumber,
               body: `🤖 **Claude:**\n\n${reply}`,
             });
