@@ -134,10 +134,11 @@ Deno.serve(async (req: Request) => {
         });
 
         if (!issueRes.ok) { console.error('[github]', await issueRes.text()); return; }
-        if (!anthropicKey) return;
+        if (!anthropicKey) { console.log('[claude] no ANTHROPIC_API_KEY, skipping'); return; }
 
         const issueData   = await issueRes.json();
         const issueNumber = issueData.number as number;
+        console.log('[github] issue created #' + issueNumber);
 
         const claudeMdRes = await fetch(
           "https://raw.githubusercontent.com/ststamato/karta-staurakaki/main/CLAUDE.md",
@@ -168,6 +169,7 @@ ${message}
 3. Αν είναι **bug ή feature** για όλους τους χρήστες: περίγραψε ποιο αρχείο πρέπει να αλλαχτεί και πώς.
 4. Στο τέλος πρόσθεσε αν το αίτημα μπορεί να κλείσει αμέσως ή χρειάζεται PR.`;
 
+        console.log('[claude] calling API...');
         const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
           headers: {
@@ -175,12 +177,17 @@ ${message}
             "anthropic-version": "2023-06-01",
             "content-type": "application/json",
           },
+          // Low effort keeps the response fast — Supabase kills the worker
+          // if the background task runs too long (EarlyDrop)
           body: JSON.stringify({
             model: "claude-opus-5",
             max_tokens: 1024,
+            output_config: { effort: "low" },
             messages: [{ role: "user", content: prompt }],
           }),
+          signal: AbortSignal.timeout(60000),
         });
+        console.log('[claude] status ' + claudeRes.status);
 
         if (claudeRes.ok) {
           const claudeData = await claudeRes.json();
@@ -198,7 +205,8 @@ ${message}
                 },
                 body: JSON.stringify({ body: `🤖 **Claude:**\n\n${reply}` }),
               }
-            ).catch(e => console.error('[github-comment]', e));
+            ).then(r => console.log('[github-comment] posted, status ' + r.status))
+             .catch(e => console.error('[github-comment]', e));
           }
         } else {
           console.error('[claude]', await claudeRes.text());
