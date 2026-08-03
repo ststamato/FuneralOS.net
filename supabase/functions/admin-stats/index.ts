@@ -177,15 +177,14 @@ ${message}
             "anthropic-version": "2023-06-01",
             "content-type": "application/json",
           },
-          // Low effort keeps the response fast — Supabase kills the worker
-          // if the background task runs too long (EarlyDrop)
+          // Haiku answers in seconds — the worker gets EarlyDropped before
+          // slower models finish (no output_config: effort unsupported on Haiku)
           body: JSON.stringify({
-            model: "claude-opus-5",
+            model: "claude-haiku-4-5",
             max_tokens: 1024,
-            output_config: { effort: "low" },
             messages: [{ role: "user", content: prompt }],
           }),
-          signal: AbortSignal.timeout(60000),
+          signal: AbortSignal.timeout(45000),
         });
         console.log('[claude] status ' + claudeRes.status);
 
@@ -215,7 +214,7 @@ ${message}
 
       // Run background work after response (avoids EarlyDrop timeout)
       (globalThis as Record<string, unknown> & { EdgeRuntime?: { waitUntil: (p: Promise<unknown>) => void } })
-        .EdgeRuntime?.waitUntil(background());
+        .EdgeRuntime?.waitUntil(background().catch(e => console.error('[background]', e)));
 
       return json({ ok: true });
     }
