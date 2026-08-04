@@ -228,7 +228,7 @@ ${message}
       const [usersRes, aiRes, profilesRes, referralsRes, appStateRes] = await Promise.all([
         fetch(`${supabaseUrl}/auth/v1/admin/users?per_page=1000`, { headers: h }),
         fetch(`${supabaseUrl}/rest/v1/ai_usage?select=user_id,calls_today,reset_date`, { headers: h }),
-        fetch(`${supabaseUrl}/rest/v1/profiles?select=id,referral_code,referral_credits,referral_plan_until,admin_notes`, { headers: h }),
+        fetch(`${supabaseUrl}/rest/v1/profiles?select=id,referral_code,referral_credits,referral_plan_until,admin_notes,features`, { headers: h }),
         fetch(`${supabaseUrl}/rest/v1/referrals?select=referrer_id&status=eq.rewarded`, { headers: h }),
         fetch(`${supabaseUrl}/rest/v1/app_state?select=id,payload`, { headers: h }),
       ]);
@@ -247,6 +247,7 @@ ${message}
         referral_credits: number;
         referral_plan_until: string | null;
         admin_notes: string;
+        features: Record<string, boolean>;
       }> = {};
       for (const p of profiles) profileMap[p.id] = p;
 
@@ -306,6 +307,7 @@ ${message}
           referral:        profile,
           referral_count:  refCountMap[u.id as string] || 0,
           admin_notes:     profile?.admin_notes || "",
+          features:        profile?.features || {},
         };
       });
 
@@ -478,6 +480,21 @@ ${message}
         body: JSON.stringify({ status: "resolved", resolved_at: new Date().toISOString() }),
       });
       if (!upd.ok) return json({ error: "Failed to resolve request" }, 500);
+      return json({ ok: true });
+    }
+
+    // ── UPDATE FEATURE FLAGS ──────────────────────────────────────────────────
+    if (action === "update_features") {
+      const { userId, features } = body as { userId: string; features: Record<string, boolean> };
+      if (!userId || typeof features !== "object" || features === null) {
+        return json({ error: "Missing userId or features" }, 400);
+      }
+      const upd = await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${userId}`, {
+        method: "PATCH",
+        headers: { ...h, Prefer: "return=minimal" },
+        body: JSON.stringify({ features }),
+      });
+      if (!upd.ok) return json({ error: "Failed to update features" }, 500);
       return json({ ok: true });
     }
 

@@ -321,3 +321,6 @@ create policy "user read own support" on support_requests
 
 -- Admin notes per user (stored in profiles)
 alter table profiles add column if not exists admin_notes text default '';
+
+-- Per-user feature flags (toggled from admin panel, read by the app on login)
+alter table profiles add column if not exists features jsonb not null default '{}'::jsonb;

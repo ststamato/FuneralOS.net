@@ -964,12 +964,37 @@ async function getCloudSession() {
   return null;
 }
 
+// ── Per-user feature flags (ενεργοποιούνται από το admin panel) ──────────────
+// Χρήση: if (hasFeature("beta")) { ... }
+// CSS:   body.feature-beta .my-beta-element { display: block; }
+window.FEATURES = {};
+window.hasFeature = (key) => !!window.FEATURES[key];
+
+async function loadUserFeatures() {
+  try {
+    const s = await getCloudSession();
+    if (!s || !window.__sb) return;
+    const { data, error } = await window.__sb
+      .from("profiles")
+      .select("features")
+      .eq("id", s.userId)
+      .maybeSingle();
+    if (error || !data) return;
+    window.FEATURES = data.features || {};
+    for (const [k, v] of Object.entries(window.FEATURES)) {
+      document.body.classList.toggle("feature-" + k, !!v);
+    }
+    document.dispatchEvent(new CustomEvent("features-loaded", { detail: window.FEATURES }));
+  } catch {}
+}
+
 // Returns true if a cloud row existed (even if empty), false if no row found at all.
 // "No row" means the account was never synced and local data should be pushed up.
 // "Row with empty ceremonies" means the admin intentionally has no cases — trust it.
 async function cloudLoadData() {
   const session = await getCloudSession();
   if (!session) throw new Error("No authenticated user for cloud load");
+  loadUserFeatures(); // non-blocking — flags land shortly after data
   if (!window.__sb) throw new Error("Supabase client not ready");
   const { data: rows, error } = await window.__sb
     .from("app_state")

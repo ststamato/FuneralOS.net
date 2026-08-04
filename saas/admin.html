@@ -324,6 +324,29 @@
     }
     .save-btn:hover { background: rgba(200,169,110,.3); }
 
+    /* Feature toggles */
+    .feat-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; padding: 9px 0;
+      border-bottom: 1px solid rgba(255,255,255,.04);
+    }
+    .feat-row:last-child { border-bottom: none; }
+    .feat-label { font-size: 13px; color: rgba(255,255,255,.8); font-weight: 600; }
+    .feat-desc  { font-size: 11px; color: rgba(255,255,255,.35); margin-top: 2px; }
+    .feat-switch { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+    .feat-switch input { opacity: 0; width: 0; height: 0; }
+    .feat-slider {
+      position: absolute; inset: 0; cursor: pointer; border-radius: 22px;
+      background: rgba(255,255,255,.12); transition: background .15s;
+    }
+    .feat-slider::before {
+      content: ""; position: absolute; width: 16px; height: 16px;
+      left: 3px; top: 3px; border-radius: 50%;
+      background: rgba(255,255,255,.7); transition: transform .15s;
+    }
+    .feat-switch input:checked + .feat-slider { background: rgba(34,197,94,.5); }
+    .feat-switch input:checked + .feat-slider::before { transform: translateX(18px); background: #22c55e; }
+
     /* Feedback */
     .drawer-feedback {
       padding: 10px 20px;
@@ -993,6 +1016,16 @@
         </div>
       </div>
 
+      <!-- Feature flags -->
+      <div class="drawer-section">
+        <div class="drawer-section-title">🎛️ Λειτουργίες (μόνο για αυτόν τον χρήστη)</div>
+        <div id="featureToggles">${renderFeatureToggles(u)}</div>
+        <p style="font-size:11px;color:rgba(255,255,255,.25);margin-top:10px;">
+          Οι διακόπτες ισχύουν μόνο για αυτόν τον χρήστη. Νέες λειτουργίες που φτιάχνονται
+          κατόπιν αιτήματος εμφανίζονται εδώ και τις ενεργοποιείς επιλεκτικά.
+        </p>
+      </div>
+
       <!-- Danger Zone -->
       <div class="drawer-section" style="border-top:1px solid rgba(239,68,68,.2);margin-top:8px;padding-top:16px;">
         <div class="drawer-section-title" style="color:#f87171;">⚠️ Danger Zone</div>
@@ -1023,6 +1056,50 @@
     document.getElementById("userDrawer").classList.remove("active");
     activeUser = null;
   }
+
+  // ── Feature flags ──────────────────────────────────────────────────────────
+  // Κάθε νέα per-user λειτουργία δηλώνεται εδώ. Το app.js τη διαβάζει με
+  // hasFeature("<key>") και εμφανίζει/κρύβει την αντίστοιχη δυνατότητα.
+  const FEATURE_REGISTRY = [
+    { key: "beta", label: "Beta λειτουργίες", desc: "Πρώιμη πρόσβαση σε νέες δυνατότητες πριν βγουν σε όλους" },
+  ];
+
+  function renderFeatureToggles(u) {
+    const features = u.features || {};
+    // Include unknown keys already stored on the user (e.g. from older registry)
+    const extraKeys = Object.keys(features).filter(k => !FEATURE_REGISTRY.some(f => f.key === k));
+    const all = [...FEATURE_REGISTRY, ...extraKeys.map(k => ({ key: k, label: k, desc: "" }))];
+    return all.map(f => `
+      <div class="feat-row">
+        <div>
+          <div class="feat-label">${esc(f.label)}</div>
+          ${f.desc ? `<div class="feat-desc">${esc(f.desc)}</div>` : ""}
+        </div>
+        <label class="feat-switch">
+          <input type="checkbox" ${features[f.key] ? "checked" : ""}
+                 onchange="toggleFeature('${esc(f.key)}', this.checked)" />
+          <span class="feat-slider"></span>
+        </label>
+      </div>
+    `).join("");
+  }
+
+  window.toggleFeature = async function (key, enabled) {
+    if (!activeUser) return;
+    const features = { ...(activeUser.features || {}), [key]: enabled };
+    feedback("Αποθήκευση...", "info");
+    const data = await adminCall("update_features", { userId: activeUser.id, features });
+    if (data.ok) {
+      activeUser.features = features;
+      const u = allUsers.find(x => x.id === activeUser.id);
+      if (u) u.features = features;
+      feedback(`✓ ${key} → ${enabled ? "ενεργό" : "ανενεργό"} (ισχύει στην επόμενη σύνδεση του χρήστη)`, "success");
+    } else {
+      feedback("✗ " + (data.error || "Σφάλμα"), "error");
+      const box = document.getElementById("featureToggles");
+      if (box) box.innerHTML = renderFeatureToggles(activeUser);
+    }
+  };
 
   // ── Actions ────────────────────────────────────────────────────────────────
   window.openDrawer  = openDrawer;
