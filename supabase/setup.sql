@@ -443,6 +443,45 @@ $$;
 
 grant execute on function public.save_ceremony(text, uuid, jsonb, timestamptz) to authenticated;
 
+-- Optimistic-lock save for the rest of app_state (warehouse, settings,
+-- changeLog, deletedCeremonies/trash, etc. — everything except ceremonies,
+-- which have their own table + save_ceremony() above). Same failure mode as
+-- Showstopper 2 applied here too: a blind upsert let two team members saving
+-- concurrently silently clobber each other's warehouse/trash/settings edits.
+-- No `security definer` — relies on the existing "app_state select/write/
+-- update" RLS policies for access control, this just adds compare-and-swap.
+create or replace function public.save_app_state(
+  p_office_id uuid, p_payload jsonb, p_expected_updated_at timestamptz
+) returns table(ok boolean, server_payload jsonb, server_updated_at timestamptz)
+language plpgsql set search_path = public as $$
+declare
+  v_cur app_state;
+  v_new app_state;
+begin
+  select * into v_cur from app_state where id = p_office_id;
+
+  if not found then
+    insert into app_state (id, payload, updated_at)
+    values (p_office_id, p_payload, now())
+    returning * into v_new;
+    return query select true, null::jsonb, v_new.updated_at;
+    return;
+  end if;
+
+  if p_expected_updated_at is null or v_cur.updated_at is distinct from p_expected_updated_at then
+    return query select false, v_cur.payload, v_cur.updated_at;
+    return;
+  end if;
+
+  update app_state set payload = p_payload, updated_at = now()
+    where id = p_office_id
+    returning * into v_new;
+  return query select true, null::jsonb, v_new.updated_at;
+end;
+$$;
+
+grant execute on function public.save_app_state(uuid, jsonb, timestamptz) to authenticated;
+
 -- Free-plan monthly quota — now reads the ceremonies table instead of the
 -- app_state jsonb blob (backfill below must run before this replaces the old
 -- blob-reading version, otherwise it would count zero for everyone).

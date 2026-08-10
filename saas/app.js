@@ -202,6 +202,10 @@ let deletedCeremonies = [];
 // are pushed instead of rewriting the whole list.
 let ceremonyMeta = {};
 let _lastSyncedCeremoniesSnapshot = {};
+// app_state blob (warehouse, settings, etc. — everything except ceremonies)
+// last-known server updated_at, for the same optimistic-lock compare-and-swap
+// as ceremonies. See save_app_state() / cloudSaveAll().
+let appStateUpdatedAt = null;
 // Ceremony bridge — available immediately so USA modules can read live data
 window.__fosGetCeremonies = () => ceremonies;
 window.__fosPushCeremony = (c) => { ceremonies.unshift(c); saveData(); renderAll(); };
@@ -1016,9 +1020,10 @@ async function cloudLoadData() {
   if (!window.__sb) throw new Error("Supabase client not ready");
   const { data: rows, error } = await window.__sb
     .from("app_state")
-    .select("payload")
+    .select("payload,updated_at")
     .eq("id", session.rowId);
   if (error) throw new Error("Failed to load app_state: " + error.message);
+  appStateUpdatedAt = rows.length ? rows[0].updated_at : null;
 
   // Ceremonies live in their own table now (per-case rows, not a jsonb blob) —
   // see Showstopper-2 fix. Load them separately from app_state.
@@ -1098,21 +1103,41 @@ async function cloudSaveAll() {
   };
 
   let saved = false;
-  for (let attempt = 0; attempt < 3 && !saved; attempt++) {
+  let appStateConflict = false;
+  for (let attempt = 0; attempt < 3 && !saved && !appStateConflict; attempt++) {
     try {
       if (attempt > 0) await new Promise(r => setTimeout(r, attempt * 1500));
       if (window.__sb) {
-        // Use the Supabase JS client — it handles auth token, on_conflict, and CORS automatically.
-        const { error } = await window.__sb
-          .from("app_state")
-          .upsert({ id: session.rowId, payload }, { onConflict: "id" });
-        if (!error) {
-          saved = true;
+        // save_app_state() is optimistic-locked on updated_at (compare-and-swap),
+        // same mechanism as save_ceremony() — a blind upsert here would silently
+        // overwrite whatever a teammate saved to warehouse/settings/etc in the
+        // meantime (this blob covers everything except ceremonies, which sync
+        // separately below). See finding: same failure mode as Showstopper 2,
+        // just for the rest of app_state.
+        const { data: rpcRows, error } = await window.__sb.rpc("save_app_state", {
+          p_office_id: session.rowId,
+          p_payload: payload,
+          p_expected_updated_at: appStateUpdatedAt,
+        });
+        if (error) {
+          console.error(`[FuneralOS] Cloud save error (attempt ${attempt + 1}):`, error.message);
         } else {
-          console.error(`[FuneralOS] Cloud save error (attempt ${attempt + 1}):`, error.message, error.details);
+          const result = Array.isArray(rpcRows) ? rpcRows[0] : rpcRows;
+          if (result?.ok) {
+            saved = true;
+            appStateUpdatedAt = result.server_updated_at;
+          } else if (result) {
+            // Someone else saved more recently. Don't blindly overwrite local
+            // state — this blob covers several unrelated areas at once, so
+            // that could wipe more than one in-progress edit. Leave local
+            // state as-is (visible, still editable, just not yet synced) and
+            // stop retrying with this same stale payload — it'll fail
+            // identically until the user reloads to pick up the latest version.
+            appStateConflict = true;
+          }
         }
       } else {
-        // Fallback: raw fetch
+        // Fallback: raw fetch — no optimistic lock on this path.
         const base = `${SUPABASE_URL}/rest/v1`;
         const reqBody    = JSON.stringify([{ id: session.rowId, payload }]);
         const reqHeaders = { ...supabaseHeaders({ Prefer: "resolution=merge-duplicates,return=minimal" }), Authorization: `Bearer ${session.token}` };
@@ -1129,6 +1154,13 @@ async function cloudSaveAll() {
     }
   }
 
+  if (appStateConflict) {
+    showSyncToast(t(
+      "Κάποιος άλλος αποθήκευσε πιο πρόσφατα (απόθεμα/ρυθμίσεις) — οι αλλαγές σου δεν συγχρονίστηκαν ακόμα. Ανανέωσε τη σελίδα για την τελευταία έκδοση.",
+      "Someone else saved more recently (inventory/settings) — your changes haven't synced yet. Reload the page to get the latest version."
+    ));
+  }
+
   const ceremoniesSaved = window.__sb
     ? await syncCeremonies(session).catch((e) => { console.error("[FuneralOS] Ceremony sync error:", e); return false; })
     : true; // raw-fetch fallback path doesn't sync per-row ceremonies
@@ -1142,7 +1174,7 @@ async function cloudSaveAll() {
   } else {
     localStorage.setItem(PENDING_SAVE_KEY, "1");
     showSyncBadge("error");
-    console.error("Cloud save failed after 3 retries", { saved, ceremoniesSaved });
+    console.error("Cloud save failed", { saved, ceremoniesSaved, appStateConflict });
   }
 }
 
