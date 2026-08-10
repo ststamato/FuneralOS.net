@@ -4366,11 +4366,13 @@ function aiBuildCloudPayload() {
   }));
 
   return {
-    app: "Τελετές Σταυρακάκη",
+    app: "FuneralOS",
     version: "v27.3",
     generatedAt: new Date().toISOString(),
     device: getDeviceLabel() || "",
     userId: window.__authUser?.id || null,
+    lang: window.__appLang === "en" ? "en" : "el",
+    officeName: window.__authOfficeName || "",
     today,
     tomorrow,
     summary: {

@@ -55,11 +55,14 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── Call xAI Grok ────────────────────────────────────────────────────────────
+  const lang = payload.lang === "en" ? "en" : "el";
   const isQuestion = Boolean(payload.question);
-  const systemPrompt = buildSystemPrompt(payload);
+  const systemPrompt = buildSystemPrompt(payload, lang);
   const userPrompt = isQuestion
-    ? `Ερώτηση: ${payload.question}`
-    : "Δώσε μου briefing για σήμερα με τα πιο επείγοντα πρώτα.";
+    ? (lang === "en" ? `Question: ${payload.question}` : `Ερώτηση: ${payload.question}`)
+    : (lang === "en"
+        ? "Give me today's briefing, most urgent items first."
+        : "Δώσε μου briefing για σήμερα με τα πιο επείγοντα πρώτα.");
 
   try {
     const grokRes = await fetch(XAI_API_URL, {
@@ -83,7 +86,8 @@ Deno.serve(async (req: Request) => {
     }
 
     const grokData: any = await grokRes.json();
-    const answer = grokData.choices?.[0]?.message?.content?.trim() || "Δεν υπάρχει απάντηση.";
+    const answer = grokData.choices?.[0]?.message?.content?.trim()
+      || (lang === "en" ? "No answer available." : "Δεν υπάρχει απάντηση.");
 
     // ── Increment counter after successful Grok call ────────────────────────
     await fetch(`${supabaseUrl}/rest/v1/ai_usage?on_conflict=user_id`, {
@@ -107,7 +111,7 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
-function buildSystemPrompt(payload: Record<string, unknown>): string {
+function buildSystemPrompt(payload: Record<string, unknown>, lang: "el" | "en"): string {
   const today = String(payload.today || "").slice(0, 10);
   const tomorrow = String(payload.tomorrow || "").slice(0, 10);
   const ceremonies = Array.isArray(payload.ceremonies) ? payload.ceremonies as any[] : [];
@@ -115,35 +119,60 @@ function buildSystemPrompt(payload: Record<string, unknown>): string {
   const setsWarehouse = Array.isArray(payload.setsWarehouse) ? payload.setsWarehouse as any[] : [];
   const summary = (payload.summary as any) || {};
   const local = (payload.localAnalysis as any) || {};
+  const officeName = String(payload.officeName || "").trim();
 
   const todayCer = ceremonies.filter((c) => c.date === today);
   const tomCer = ceremonies.filter((c) => c.date === tomorrow);
 
-  let p = `Είσαι AI βοηθός του ελληνικού γραφείου κηδειών "Σταυρακάκης". Απαντάς μόνο στα Ελληνικά. Είσαι σύντομος, πρακτικός και επαγγελματικός. Χρησιμοποιείς bullet points.
+  const L = lang === "en"
+    ? {
+        intro: `You are the AI assistant for "${officeName || "this funeral home"}". Respond only in English. Be concise, practical and professional. Use bullet points.`,
+        today: "Today", tomorrow: "Tomorrow", totalCases: "Total cases",
+        todaySection: "📅 TODAY'S CASES:", tomorrowSection: "📅 TOMORROW'S CASES:",
+        director: "Director", casket: "Casket", set: "Set",
+        missingHeader: (n: number) => `⚠ MISSING ITEMS (${n} cases):`,
+        notesHeader: (n: number) => `📝 IMPORTANT NOTES (${n}):`,
+        lowStockHeader: "📦 LOW STOCK:",
+        caskUnit: "units", setUnit: "units",
+        footer: "Give a concise briefing. Start with the most urgent items. Don't repeat data. Maximum 350 words.",
+      }
+    : {
+        intro: `Είσαι ο AI βοηθός του γραφείου κηδειών "${officeName || "αυτού του γραφείου"}". Απαντάς μόνο στα Ελληνικά. Είσαι σύντομος, πρακτικός και επαγγελματικός. Χρησιμοποιείς bullet points.`,
+        today: "Σήμερα", tomorrow: "Αύριο", totalCases: "Σύνολο τελετών",
+        todaySection: "📅 ΤΕΛΕΤΕΣ ΣΗΜΕΡΑ:", tomorrowSection: "📅 ΤΕΛΕΤΕΣ ΑΥΡΙΟ:",
+        director: "Υπεύθ", casket: "Φέρετρο", set: "ΣΕΤ",
+        missingHeader: (n: number) => `⚠ ΕΛΛΕΙΨΕΙΣ (${n} τελετές):`,
+        notesHeader: (n: number) => `📝 ΣΗΜΑΝΤΙΚΕΣ ΣΗΜΕΙΩΣΕΙΣ (${n}):`,
+        lowStockHeader: "📦 ΧΑΜΗΛΑ ΑΠΟΘΕΜΑΤΑ:",
+        caskUnit: "τεμ.", setUnit: "τεμ.",
+        footer: "Δώσε σύντομο briefing. Ξεκίνα με τα επείγοντα. Μην επαναλαμβάνεις δεδομένα. Μέγιστο 350 λέξεις.",
+      };
 
-Σήμερα: ${today}
-Αύριο: ${tomorrow}
-Σύνολο τελετών: ${summary.totalCeremonies ?? ceremonies.length}
-Σήμερα: ${summary.todayCount ?? todayCer.length} | Αύριο: ${summary.tomorrowCount ?? tomCer.length}
+  let p = `${L.intro}
+
+${L.today}: ${today}
+${L.tomorrow}: ${tomorrow}
+${L.totalCases}: ${summary.totalCeremonies ?? ceremonies.length}
+${L.today}: ${summary.todayCount ?? todayCer.length} | ${L.tomorrow}: ${summary.tomorrowCount ?? tomCer.length}
 `;
 
   if (todayCer.length) {
-    p += "\n📅 ΤΕΛΕΤΕΣ ΣΗΜΕΡΑ:\n";
+    p += `\n${L.todaySection}\n`;
     todayCer.forEach((c) => {
       p += `• ${c.time || "?"} — ${c.name || "-"} | ${c.place || "-"}`;
-      if (c.responsible) p += ` | Υπεύθ: ${c.responsible}`;
-      if (c.coffin) p += ` | Φέρετρο: ${c.coffin}`;
-      if (c.set) p += ` | ΣΕΤ: ${c.set}`;
+      if (c.responsible) p += ` | ${L.director}: ${c.responsible}`;
+      if (c.coffin) p += ` | ${L.casket}: ${c.coffin}`;
+      if (c.set) p += ` | ${L.set}: ${c.set}`;
       if (c.notes) p += ` | ⚠ ${String(c.notes).slice(0, 120)}`;
       p += "\n";
     });
   }
 
   if (tomCer.length) {
-    p += "\n📅 ΤΕΛΕΤΕΣ ΑΥΡΙΟ:\n";
+    p += `\n${L.tomorrowSection}\n`;
     tomCer.forEach((c) => {
       p += `• ${c.time || "?"} — ${c.name || "-"} | ${c.place || "-"}`;
-      if (c.responsible) p += ` | Υπεύθ: ${c.responsible}`;
+      if (c.responsible) p += ` | ${L.director}: ${c.responsible}`;
       if (c.notes) p += ` | ⚠ ${String(c.notes).slice(0, 80)}`;
       p += "\n";
     });
@@ -151,7 +180,7 @@ function buildSystemPrompt(payload: Record<string, unknown>): string {
 
   const errors: any[] = Array.isArray(local.errors) ? local.errors : [];
   if (errors.length) {
-    p += `\n⚠ ΕΛΛΕΙΨΕΙΣ (${errors.length} τελετές):\n`;
+    p += `\n${L.missingHeader(errors.length)}\n`;
     errors.slice(0, 8).forEach((e) => {
       p += `• ${e.ceremony}: ${(e.missing || []).join(", ")}\n`;
     });
@@ -160,7 +189,7 @@ function buildSystemPrompt(payload: Record<string, unknown>): string {
   const notes: any[] = Array.isArray(local.notes) ? local.notes : [];
   const urgent = notes.filter((n) => n.priority === "high");
   if (urgent.length) {
-    p += `\n📝 ΣΗΜΑΝΤΙΚΕΣ ΣΗΜΕΙΩΣΕΙΣ (${urgent.length}):\n`;
+    p += `\n${L.notesHeader(urgent.length)}\n`;
     urgent.slice(0, 8).forEach((n) => {
       p += `• ${n.ceremony}: ${n.notes}\n`;
     });
@@ -169,11 +198,11 @@ function buildSystemPrompt(payload: Record<string, unknown>): string {
   const lowCoffins = warehouse.filter((w) => Number(w.qty) <= 2);
   const lowSets = setsWarehouse.filter((w) => Number(w.qty) <= 2);
   if (lowCoffins.length || lowSets.length) {
-    p += "\n📦 ΧΑΜΗΛΑ ΑΠΟΘΕΜΑΤΑ:\n";
-    lowCoffins.forEach((w) => (p += `• Φέρετρο ${w.name}: ${w.qty} τεμ.\n`));
-    lowSets.forEach((w) => (p += `• ΣΕΤ ${w.name}: ${w.qty} τεμ.\n`));
+    p += `\n${L.lowStockHeader}\n`;
+    lowCoffins.forEach((w) => (p += `• ${L.casket} ${w.name}: ${w.qty} ${L.caskUnit}\n`));
+    lowSets.forEach((w) => (p += `• ${L.set} ${w.name}: ${w.qty} ${L.setUnit}\n`));
   }
 
-  p += "\nΔώσε σύντομο briefing. Ξεκίνα με τα επείγοντα. Μην επαναλαμβάνεις δεδομένα. Μέγιστο 350 λέξεις.";
+  p += `\n${L.footer}`;
   return p;
 }
