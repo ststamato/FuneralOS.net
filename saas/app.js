@@ -4852,6 +4852,15 @@ function aiEnsureChatHistoryUI() {
   aiRenderChatHistory();
 }
 
+// ai-assistant now verifies the caller's JWT server-side and derives userId
+// from it (never trusts payload.userId) — so this must send the user's real
+// session token, not the static anon key that supabaseHeaders() carries.
+async function aiCloudAuthHeaders() {
+  const session = await getCloudSession();
+  if (!session?.token) throw new Error(t("Δεν είσαι συνδεδεμένος.", "Not signed in."));
+  return { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` };
+}
+
 async function aiAskQuestion() {
   const input = $("aiQuestionInput");
   const out = $("aiAssistantOutput");
@@ -4879,7 +4888,7 @@ async function aiAskQuestion() {
   try {
     const res = await fetch(AI_EDGE_URL, {
       method: "POST",
-      headers: supabaseHeaders(),
+      headers: await aiCloudAuthHeaders(),
       body: JSON.stringify(payload),
       signal: controller.signal
     });
@@ -4938,7 +4947,7 @@ async function aiRunCloud() {
   try {
     const res = await fetch(AI_EDGE_URL, {
       method: "POST",
-      headers: supabaseHeaders(),
+      headers: await aiCloudAuthHeaders(),
       body: JSON.stringify(aiBuildCloudPayload()),
       signal: controller.signal
     });

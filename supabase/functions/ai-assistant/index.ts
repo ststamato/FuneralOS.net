@@ -23,15 +23,29 @@ Deno.serve(async (req: Request) => {
   if (!apiKey) return json({ error: "XAI_API_KEY not configured" }, 500);
   if (!serviceKey) return json({ error: "SUPABASE_SERVICE_ROLE_KEY not configured" }, 500);
 
+  // ── Verify the caller's identity from their JWT — never trust a client-
+  // supplied userId. Without this, anyone could call this endpoint with a
+  // forged userId, and the daily rate limit (keyed on that userId) would do
+  // nothing to stop them from draining the xAI budget. Mirrors the
+  // `submit_support` pattern in admin-stats/index.ts.
+  const authHeader = req.headers.get("Authorization") || "";
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return json({ error: "Unauthorized" }, 401);
+
+  const authRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
+    headers: { Authorization: `Bearer ${token}`, apikey: serviceKey },
+  });
+  if (!authRes.ok) return json({ error: "Invalid token" }, 401);
+  const authUser: any = await authRes.json();
+  const userId = authUser?.id as string | null;
+  if (!userId) return json({ error: "Could not identify user" }, 401);
+
   let payload: Record<string, unknown>;
   try {
     payload = await req.json();
   } catch {
     return json({ error: "Invalid JSON" }, 400);
   }
-
-  const userId = payload.userId as string | null;
-  if (!userId) return json({ error: "missing user_id" }, 400);
 
   // ── Server-side rate limit check ────────────────────────────────────────────
   const today = new Date().toISOString().split("T")[0];
