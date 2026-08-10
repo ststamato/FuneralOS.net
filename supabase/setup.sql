@@ -508,10 +508,22 @@ $$;
 grant execute on function public.get_monthly_ceremony_count() to authenticated;
 
 -- One-time backfill from the old app_state.payload.ceremonies blob. Idempotent
--- (on conflict do nothing) — safe to re-run. Does NOT touch/clear app_state,
--- so it's a safe rollback net if anything about the new path needs reverting.
+-- (on conflict do nothing) — safe to re-run.
 insert into ceremonies (id, office_id, data, updated_at, updated_by)
 select c->>'id', a.id, (c - 'id'), now(), a.id
 from app_state a, jsonb_array_elements(coalesce(a.payload->'ceremonies', '[]'::jsonb)) as c
 where c->>'id' is not null
 on conflict (office_id, id) do nothing;
+
+-- Strip the now-migrated ceremonies key out of app_state.payload. This ran
+-- as a deliberately-kept rollback net for a while (the client stopped
+-- reading/writing it, but the stale data stayed in case anything needed
+-- reverting) — now that the ceremonies table + client are confirmed working
+-- in production, remove it for real. Leaving it in place indefinitely would
+-- be actively unsafe: an office that later deletes every ceremony it has
+-- would still have old (deleted) ones sitting in this stale key forever,
+-- which is exactly the kind of thing that invites a bad "fall back to the
+-- blob if the table looks empty" fix down the line — that fallback would
+-- silently resurrect deleted ceremonies for any office that's legitimately
+-- empty post-migration. Idempotent — a no-op once the key is gone.
+update app_state set payload = payload - 'ceremonies' where payload ? 'ceremonies';

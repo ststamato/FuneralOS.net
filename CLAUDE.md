@@ -73,6 +73,15 @@ RLS is enabled on all tables. Users can read/write their own office's rows; team
 - **Edge Functions**: `supabase functions deploy <function-name> --project-ref rqklpnrgpiprttzsploe` (e.g. `admin-stats`, `ai-assistant`, `team-invite`, `lemon-webhook`)
 - **Cache-busting**: `app.js` is loaded with `?v=N` query string in app.html files. Increment `N` when changing `app.js`.
 
+### Runbook — schema migrations that move data out of `app_state.payload`
+
+There is no CI/CD gate enforcing order here — deploys are manual (one person, no staging environment), so getting the order wrong is a real risk, not theoretical. When a change moves a field out of the jsonb blob into its own table (as `ceremonies` was, to fix concurrent-save data loss — see git history), follow this order, not the reverse:
+
+1. Run the SQL in Supabase SQL editor: new table + RLS + RPC + the backfill that copies existing data out of `app_state.payload` into the new table. This step alone is safe — nothing reads the new table yet.
+2. Spot-check the backfill actually worked, e.g. `select count(*) from ceremonies;` vs. counting the equivalent field across `app_state.payload` rows. Don't skip this — it's the only check between "safe" and "users see empty data."
+3. Only then push the client (`app.js`) that reads/writes the new table. If this ships before step 1–2 are confirmed, a user's next load reads an empty table and the app looks like their data vanished.
+4. If a field is fully migrated (old code no longer reads or writes it), consider stripping the stale key from `app_state.payload` once the new path has been running cleanly for a while — leaving it forever is tempting as a "rollback net" but silently invites a bad fallback later (e.g. "if the new table looks empty, read the old blob" — which would resurrect data a user legitimately deleted after migrating). `ceremonies` was cleaned up this way; see the `update app_state set payload = payload - 'ceremonies' ...` step in `supabase/setup.sql`.
+
 ## Support Request Workflow
 
 1. User submits request via in-app modal → `submit_support` action
