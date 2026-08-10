@@ -720,7 +720,10 @@
 (function(){
   const STAFF_KEY = "funeralos_usa_staff_v2";
   const FLEET_KEY = "funeralos_usa_fleet_v2";
-  const DOCS = ["Death Certificate","Burial Permit","Cremation Authorization","Contract","Invoice"];
+  // Includes office-added custom document types (Settings → Document Checklist),
+  // not just the fixed 5 — so health scoring/alerts/operations score actually
+  // reflect what this office tracks, not a hardcoded US default.
+  const DOCS = ()=> window.__usaLib ? window.__usaLib.allDocs() : ["Death Certificate","Burial Permit","Cremation Authorization","Contract","Invoice"];
   const el = (id)=>document.getElementById(id);
   const safe = (s)=>String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const money = (n)=>"$"+Number(n||0).toLocaleString("en-US");
@@ -734,8 +737,8 @@
 
   function isActive(c){ return c && c.status !== "Closed"; }
   function isUpcoming(c){ const d=c.serviceDate||c.viewingDate; const diff=daysBetween(d); return diff!==null && diff>=0 && diff<=7 && isActive(c); }
-  function missingDocs(c){ return DOCS.filter(d=>((c.documents||{})[d]||"Missing")!=="Complete"); }
-  function pendingDocs(c){ return DOCS.filter(d=>((c.documents||{})[d]||"Missing")==="Pending"); }
+  function missingDocs(c){ return DOCS().filter(d=>((c.documents||{})[d]||"Missing")!=="Complete"); }
+  function pendingDocs(c){ return DOCS().filter(d=>((c.documents||{})[d]||"Missing")==="Pending"); }
   function needsSoon(date,days=30){ const diff=daysBetween(date); return diff!==null && diff>=0 && diff<=days; }
   function oldOpenCase(c){ const created=c.createdAt||c.dateOfDeath; if(!created) return false; const diff=daysBetween(created); return diff!==null && diff<=-7 && isActive(c); }
 
@@ -774,8 +777,9 @@
 
   function operationsScore(){
     const cs=cases(); const active=cs.filter(isActive); const st=staff(); const fl=fleet();
-    const totalDocs=active.length*DOCS.length || 1;
-    const completeDocs=active.reduce((sum,c)=>sum+DOCS.filter(d=>((c.documents||{})[d]||"Missing")==="Complete").length, 0);
+    const docTypes=DOCS();
+    const totalDocs=active.length*docTypes.length || 1;
+    const completeDocs=active.reduce((sum,c)=>sum+docTypes.filter(d=>((c.documents||{})[d]||"Missing")==="Complete").length, 0);
     const documents=Math.round((completeDocs/totalDocs)*100);
     const scheduled=active.length?Math.round((active.filter(c=>c.serviceDate||c.viewingDate).length/active.length)*100):100;
     const paidBase=active.length||1;
