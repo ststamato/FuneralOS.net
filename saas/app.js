@@ -195,6 +195,13 @@ const DEFAULT_SETS = ["ΓΚΡΙ", "ΛΕΥΚΟ", "ΚΟΚΚΙΝΟ", "ΜΠΛΕ"];
 // ---------------- State ----------------
 let ceremonies = [];
 let deletedCeremonies = [];
+// Per-case cloud sync bookkeeping — see cloudLoadData()/syncCeremonies().
+// ceremonyMeta: id -> server updated_at (used for optimistic-lock compare-and-swap).
+// _lastSyncedCeremoniesSnapshot: id -> JSON string of the record (minus id) as last
+// successfully synced, used to diff on save so only changed/added/removed records
+// are pushed instead of rewriting the whole list.
+let ceremonyMeta = {};
+let _lastSyncedCeremoniesSnapshot = {};
 // Ceremony bridge — available immediately so USA modules can read live data
 window.__fosGetCeremonies = () => ceremonies;
 window.__fosPushCeremony = (c) => { ceremonies.unshift(c); saveData(); renderAll(); };
@@ -988,6 +995,17 @@ async function loadUserFeatures() {
   } catch {}
 }
 
+// Builds { id -> JSON string of record minus id }, used to diff on save.
+function snapshotCeremonies(arr) {
+  const snap = {};
+  for (const c of arr) {
+    if (!c || !c.id) continue;
+    const { id, ...rest } = c;
+    snap[id] = JSON.stringify(rest);
+  }
+  return snap;
+}
+
 // Returns true if a cloud row existed (even if empty), false if no row found at all.
 // "No row" means the account was never synced and local data should be pushed up.
 // "Row with empty ceremonies" means the admin intentionally has no cases — trust it.
@@ -1001,10 +1019,23 @@ async function cloudLoadData() {
     .select("payload")
     .eq("id", session.rowId);
   if (error) throw new Error("Failed to load app_state: " + error.message);
+
+  // Ceremonies live in their own table now (per-case rows, not a jsonb blob) —
+  // see Showstopper-2 fix. Load them separately from app_state.
+  const { data: cerRows, error: cerError } = await window.__sb
+    .from("ceremonies")
+    .select("id,data,updated_at")
+    .eq("office_id", session.rowId)
+    .order("id");
+  if (cerError) throw new Error("Failed to load ceremonies: " + cerError.message);
+  ceremonies = (cerRows || []).map((r) => ({ id: r.id, ...r.data }));
+  ceremonyMeta = {};
+  for (const r of (cerRows || [])) ceremonyMeta[r.id] = r.updated_at;
+  _lastSyncedCeremoniesSnapshot = snapshotCeremonies(ceremonies);
+
   if (!rows.length) return false; // No row — account never synced
   if (rows[0].payload) {
     const p = rows[0].payload;
-    if (Array.isArray(p.ceremonies)) ceremonies = p.ceremonies;
     if (Array.isArray(p.warehouse)) warehouse = p.warehouse;
     if (Array.isArray(p.setsWarehouse)) setsWarehouse = p.setsWarehouse;
     if (Array.isArray(p.secondHelpers)) secondHelpers = p.secondHelpers;
@@ -1056,8 +1087,11 @@ async function cloudSaveAll() {
     try { grCustomLists = JSON.parse(localStorage.getItem("staurakaki_custom_lists_v1") || "[]"); } catch { grCustomLists = []; }
   }
 
+  // Note: ceremonies are NOT part of this blob — they sync separately via
+  // syncCeremonies() below, per-record, to avoid the last-write-wins data loss
+  // that used to happen when team members saved concurrently (Showstopper 2).
   const payload = {
-    ceremonies, warehouse, setsWarehouse, secondHelpers, optionWarehouse,
+    warehouse, setsWarehouse, secondHelpers, optionWarehouse,
     changeLog, pushSubs, aiSeenNotes, aiSeenAlerts, aiChatHistory,
     customFields, customLists: grCustomLists, enCustomLists, deletedCeremonies,
     sync_ts: Date.now(),
@@ -1095,8 +1129,12 @@ async function cloudSaveAll() {
     }
   }
 
+  const ceremoniesSaved = window.__sb
+    ? await syncCeremonies(session).catch((e) => { console.error("[FuneralOS] Ceremony sync error:", e); return false; })
+    : true; // raw-fetch fallback path doesn't sync per-row ceremonies
+
   _cloudSaveInFlight = false;
-  if (saved) {
+  if (saved && ceremoniesSaved) {
     localStorage.removeItem(PENDING_SAVE_KEY);
     showSyncBadge("saved");
     setTimeout(() => showSyncBadge(""), 3000);
@@ -1104,8 +1142,110 @@ async function cloudSaveAll() {
   } else {
     localStorage.setItem(PENDING_SAVE_KEY, "1");
     showSyncBadge("error");
-    console.error("Cloud save failed after 3 retries");
+    console.error("Cloud save failed after 3 retries", { saved, ceremoniesSaved });
   }
+}
+
+// Diffs `ceremonies` against the last-synced snapshot and pushes only what
+// changed, per record, via the save_ceremony RPC (optimistic-locked on
+// updated_at). This is what actually fixes Showstopper 2: two team members
+// editing different cases no longer collide, and editing the same case turns
+// into a detected conflict (server wins that one record, user gets a toast)
+// instead of a silent whole-blob overwrite.
+async function syncCeremonies(session) {
+  const currentSnapshot = snapshotCeremonies(ceremonies);
+  const prevSnapshot = _lastSyncedCeremoniesSnapshot || {};
+
+  const toSave = [];
+  for (const id in currentSnapshot) {
+    if (currentSnapshot[id] !== prevSnapshot[id]) toSave.push(id);
+  }
+  const toDelete = [];
+  for (const id in prevSnapshot) {
+    if (!(id in currentSnapshot)) toDelete.push(id);
+  }
+  if (!toSave.length && !toDelete.length) return true;
+
+  const byId = {};
+  for (const c of ceremonies) byId[c.id] = c;
+
+  let anyFailure = false;
+  const conflictNames = [];
+
+  for (let i = 0; i < toSave.length; i += 20) {
+    const chunk = toSave.slice(i, i + 20);
+    await Promise.all(chunk.map(async (id) => {
+      const c = byId[id];
+      if (!c) return;
+      const { id: _drop, ...data } = c;
+      try {
+        const { data: rpcRows, error } = await window.__sb.rpc("save_ceremony", {
+          p_id: id,
+          p_office_id: session.rowId,
+          p_data: data,
+          p_expected_updated_at: ceremonyMeta[id] || null,
+        });
+        if (error) { anyFailure = true; console.error("[FuneralOS] save_ceremony error:", error.message); return; }
+        const result = Array.isArray(rpcRows) ? rpcRows[0] : rpcRows;
+        if (!result) { anyFailure = true; return; }
+        if (result.ok) {
+          ceremonyMeta[id] = result.server_updated_at;
+          prevSnapshot[id] = currentSnapshot[id];
+        } else {
+          // Someone else saved this case first — take their version for this
+          // one record only; everything else in the diff is unaffected.
+          const serverRecord = { id, ...(result.server_data || {}) };
+          const idx = ceremonies.findIndex((x) => x.id === id);
+          if (idx !== -1) ceremonies[idx] = serverRecord; else ceremonies.push(serverRecord);
+          ceremonyMeta[id] = result.server_updated_at;
+          prevSnapshot[id] = snapshotCeremonies([serverRecord])[id];
+          conflictNames.push(serverRecord.name || id);
+        }
+      } catch (e) {
+        anyFailure = true;
+        console.error("[FuneralOS] save_ceremony exception:", e);
+      }
+    }));
+  }
+
+  for (const id of toDelete) {
+    try {
+      const { error } = await window.__sb.from("ceremonies").delete().eq("id", id);
+      if (error) { anyFailure = true; console.error("[FuneralOS] ceremony delete error:", error.message); continue; }
+      delete ceremonyMeta[id];
+      delete prevSnapshot[id];
+    } catch (e) {
+      anyFailure = true;
+      console.error("[FuneralOS] ceremony delete exception:", e);
+    }
+  }
+
+  _lastSyncedCeremoniesSnapshot = prevSnapshot;
+
+  if (conflictNames.length) {
+    showConflictToast(conflictNames);
+    renderAll();
+  }
+
+  return !anyFailure;
+}
+
+function showConflictToast(names) {
+  let el = document.getElementById("cloudConflictToast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "cloudConflictToast";
+    el.style.cssText = "position:fixed;bottom:44px;right:14px;z-index:9101;max-width:280px;font-size:12px;font-weight:600;padding:10px 14px;border-radius:12px;background:rgba(224,112,112,.96);color:#fff;box-shadow:0 4px 16px rgba(0,0,0,.25);transition:opacity .5s;";
+    document.body.appendChild(el);
+  }
+  const list = names.slice(0, 3).join(", ") + (names.length > 3 ? ` +${names.length - 3}` : "");
+  el.textContent = t(
+    `Ενημερώθηκε από άλλον χρήστη: ${list}`,
+    `Updated by another user: ${list}`
+  );
+  el.style.opacity = "1";
+  clearTimeout(el._hideTimer);
+  el._hideTimer = setTimeout(() => { el.style.opacity = "0"; }, 6000);
 }
 
 function normalizeSetsWarehouseList(list) {

@@ -225,19 +225,21 @@ ${message}
 
     // ── LIST ALL USERS + stats ────────────────────────────────────────────────
     if (action === "list") {
-      const [usersRes, aiRes, profilesRes, referralsRes, appStateRes] = await Promise.all([
+      const [usersRes, aiRes, profilesRes, referralsRes, appStateRes, ceremoniesRes] = await Promise.all([
         fetch(`${supabaseUrl}/auth/v1/admin/users?per_page=1000`, { headers: h }),
         fetch(`${supabaseUrl}/rest/v1/ai_usage?select=user_id,calls_today,reset_date`, { headers: h }),
         fetch(`${supabaseUrl}/rest/v1/profiles?select=id,referral_code,referral_credits,referral_plan_until,admin_notes,features`, { headers: h }),
         fetch(`${supabaseUrl}/rest/v1/referrals?select=referrer_id&status=eq.rewarded`, { headers: h }),
-        fetch(`${supabaseUrl}/rest/v1/app_state?select=id,payload`, { headers: h }),
+        fetch(`${supabaseUrl}/rest/v1/app_state?select=id`, { headers: h }),
+        fetch(`${supabaseUrl}/rest/v1/ceremonies?select=office_id,data`, { headers: h }),
       ]);
 
-      const usersData    = await usersRes.json();
-      const aiRows       = aiRes.ok        ? await aiRes.json()        : [];
-      const profiles     = profilesRes.ok  ? await profilesRes.json()  : [];
-      const referrals    = referralsRes.ok  ? await referralsRes.json() : [];
-      const appStateRows = appStateRes.ok   ? await appStateRes.json()  : [];
+      const usersData     = await usersRes.json();
+      const aiRows        = aiRes.ok        ? await aiRes.json()        : [];
+      const profiles      = profilesRes.ok  ? await profilesRes.json()  : [];
+      const referrals     = referralsRes.ok  ? await referralsRes.json() : [];
+      const appStateRows  = appStateRes.ok   ? await appStateRes.json()  : [];
+      const ceremonyRows  = ceremoniesRes.ok ? await ceremoniesRes.json() : [];
 
       const aiMap: Record<string, { calls_today: number; reset_date: string }> = {};
       for (const r of aiRows) aiMap[r.user_id] = r;
@@ -268,15 +270,14 @@ ${message}
       const officeCountMap: Record<string, number> = {};
       let totalCeremonies = 0;
 
-      for (const row of appStateRows) {
-        const ceremonies: Array<{ date?: string }> = row.payload?.ceremonies || [];
-        officeCountMap[row.id as string] = ceremonies.length;
-        totalCeremonies += ceremonies.length;
-        for (const c of ceremonies) {
-          if (!c.date) continue;
-          const monthKey = c.date.slice(0, 7);
-          if (monthKey in monthCounts) monthCounts[monthKey]++;
-        }
+      for (const row of ceremonyRows) {
+        const officeId = row.office_id as string;
+        officeCountMap[officeId] = (officeCountMap[officeId] || 0) + 1;
+        totalCeremonies++;
+        const date: string | undefined = row.data?.date;
+        if (!date) continue;
+        const monthKey = date.slice(0, 7);
+        if (monthKey in monthCounts) monthCounts[monthKey]++;
       }
 
       const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;

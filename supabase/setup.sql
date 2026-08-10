@@ -324,3 +324,109 @@ alter table profiles add column if not exists admin_notes text default '';
 
 -- Per-user feature flags (toggled from admin panel, read by the app on login)
 alter table profiles add column if not exists features jsonb not null default '{}'::jsonb;
+
+-- ── Ceremonies (per-case rows — replaces app_state.payload.ceremonies) ────────
+-- Fixes concurrent team-save data loss: app_state was one jsonb blob per office,
+-- upserted whole on every save (last-write-wins at the blob level). Moving cases
+-- to individual rows means two team members editing different cases never
+-- collide; save_ceremony() below adds optimistic locking so even edits to the
+-- SAME case turn into a detected conflict instead of a silent overwrite.
+
+create table if not exists ceremonies (
+  id         text primary key,        -- reuse existing client-generated ids (nowTs().toString())
+  office_id  uuid not null references auth.users(id) on delete cascade,
+  data       jsonb not null,
+  updated_at timestamptz not null default now(),
+  updated_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists ceremonies_office_id_idx   on ceremonies (office_id);
+create index if not exists ceremonies_office_date_idx on ceremonies (office_id, (data->>'date'));
+
+alter table ceremonies enable row level security;
+
+drop policy if exists "ceremonies select" on ceremonies;
+drop policy if exists "ceremonies insert" on ceremonies;
+drop policy if exists "ceremonies update" on ceremonies;
+drop policy if exists "ceremonies delete" on ceremonies;
+
+-- Mirrors app_state's member policy. Delete is NOT owner-only here (unlike
+-- app_state) — moving a single case to trash is a normal, low-blast-radius
+-- editor action, not a wipe of the whole office's data.
+create policy "ceremonies select" on ceremonies
+  for select using (office_id = auth.uid() or public.is_office_member(ceremonies.office_id));
+create policy "ceremonies insert" on ceremonies
+  for insert with check (office_id = auth.uid() or public.is_office_member(ceremonies.office_id));
+create policy "ceremonies update" on ceremonies
+  for update using (office_id = auth.uid() or public.is_office_member(ceremonies.office_id));
+create policy "ceremonies delete" on ceremonies
+  for delete using (office_id = auth.uid() or public.is_office_member(ceremonies.office_id));
+
+-- Optimistic-lock save: no `security definer`, so the RLS policies above are
+-- what actually enforce access — this just adds compare-and-swap on updated_at.
+create or replace function public.save_ceremony(
+  p_id text, p_office_id uuid, p_data jsonb, p_expected_updated_at timestamptz
+) returns table(ok boolean, server_data jsonb, server_updated_at timestamptz)
+language plpgsql set search_path = public as $$
+declare
+  v_cur ceremonies;
+  v_new ceremonies;
+begin
+  select * into v_cur from ceremonies where id = p_id;
+
+  if not found then
+    insert into ceremonies (id, office_id, data, updated_at, updated_by)
+    values (p_id, p_office_id, p_data, now(), auth.uid())
+    returning * into v_new;
+    return query select true, null::jsonb, v_new.updated_at;
+    return;
+  end if;
+
+  if p_expected_updated_at is null or v_cur.updated_at <> p_expected_updated_at then
+    return query select false, v_cur.data, v_cur.updated_at;
+    return;
+  end if;
+
+  update ceremonies set data = p_data, updated_at = now(), updated_by = auth.uid()
+    where id = p_id
+    returning * into v_new;
+  return query select true, null::jsonb, v_new.updated_at;
+end;
+$$;
+
+grant execute on function public.save_ceremony(text, uuid, jsonb, timestamptz) to authenticated;
+
+-- Free-plan monthly quota — now reads the ceremonies table instead of the
+-- app_state jsonb blob (backfill below must run before this replaces the old
+-- blob-reading version, otherwise it would count zero for everyone).
+create or replace function public.get_monthly_ceremony_count()
+returns integer language plpgsql security definer set search_path = public as $$
+declare
+  v_row_id uuid;
+  v_count  integer;
+begin
+  select coalesce(nullif(raw_user_meta_data->>'office_id','')::uuid, id)
+  into v_row_id
+  from auth.users
+  where id = auth.uid();
+
+  select count(*) into v_count
+  from ceremonies
+  where office_id = v_row_id
+    and (data->>'date') >= to_char(date_trunc('month', now()), 'YYYY-MM-DD');
+
+  return coalesce(v_count, 0);
+end;
+$$;
+
+grant execute on function public.get_monthly_ceremony_count() to authenticated;
+
+-- One-time backfill from the old app_state.payload.ceremonies blob. Idempotent
+-- (on conflict do nothing) — safe to re-run. Does NOT touch/clear app_state,
+-- so it's a safe rollback net if anything about the new path needs reverting.
+insert into ceremonies (id, office_id, data, updated_at, updated_by)
+select c->>'id', a.id, (c - 'id'), now(), a.id
+from app_state a, jsonb_array_elements(coalesce(a.payload->'ceremonies', '[]'::jsonb)) as c
+where c->>'id' is not null
+on conflict (id) do nothing;
