@@ -19,9 +19,9 @@ FuneralOS is a Greek funeral-office management SaaS at **funeralos.net**. It has
 | `saas/admin.html` | Admin panel (owner-only). User list, support requests, stats. |
 | `saas/login.html` | Auth page (Greek). Supabase email/password. |
 | `saas/en/login.html` | Auth page (English). |
-| `saas/setup.sql` | Postgres schema (run once in Supabase SQL editor). |
+| `supabase/setup.sql` | Postgres schema (authoritative, idempotent — run in Supabase SQL editor). `saas/setup.sql` is a deprecated stub pointing here. |
 | `supabase/functions/admin-stats/index.ts` | Multi-action Edge Function for all admin + user actions. |
-| `supabase/functions/ai-assistant/index.ts` | AI funeral assistant (Claude API). |
+| `supabase/functions/ai-assistant/index.ts` | AI funeral assistant (xAI Grok API, model `grok-3-mini`). |
 | `supabase/functions/team-invite/index.ts` | Team member email invitations. |
 | `supabase/functions/lemon-webhook/index.ts` | Payment webhook → upgrades user plan. |
 
@@ -38,17 +38,23 @@ All calls are `POST` with JSON body `{ action: "...", ...params }`.
 | `update_notes` | Owner | Saves admin notes for a user profile |
 | `update_plan` | Owner | Changes a user's plan |
 | `update_ai_limit` | Owner | Changes AI call limit for a user |
+| `update_features` | Owner | Toggles per-user feature flags (`profiles.features`) |
 
 Owner = `ststamato@gmail.com` or `funeralos.net@gmail.com`.
 
 ## Database Tables
 
-- `profiles` — one row per user: `id`, `referral_code`, `referral_credits`, `referral_plan_until`, `admin_notes`
+- `app_state` — one row per office: `id` (office owner's user id), `payload` (jsonb — warehouse, sets, changelog, etc.; ceremonies no longer live here, see below), `updated_at`
+- `ceremonies` — one row per case (moved out of `app_state.payload` to fix concurrent-save data loss): `id`, `office_id`, `data` (jsonb), `updated_at`, `updated_by`. Writes go through the `save_ceremony()` RPC (optimistic-locked on `updated_at`, also enforces the free-plan monthly limit server-side)
+- `office_members` — team membership: `office_id`, `user_id`, `role` (`admin`/`editor`)
+- `office_invites` — pending team invites (service-role only, no client RLS)
+- `office_events` — per-office activity/change log
+- `profiles` — one row per user: `id`, `referral_code`, `referral_credits`, `referral_plan_until`, `admin_notes`, `features` (jsonb, per-user feature flags)
 - `support_requests` — `id`, `user_id`, `subject`, `message`, `status` (open/resolved), `created_at`, `resolved_at`
 - `ai_usage` — `user_id`, `calls_today`, `reset_date`
 - `referrals` — tracks who referred whom
 
-RLS is enabled on all tables. Users can only read/write their own rows.
+RLS is enabled on all tables. Users can read/write their own office's rows; team members (via `office_members`) share access to their office's `app_state`/`ceremonies` rows through the `is_office_member()` helper.
 
 ## Supabase Secrets
 
@@ -58,11 +64,13 @@ RLS is enabled on all tables. Users can only read/write their own rows.
 | `RESEND_API_KEY` | Resend API key for transactional email |
 | `FROM_EMAIL` | `noreply@funeralos.net` |
 | `GITHUB_TOKEN` | GitHub PAT with `issues: write` on this repo |
+| `XAI_API_KEY` | xAI API key, used by `ai-assistant` (Grok) |
+| `ANTHROPIC_API_KEY` | Used by `admin-stats` to analyze support tickets via Claude (`claude-haiku-4-5`) and comment on the GitHub issue |
 
 ## Deployment
 
 - **Frontend**: push to `main` → Cloudflare Pages auto-deploys from `saas/` directory.
-- **Edge Functions**: `supabase functions deploy admin-stats --project-ref rqklpnrgpiprttzsploe`
+- **Edge Functions**: `supabase functions deploy <function-name> --project-ref rqklpnrgpiprttzsploe` (e.g. `admin-stats`, `ai-assistant`, `team-invite`, `lemon-webhook`)
 - **Cache-busting**: `app.js` is loaded with `?v=N` query string in app.html files. Increment `N` when changing `app.js`.
 
 ## Support Request Workflow
