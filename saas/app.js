@@ -4861,12 +4861,30 @@ async function aiCloudAuthHeaders() {
   return { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` };
 }
 
+// Cloud AI sends case details (names, location, notes) to xAI, a US-based
+// sub-processor — an international transfer of personal data outside the EU.
+// Disabled for the Greek/EU edition until that's properly disclosed/covered
+// (DPA + SCCs confirmed). Local AI (briefing/notes/errors/warehouse) never
+// leaves the device, so it stays available in both editions.
+function aiCloudAvailable(out) {
+  if (window.__appLang === "en") return true;
+  if (out) {
+    out.innerHTML = aiHtmlSection("Cloud AI", aiHtmlCard(
+      "Προσωρινά μη διαθέσιμο",
+      `<div class="ai-meta">Το Cloud AI (ερωτήσεις &amp; αναφορές μέσω xAI) είναι προσωρινά μη διαθέσιμο στην ελληνική έκδοση. Ο τοπικός AI βοηθός (Briefing, Σημειώσεις, Ελλείψεις, Αποθήκη) δουλεύει κανονικά — δεν στέλνει τίποτα εκτός συσκευής.</div>`,
+      "warning"
+    ));
+  }
+  return false;
+}
+
 async function aiAskQuestion() {
   const input = $("aiQuestionInput");
   const out = $("aiAssistantOutput");
   const question = String(input?.value || "").trim();
   if (!question) return alert(t("Γράψε πρώτα την ερώτηση.","Please type a question first."));
   if (!out) return;
+  if (!aiCloudAvailable(out)) return;
 
   const { remaining, used, limit } = aiGetCloudUsage();
   if (remaining === 0) {
@@ -4927,6 +4945,7 @@ async function aiRunCloud() {
   aiLastMode = "cloud";
   const out = $("aiAssistantOutput");
   if (!out) return;
+  if (!aiCloudAvailable(out)) return;
 
   const { remaining, used, limit } = aiGetCloudUsage();
   if (remaining === 0) {

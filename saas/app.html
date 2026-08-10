@@ -600,7 +600,7 @@
       <div class="ai-modal-head">
         <div>
           <h2>AI Βοηθός</h2>
-          <p>Τοπικός έλεγχος + Cloud AI γέφυρα</p>
+          <p>Τοπικός έλεγχος τελετών</p>
         </div>
         <button type="button" id="aiCloseBtn" class="ai-x-btn">×</button>
       </div>
@@ -610,15 +610,8 @@
         <button type="button" id="aiErrorsBtn">Ελλείψεις</button>
         <button type="button" id="aiWarehouseBtn">Αποθήκη</button>
         <button type="button" id="aiFullBtn">Πλήρης Έλεγχος</button>
-        <button type="button" id="aiCloudBtn" class="ai-cloud-btn">Cloud AI</button>
-      </div>
-      <div id="aiCloudUsage"></div>
-      <div class="ai-question-box">
-        <label for="aiQuestionInput">Ρώτα τον AI Βοηθό</label>
-        <div class="ai-question-row">
-          <textarea id="aiQuestionInput" rows="2" placeholder="π.χ. Τι πρέπει να προσέξω αύριο;"></textarea>
-          <button type="button" id="aiAskBtn">Ρώτα</button>
-        </div>
+        <!-- Cloud AI (xAI) hidden for this edition — international data transfer
+             disclosure/DPA not yet finalized. Local AI above never leaves the device. -->
       </div>
       <div id="aiAssistantOutput" class="ai-output">
         <div class="ai-empty">Πάτησε έναν έλεγχο για να ξεκινήσει ο βοηθός.</div>
@@ -658,7 +651,7 @@
 
 <!-- APP -->
 <script>window.__appLang = "gr";</script>
-<script src="app.js?v=7"></script>
+<script src="app.js?v=8"></script>
 <script src="suppliers.js"></script>
 
 </body>
