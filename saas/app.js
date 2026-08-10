@@ -1218,7 +1218,7 @@ async function syncCeremonies(session) {
 
   for (const id of toDelete) {
     try {
-      const { error } = await window.__sb.from("ceremonies").delete().eq("id", id);
+      const { error } = await window.__sb.from("ceremonies").delete().eq("id", id).eq("office_id", session.rowId);
       if (error) { anyFailure = true; console.error("[FuneralOS] ceremony delete error:", error.message); continue; }
       delete ceremonyMeta[id];
       delete prevSnapshot[id];

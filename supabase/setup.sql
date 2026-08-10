@@ -333,13 +333,25 @@ alter table profiles add column if not exists features jsonb not null default '{
 -- SAME case turn into a detected conflict instead of a silent overwrite.
 
 create table if not exists ceremonies (
-  id         text primary key,        -- reuse existing client-generated ids (nowTs().toString())
+  id         text not null,          -- reuse existing client-generated ids (nowTs().toString())
   office_id  uuid not null references auth.users(id) on delete cascade,
   data       jsonb not null,
   updated_at timestamptz not null default now(),
   updated_by uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now()
 );
+
+-- Composite PK: id alone is NOT safe as the primary key. ids are client-
+-- generated timestamps (nowTs().toString()), so two different offices can
+-- generate the same id. With a global PK on id alone, if office B creates a
+-- ceremony with an id office A already used, RLS hides A's row from B's
+-- SELECT inside save_ceremony() ("not found" from B's perspective), B
+-- attempts an INSERT, hits a unique violation on a row it can't even see,
+-- and B's ceremony fails to save — permanently, since every retry hits the
+-- same collision. Scoping the PK to (office_id, id) makes the same id
+-- independently valid per office, closing this off entirely.
+alter table ceremonies drop constraint if exists ceremonies_pkey;
+alter table ceremonies add constraint ceremonies_pkey primary key (office_id, id);
 
 create index if not exists ceremonies_office_id_idx   on ceremonies (office_id);
 create index if not exists ceremonies_office_date_idx on ceremonies (office_id, (data->>'date'));
@@ -394,7 +406,7 @@ declare
   v_new ceremonies;
   v_month_count integer;
 begin
-  select * into v_cur from ceremonies where id = p_id;
+  select * into v_cur from ceremonies where id = p_id and office_id = p_office_id;
 
   if not found then
     -- FREE_CEREMONY_LIMIT mirror — keep in sync with saas/freemium.js and
@@ -423,7 +435,7 @@ begin
   end if;
 
   update ceremonies set data = p_data, updated_at = now(), updated_by = auth.uid()
-    where id = p_id
+    where id = p_id and office_id = p_office_id
     returning * into v_new;
   return query select true, null::jsonb, v_new.updated_at, null::text;
 end;
@@ -463,4 +475,4 @@ insert into ceremonies (id, office_id, data, updated_at, updated_by)
 select c->>'id', a.id, (c - 'id'), now(), a.id
 from app_state a, jsonb_array_elements(coalesce(a.payload->'ceremonies', '[]'::jsonb)) as c
 where c->>'id' is not null
-on conflict (id) do nothing;
+on conflict (office_id, id) do nothing;
