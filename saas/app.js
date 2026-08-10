@@ -1170,6 +1170,7 @@ async function syncCeremonies(session) {
   for (const c of ceremonies) byId[c.id] = c;
 
   let anyFailure = false;
+  let quotaBlocked = false;
   const conflictNames = [];
 
   for (let i = 0; i < toSave.length; i += 20) {
@@ -1191,6 +1192,13 @@ async function syncCeremonies(session) {
         if (result.ok) {
           ceremonyMeta[id] = result.server_updated_at;
           prevSnapshot[id] = currentSnapshot[id];
+        } else if (result.reason === "quota_exceeded") {
+          // Free-plan monthly limit hit server-side (defense in depth — the
+          // form-submit gate in freemium.js should normally catch this first).
+          // Leave the local record and snapshot untouched: it stays visible
+          // and unsynced rather than being silently dropped or overwritten
+          // with an empty stub, and keeps retrying on the next save.
+          quotaBlocked = true;
         } else {
           // Someone else saved this case first — take their version for this
           // one record only; everything else in the diff is unaffected.
@@ -1223,14 +1231,20 @@ async function syncCeremonies(session) {
   _lastSyncedCeremoniesSnapshot = prevSnapshot;
 
   if (conflictNames.length) {
-    showConflictToast(conflictNames);
+    const list = conflictNames.slice(0, 3).join(", ") + (conflictNames.length > 3 ? ` +${conflictNames.length - 3}` : "");
+    showSyncToast(t(`Ενημερώθηκε από άλλον χρήστη: ${list}`, `Updated by another user: ${list}`));
     renderAll();
+  } else if (quotaBlocked) {
+    showSyncToast(t(
+      "Έφτασες το όριο τελετών του δωρεάν πλάνου αυτόν τον μήνα — αυτή η νέα τελετή δεν αποθηκεύτηκε στο cloud. Αναβάθμισε σε Pro ή Business.",
+      "You've hit this month's free-plan ceremony limit — this new case wasn't saved to the cloud. Upgrade to Pro or Business."
+    ));
   }
 
   return !anyFailure;
 }
 
-function showConflictToast(names) {
+function showSyncToast(message) {
   let el = document.getElementById("cloudConflictToast");
   if (!el) {
     el = document.createElement("div");
@@ -1238,11 +1252,7 @@ function showConflictToast(names) {
     el.style.cssText = "position:fixed;bottom:44px;right:14px;z-index:9101;max-width:280px;font-size:12px;font-weight:600;padding:10px 14px;border-radius:12px;background:rgba(224,112,112,.96);color:#fff;box-shadow:0 4px 16px rgba(0,0,0,.25);transition:opacity .5s;";
     document.body.appendChild(el);
   }
-  const list = names.slice(0, 3).join(", ") + (names.length > 3 ? ` +${names.length - 3}` : "");
-  el.textContent = t(
-    `Ενημερώθηκε από άλλον χρήστη: ${list}`,
-    `Updated by another user: ${list}`
-  );
+  el.textContent = message;
   el.style.opacity = "1";
   clearTimeout(el._hideTimer);
   el._hideTimer = setTimeout(() => { el.style.opacity = "0"; }, 6000);

@@ -363,35 +363,69 @@ create policy "ceremonies update" on ceremonies
 create policy "ceremonies delete" on ceremonies
   for delete using (office_id = auth.uid() or public.is_office_member(ceremonies.office_id));
 
+-- Authoritative plan lookup — mirrors the client fallback in freemium.js
+-- (app_metadata is server-only, set by lemon-webhook on payment; clients
+-- cannot self-upgrade it. user_metadata fallback is for accounts that were
+-- upgraded before that fix).
+create or replace function public.get_office_plan(p_office_id uuid)
+returns text language sql security definer stable set search_path = public as $$
+  select coalesce(raw_app_meta_data->>'plan', raw_user_meta_data->>'plan', 'free')
+  from auth.users
+  where id = p_office_id;
+$$;
+
+grant execute on function public.get_office_plan(uuid) to authenticated;
+
 -- Optimistic-lock save: no `security definer`, so the RLS policies above are
 -- what actually enforce access — this just adds compare-and-swap on updated_at.
+-- Also the ONLY server-side enforcement of the free-plan monthly ceremony
+-- limit: freemium.js blocks the form submit client-side, but that's trivially
+-- bypassable by calling this RPC (or the old app_state upsert) directly with
+-- a valid JWT, since RLS alone has no concept of plan/quota. Only gates new
+-- inserts — never blocks saving edits to ceremonies that already exist, so a
+-- downgrade never deletes/locks existing data.
+drop function if exists public.save_ceremony(text, uuid, jsonb, timestamptz);
 create or replace function public.save_ceremony(
   p_id text, p_office_id uuid, p_data jsonb, p_expected_updated_at timestamptz
-) returns table(ok boolean, server_data jsonb, server_updated_at timestamptz)
+) returns table(ok boolean, server_data jsonb, server_updated_at timestamptz, reason text)
 language plpgsql set search_path = public as $$
 declare
   v_cur ceremonies;
   v_new ceremonies;
+  v_month_count integer;
 begin
   select * into v_cur from ceremonies where id = p_id;
 
   if not found then
+    -- FREE_CEREMONY_LIMIT mirror — keep in sync with saas/freemium.js and
+    -- saas/en/freemium.js if this ever changes.
+    if coalesce(public.get_office_plan(p_office_id), 'free') = 'free' then
+      select count(*) into v_month_count
+      from ceremonies
+      where office_id = p_office_id
+        and (data->>'date') >= to_char(date_trunc('month', now()), 'YYYY-MM-DD');
+      if v_month_count >= 5 then
+        return query select false, null::jsonb, null::timestamptz, 'quota_exceeded'::text;
+        return;
+      end if;
+    end if;
+
     insert into ceremonies (id, office_id, data, updated_at, updated_by)
     values (p_id, p_office_id, p_data, now(), auth.uid())
     returning * into v_new;
-    return query select true, null::jsonb, v_new.updated_at;
+    return query select true, null::jsonb, v_new.updated_at, null::text;
     return;
   end if;
 
   if p_expected_updated_at is null or v_cur.updated_at <> p_expected_updated_at then
-    return query select false, v_cur.data, v_cur.updated_at;
+    return query select false, v_cur.data, v_cur.updated_at, 'conflict'::text;
     return;
   end if;
 
   update ceremonies set data = p_data, updated_at = now(), updated_by = auth.uid()
     where id = p_id
     returning * into v_new;
-  return query select true, null::jsonb, v_new.updated_at;
+  return query select true, null::jsonb, v_new.updated_at, null::text;
 end;
 $$;
 
