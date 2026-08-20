@@ -1166,9 +1166,16 @@ async function cloudSaveAll() {
             // state — this blob covers several unrelated areas at once, so
             // that could wipe more than one in-progress edit. Leave local
             // state as-is (visible, still editable, just not yet synced) and
-            // stop retrying with this same stale payload — it'll fail
-            // identically until the user reloads to pick up the latest version.
+            // stop retrying *this* attempt loop with the now-stale payload.
+            // Refresh the expected version to the server's latest so the
+            // *next* save (automatic retry, or the user's next edit) can
+            // actually succeed instead of failing identically forever —
+            // previously this stayed stuck at the old value, permanently
+            // blocking every future save until a manual reload (which itself
+            // discarded whatever local edits triggered this in the first
+            // place, via cloudLoadData()'s unconditional overwrite).
             appStateConflict = true;
+            appStateUpdatedAt = result.server_updated_at;
           }
         }
       } else {
@@ -1191,8 +1198,8 @@ async function cloudSaveAll() {
 
   if (appStateConflict) {
     showSyncToast(t(
-      "Κάποιος άλλος αποθήκευσε πιο πρόσφατα (απόθεμα/ρυθμίσεις) — οι αλλαγές σου δεν συγχρονίστηκαν ακόμα. Ανανέωσε τη σελίδα για την τελευταία έκδοση.",
-      "Someone else saved more recently (inventory/settings) — your changes haven't synced yet. Reload the page to get the latest version."
+      "Κάποιος άλλος αποθήκευσε πιο πρόσφατα (απόθεμα/ρυθμίσεις) — οι αλλαγές σου θα ξανασυγχρονιστούν αυτόματα.",
+      "Someone else saved more recently (inventory/settings) — your changes will resync automatically."
     ));
   }
 
