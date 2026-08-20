@@ -1204,6 +1204,7 @@ async function syncCeremonies(session) {
   let anyFailure = false;
   let quotaBlocked = false;
   const conflictNames = [];
+  const conflictRecoveries = []; // { id, local } — the user's own edits, stashed before being overwritten
 
   for (let i = 0; i < toSave.length; i += 20) {
     const chunk = toSave.slice(i, i + 20);
@@ -1233,9 +1234,11 @@ async function syncCeremonies(session) {
           quotaBlocked = true;
         } else {
           // Someone else saved this case first — take their version for this
-          // one record only; everything else in the diff is unaffected.
+          // one record only; everything else in the diff is unaffected. Stash
+          // the user's own edits first so they aren't just silently lost.
           const serverRecord = { id, ...(result.server_data || {}) };
           const idx = ceremonies.findIndex((x) => x.id === id);
+          conflictRecoveries.push({ id, local: c });
           if (idx !== -1) ceremonies[idx] = serverRecord; else ceremonies.push(serverRecord);
           ceremonyMeta[id] = result.server_updated_at;
           prevSnapshot[id] = snapshotCeremonies([serverRecord])[id];
@@ -1264,7 +1267,23 @@ async function syncCeremonies(session) {
 
   if (conflictNames.length) {
     const list = conflictNames.slice(0, 3).join(", ") + (conflictNames.length > 3 ? ` +${conflictNames.length - 3}` : "");
-    showSyncToast(t(`Ενημερώθηκε από άλλον χρήστη: ${list}`, `Updated by another user: ${list}`));
+    showSyncToast(
+      t(`Ενημερώθηκε από άλλον χρήστη: ${list}`, `Updated by another user: ${list}`),
+      {
+        label: t("Οι αλλαγές μου", "My changes"),
+        onClick: () => {
+          conflictRecoveries.forEach(({ id, local }) => {
+            const idx = ceremonies.findIndex((x) => x.id === id);
+            if (idx !== -1) ceremonies[idx] = local; else ceremonies.push(local);
+          });
+          renderAll();
+          showSyncToast(t(
+            "Επαναφέρθηκαν οι δικές σου αλλαγές — πάτα Αποθήκευση ξανά σε κάθε τελετή για να τις κρατήσεις.",
+            "Your changes were restored — save each ceremony again to keep them."
+          ));
+        },
+      }
+    );
     renderAll();
   } else if (quotaBlocked) {
     showSyncToast(t(
@@ -1276,7 +1295,7 @@ async function syncCeremonies(session) {
   return !anyFailure;
 }
 
-function showSyncToast(message) {
+function showSyncToast(message, action) {
   let el = document.getElementById("cloudConflictToast");
   if (!el) {
     el = document.createElement("div");
@@ -1284,10 +1303,19 @@ function showSyncToast(message) {
     el.style.cssText = "position:fixed;bottom:44px;right:14px;z-index:9101;max-width:280px;font-size:12px;font-weight:600;padding:10px 14px;border-radius:12px;background:rgba(224,112,112,.96);color:#fff;box-shadow:0 4px 16px rgba(0,0,0,.25);transition:opacity .5s;";
     document.body.appendChild(el);
   }
-  el.textContent = message;
+  el.innerHTML = "";
+  el.appendChild(document.createTextNode(message));
+  if (action && action.label && typeof action.onClick === "function") {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = action.label;
+    btn.style.cssText = "display:block;margin-top:8px;padding:5px 10px;border:none;border-radius:8px;background:rgba(255,255,255,.25);color:#fff;font-weight:800;font-size:12px;cursor:pointer;";
+    btn.onclick = () => { action.onClick(); el.style.opacity = "0"; };
+    el.appendChild(btn);
+  }
   el.style.opacity = "1";
   clearTimeout(el._hideTimer);
-  el._hideTimer = setTimeout(() => { el.style.opacity = "0"; }, 6000);
+  el._hideTimer = setTimeout(() => { el.style.opacity = "0"; }, action ? 15000 : 6000);
 }
 
 function normalizeSetsWarehouseList(list) {
