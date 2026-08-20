@@ -29,6 +29,11 @@ create table if not exists office_events (
   created_at timestamptz default now()
 );
 
+-- office_id was missing entirely — the table only recorded who performed an
+-- action, not which office it belonged to (backfilled further below, once
+-- office_members exists).
+alter table office_events add column if not exists office_id uuid references auth.users(id) on delete cascade;
+
 -- AI Usage (daily rate limiting)
 create table if not exists ai_usage (
   user_id     uuid primary key references auth.users(id) on delete cascade,
@@ -69,6 +74,18 @@ create table if not exists office_members (
   unique (office_id, user_id)
 );
 
+-- office_events.office_id backfill (deferred to here — needs office_members
+-- to exist). Maps each existing row to its actor's real office via
+-- office_members, falling back to the actor's own id for solo owners
+-- (office_id == owner's user id in this app's model). Idempotent — only
+-- touches rows still missing office_id.
+update office_events oe
+set office_id = coalesce(
+  (select om.office_id from office_members om where om.user_id = oe.user_id limit 1),
+  oe.user_id
+)
+where office_id is null;
+
 -- Office Invites (service-role access only — no client RLS policies)
 create table if not exists office_invites (
   id          uuid primary key default gen_random_uuid(),
@@ -81,6 +98,46 @@ create table if not exists office_invites (
   expires_at  timestamptz default (now() + interval '7 days'),
   accepted_at timestamptz,
   unique (office_id, email)
+);
+
+-- Processed Lemon Squeezy webhook events (replay protection — service-role
+-- access only). id = SHA-256 hash of the raw webhook body; a hash is only
+-- recorded once its event has been fully, successfully processed, so a
+-- retry of a genuinely failed delivery is never blocked.
+create table if not exists processed_webhook_events (
+  id          text primary key,
+  received_at timestamptz default now()
+);
+
+-- Lemon Squeezy webhook events that couldn't be matched to a Supabase user
+-- (checkout email typo, guest checkout, signup/webhook race). Previously
+-- just console.warn'd and dropped — the customer was charged and got no
+-- plan, with nothing anywhere to find and fix it later. Service-role only;
+-- surfaced read-only to the owner via admin-stats' list_webhook_failures.
+create table if not exists webhook_unmatched_events (
+  id              uuid primary key default gen_random_uuid(),
+  event_name      text,
+  email           text,
+  custom_user_id  text,
+  product_name    text,
+  payload         jsonb,
+  created_at      timestamptz default now(),
+  resolved_at     timestamptz
+);
+
+-- Case document attachments (USA edition — see saas/usa.js). Stores a
+-- reference to a file in the private 'case-documents' Storage bucket; one
+-- row per (office, case, document type), replaced on re-upload.
+create table if not exists case_documents (
+  id           uuid primary key default gen_random_uuid(),
+  office_id    uuid references auth.users(id) on delete cascade,
+  case_id      text not null,
+  doc_type     text not null,
+  storage_path text not null,
+  filename     text not null,
+  uploaded_at  timestamptz default now(),
+  uploaded_by  uuid references auth.users(id) on delete set null,
+  unique (office_id, case_id, doc_type)
 );
 
 -- ── RLS helper (SECURITY DEFINER breaks policy self-recursion) ───────────────
@@ -97,6 +154,18 @@ returns boolean language sql security definer stable set search_path = public as
   );
 $$;
 
+-- Same pattern, restricted to admin-role members — used where an action
+-- should be admin/owner-only rather than open to any office member.
+create or replace function public.is_office_admin(p_office_id uuid)
+returns boolean language sql security definer stable set search_path = public as $$
+  select exists (
+    select 1 from public.office_members
+    where office_id = p_office_id
+      and user_id   = auth.uid()
+      and role      = 'admin'
+  );
+$$;
+
 -- ── Row Level Security ────────────────────────────────────────────────────────
 
 alter table app_state      enable row level security;
@@ -106,6 +175,9 @@ alter table profiles       enable row level security;
 alter table referrals      enable row level security;
 alter table office_members enable row level security;
 alter table office_invites enable row level security;
+alter table processed_webhook_events enable row level security;
+alter table webhook_unmatched_events enable row level security;
+alter table case_documents enable row level security;
 
 -- app_state: role-differentiated access
 drop policy if exists "user own state"                     on app_state;
@@ -143,23 +215,34 @@ drop policy if exists "user own events"         on office_events;
 drop policy if exists "office_events select"    on office_events;
 drop policy if exists "office_events insert"    on office_events;
 
--- All office members see the whole office's event log
+-- All office members see the whole office's event log. The third clause of
+-- the old policy — is_office_member(auth.uid()) — didn't reference the row
+-- at all, so once true for a caller it made the whole OR evaluate to true
+-- for every row: any user who was a member of any office could read every
+-- office's event log. office_id (added above) lets this be scoped correctly.
 create policy "office_events select" on office_events
   for select using (
     user_id = auth.uid()
-    or public.is_office_member(office_events.user_id)
-    or public.is_office_member(auth.uid())
+    or office_id = auth.uid()
+    or public.is_office_member(office_id)
   );
 
--- Anyone can insert their own events
+-- Events must be attributed to the real caller, for their own office
+-- (owner) or an office they're an actual member of.
 create policy "office_events insert" on office_events
-  for insert with check (auth.uid() = user_id);
+  for insert with check (
+    auth.uid() = user_id
+    and (office_id = auth.uid() or public.is_office_member(office_id))
+  );
 
--- ai_usage
+-- ai_usage: read-only for the owning user. All writes go through
+-- claim_ai_usage_slot() (security definer, service-role only) — a client
+-- write policy here previously let any user reset their own calls_today via
+-- a direct PATCH, fully bypassing the daily AI rate limit.
 drop policy if exists "user own ai_usage"      on ai_usage;
 drop policy if exists "Users view own ai usage" on ai_usage;
 create policy "user own ai_usage" on ai_usage
-  for all using (auth.uid() = user_id);
+  for select using (auth.uid() = user_id);
 
 -- profiles: read own, insert own (fallback when trigger misses), update own
 drop policy if exists "user own profile"             on profiles;
@@ -168,7 +251,12 @@ drop policy if exists "Users can insert own profile" on profiles;
 drop policy if exists "Users can update own profile" on profiles;
 create policy "Users can view own profile"   on profiles for select using (auth.uid() = id);
 create policy "Users can insert own profile" on profiles for insert with check (auth.uid() = id);
-create policy "Users can update own profile" on profiles for update using (auth.uid() = id);
+-- No client update policy: referral_credits/referral_plan_until/referred_by
+-- are written only by the reward_referrer_on_upgrade() trigger, and
+-- admin_notes/features only by owner-only admin-stats actions (service
+-- role, bypasses RLS). No legitimate client flow updates this table, and a
+-- self-update policy previously let any user set their own referral fields
+-- directly (referral-credit fraud).
 
 -- referrals: read own (as referrer or referred); insert via trigger only
 drop policy if exists "user own referrals"             on referrals;
@@ -189,6 +277,27 @@ create policy "office admin can remove members" on office_members
   for delete using (office_id = auth.uid());
 
 -- office_invites: no client policies — RLS blocks clients, service role bypasses RLS
+
+-- processed_webhook_events: no client policies — RLS blocks clients, service role bypasses RLS
+
+-- webhook_unmatched_events: no client policies — RLS blocks clients, service role bypasses RLS
+
+-- case_documents: owner or office member (same model as ceremonies).
+-- Needs insert + update policies (not just insert) because the client
+-- upserts on (office_id, case_id, doc_type) when a document is replaced.
+drop policy if exists "case_documents select" on case_documents;
+drop policy if exists "case_documents insert" on case_documents;
+drop policy if exists "case_documents update" on case_documents;
+drop policy if exists "case_documents delete" on case_documents;
+create policy "case_documents select" on case_documents
+  for select using (office_id = auth.uid() or public.is_office_member(office_id));
+create policy "case_documents insert" on case_documents
+  for insert with check (office_id = auth.uid() or public.is_office_member(office_id));
+create policy "case_documents update" on case_documents
+  for update using (office_id = auth.uid() or public.is_office_member(office_id))
+  with check (office_id = auth.uid() or public.is_office_member(office_id));
+create policy "case_documents delete" on case_documents
+  for delete using (office_id = auth.uid() or public.is_office_member(office_id));
 
 -- ── Triggers ─────────────────────────────────────────────────────────────────
 
@@ -313,6 +422,8 @@ create table if not exists support_requests (
 
 alter table support_requests enable row level security;
 
+drop policy if exists "user insert own support" on support_requests;
+drop policy if exists "user read own support"   on support_requests;
 create policy "user insert own support" on support_requests
   for insert with check (auth.uid() = user_id);
 
@@ -363,9 +474,11 @@ drop policy if exists "ceremonies insert" on ceremonies;
 drop policy if exists "ceremonies update" on ceremonies;
 drop policy if exists "ceremonies delete" on ceremonies;
 
--- Mirrors app_state's member policy. Delete is NOT owner-only here (unlike
--- app_state) — moving a single case to trash is a normal, low-blast-radius
--- editor action, not a wipe of the whole office's data.
+-- Select/insert/update: any office member (admin or editor) — editors need
+-- to be able to create and edit cases. Delete is admin/owner-only: an editor
+-- role should not be able to remove a case another teammate is working on;
+-- "role-based access" is meant to actually mean something at the data layer,
+-- not just hide a button in the UI.
 create policy "ceremonies select" on ceremonies
   for select using (office_id = auth.uid() or public.is_office_member(ceremonies.office_id));
 create policy "ceremonies insert" on ceremonies
@@ -373,7 +486,7 @@ create policy "ceremonies insert" on ceremonies
 create policy "ceremonies update" on ceremonies
   for update using (office_id = auth.uid() or public.is_office_member(ceremonies.office_id));
 create policy "ceremonies delete" on ceremonies
-  for delete using (office_id = auth.uid() or public.is_office_member(ceremonies.office_id));
+  for delete using (office_id = auth.uid() or public.is_office_admin(ceremonies.office_id));
 
 -- Authoritative plan lookup — mirrors the client fallback in freemium.js
 -- (app_metadata is server-only, set by lemon-webhook on payment; clients
@@ -383,10 +496,74 @@ create or replace function public.get_office_plan(p_office_id uuid)
 returns text language sql security definer stable set search_path = public as $$
   select coalesce(raw_app_meta_data->>'plan', raw_user_meta_data->>'plan', 'free')
   from auth.users
-  where id = p_office_id;
+  where id = p_office_id
+    and (p_office_id = auth.uid() or public.is_office_member(p_office_id));
 $$;
 
 grant execute on function public.get_office_plan(uuid) to authenticated;
+
+-- Atomically check-and-increment a user's daily AI call counter. Row-locked
+-- (`for update`) so two concurrent ai-assistant requests can't both read the
+-- same pre-increment count and both slip past the daily limit. Called by the
+-- ai-assistant edge function via the service role — granted to service_role
+-- only, not authenticated, so a client can never claim a slot for another
+-- user's id.
+create or replace function public.claim_ai_usage_slot(p_user_id uuid, p_limit integer, p_today date)
+returns table(allowed boolean, used integer)
+language plpgsql security definer set search_path = public as $$
+declare
+  v_calls integer;
+  v_reset date;
+begin
+  insert into ai_usage (user_id, calls_today, reset_date)
+  values (p_user_id, 0, p_today)
+  on conflict (user_id) do nothing;
+
+  select calls_today, reset_date into v_calls, v_reset
+  from ai_usage where user_id = p_user_id
+  for update;
+
+  if v_reset is distinct from p_today then v_calls := 0; end if;
+
+  if v_calls >= p_limit then
+    return query select false, v_calls;
+    return;
+  end if;
+
+  update ai_usage set calls_today = v_calls + 1, reset_date = p_today where user_id = p_user_id;
+  return query select true, v_calls + 1;
+end;
+$$;
+
+grant execute on function public.claim_ai_usage_slot(uuid, integer, date) to service_role;
+
+-- Removes expired push subscriptions from app_state.payload.pushSubs without
+-- the blind full-payload read-then-write push_sender used to do (read
+-- payload, send pushes — which can take seconds — then PATCH the whole
+-- payload back), which could silently clobber a concurrent
+-- warehouse/settings/trash save from save_app_state(). jsonb_set(payload,
+-- '{pushSubs}', ...) inside the UPDATE reads the row's current value at
+-- execution time, so it merges onto whatever the latest committed payload
+-- is rather than overwriting it with a stale copy.
+create or replace function public.remove_expired_push_subs(p_office_id uuid, p_expired_endpoints text[])
+returns void language plpgsql set search_path = public as $$
+declare
+  v_subs jsonb;
+  v_filtered jsonb;
+begin
+  select payload->'pushSubs' into v_subs from app_state where id = p_office_id;
+  if v_subs is null then return; end if;
+
+  select coalesce(jsonb_agg(elem), '[]'::jsonb) into v_filtered
+  from jsonb_array_elements(v_subs) elem
+  where not (elem->>'endpoint' = any(p_expired_endpoints));
+
+  update app_state set payload = jsonb_set(payload, '{pushSubs}', v_filtered)
+  where id = p_office_id;
+end;
+$$;
+
+grant execute on function public.remove_expired_push_subs(uuid, text[]) to service_role;
 
 -- Optimistic-lock save: no `security definer`, so the RLS policies above are
 -- what actually enforce access — this just adds compare-and-swap on updated_at.
@@ -412,10 +589,14 @@ begin
     -- FREE_CEREMONY_LIMIT mirror — keep in sync with saas/freemium.js and
     -- saas/en/freemium.js if this ever changes.
     if coalesce(public.get_office_plan(p_office_id), 'free') = 'free' then
+      -- Serializes concurrent inserts for the same office within this
+      -- transaction so two simultaneous new-ceremony saves can't both
+      -- read the same pre-insert count and both slip past the cap.
+      perform pg_advisory_xact_lock(hashtext(p_office_id::text));
       select count(*) into v_month_count
       from ceremonies
       where office_id = p_office_id
-        and (data->>'date') >= to_char(date_trunc('month', now()), 'YYYY-MM-DD');
+        and created_at >= date_trunc('month', now());
       if v_month_count >= 5 then
         return query select false, null::jsonb, null::timestamptz, 'quota_exceeded'::text;
         return;
@@ -442,6 +623,37 @@ end;
 $$;
 
 grant execute on function public.save_ceremony(text, uuid, jsonb, timestamptz) to authenticated;
+
+-- Optimistic-lock delete, same CAS discipline as save_ceremony above. Unlike
+-- a blind DELETE, this refuses to remove a row that was edited (by someone
+-- else, or via a stale local cache) since the client last saw it — the
+-- caller finds out via `reason = 'conflict'` instead of the row silently
+-- disappearing out from under a concurrent edit.
+create or replace function public.delete_ceremony(
+  p_id text, p_office_id uuid, p_expected_updated_at timestamptz
+) returns table(ok boolean, server_data jsonb, server_updated_at timestamptz, reason text)
+language plpgsql set search_path = public as $$
+declare
+  v_cur ceremonies;
+begin
+  select * into v_cur from ceremonies where id = p_id and office_id = p_office_id;
+
+  if not found then
+    return query select true, null::jsonb, null::timestamptz, null::text;
+    return;
+  end if;
+
+  if p_expected_updated_at is null or v_cur.updated_at <> p_expected_updated_at then
+    return query select false, v_cur.data, v_cur.updated_at, 'conflict'::text;
+    return;
+  end if;
+
+  delete from ceremonies where id = p_id and office_id = p_office_id;
+  return query select true, null::jsonb, null::timestamptz, null::text;
+end;
+$$;
+
+grant execute on function public.delete_ceremony(text, uuid, timestamptz) to authenticated;
 
 -- Optimistic-lock save for the rest of app_state (warehouse, settings,
 -- changeLog, deletedCeremonies/trash, etc. — everything except ceremonies,
@@ -499,7 +711,7 @@ begin
   select count(*) into v_count
   from ceremonies
   where office_id = v_row_id
-    and (data->>'date') >= to_char(date_trunc('month', now()), 'YYYY-MM-DD');
+    and created_at >= date_trunc('month', now());
 
   return coalesce(v_count, 0);
 end;
@@ -527,3 +739,42 @@ on conflict (office_id, id) do nothing;
 -- silently resurrect deleted ceremonies for any office that's legitimately
 -- empty post-migration. Idempotent — a no-op once the key is gone.
 update app_state set payload = payload - 'ceremonies' where payload ? 'ceremonies';
+
+-- ── Storage: case document attachments (USA edition) ──────────────────────────
+-- Private bucket; path convention is {office_id}/{case_id}/{filename}, so
+-- policies can check the office_id folder segment directly.
+
+insert into storage.buckets (id, name, public)
+values ('case-documents', 'case-documents', false)
+on conflict (id) do nothing;
+
+drop policy if exists "case-documents storage insert" on storage.objects;
+drop policy if exists "case-documents storage select" on storage.objects;
+drop policy if exists "case-documents storage delete" on storage.objects;
+
+create policy "case-documents storage insert" on storage.objects
+  for insert with check (
+    bucket_id = 'case-documents'
+    and (
+      (storage.foldername(name))[1]::uuid = auth.uid()
+      or public.is_office_member((storage.foldername(name))[1]::uuid)
+    )
+  );
+
+create policy "case-documents storage select" on storage.objects
+  for select using (
+    bucket_id = 'case-documents'
+    and (
+      (storage.foldername(name))[1]::uuid = auth.uid()
+      or public.is_office_member((storage.foldername(name))[1]::uuid)
+    )
+  );
+
+create policy "case-documents storage delete" on storage.objects
+  for delete using (
+    bucket_id = 'case-documents'
+    and (
+      (storage.foldername(name))[1]::uuid = auth.uid()
+      or public.is_office_member((storage.foldername(name))[1]::uuid)
+    )
+  );

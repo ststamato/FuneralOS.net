@@ -5,7 +5,7 @@
 import webpush from "npm:web-push@3.6.7";
 
 const CORS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://funeralos.net",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -48,8 +48,11 @@ Deno.serve(async (req: Request) => {
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
 
+  // The caller (sendEdgePushBatch in app.js) always sends a real,
+  // locale-appropriate title/body — this function has no locale info of its
+  // own, so the fallback is deliberately brand-neutral rather than Greek.
   const title   = String(body.title  || "FuneralOS");
-  const message = String(body.body   || "Νέα αλλαγή");
+  const message = String(body.body   || "Update");
 
   // Load push subscriptions from this user's app_state
   const h = {
@@ -97,15 +100,17 @@ Deno.serve(async (req: Request) => {
     })
   );
 
-  // Remove expired subscriptions from app_state
-  if (expired.length > 0 && rows[0]?.payload) {
-    const updatedSubs = pushSubs.filter((s: any) => !expired.includes(s.endpoint));
-    const updatedPayload = { ...rows[0].payload, pushSubs: updatedSubs };
-    await fetch(`${supabaseUrl}/rest/v1/app_state?id=eq.${userId}`, {
-      method: "PATCH",
-      headers: { ...h, Prefer: "return=minimal" },
-      body: JSON.stringify({ payload: updatedPayload }),
-    }).catch(() => {});
+  // Remove expired subscriptions — via a targeted RPC (jsonb_set on just
+  // pushSubs, evaluated against the row's current value at UPDATE time), not
+  // a blind read-then-PATCH of the whole payload, which could otherwise
+  // clobber a concurrent warehouse/settings/trash save that happened while
+  // these pushes were being sent.
+  if (expired.length > 0) {
+    await fetch(`${supabaseUrl}/rest/v1/rpc/remove_expired_push_subs`, {
+      method: "POST",
+      headers: h,
+      body: JSON.stringify({ p_office_id: userId, p_expired_endpoints: expired }),
+    }).catch((e) => console.warn("Failed to remove expired push subs", e));
   }
 
   return json({ ok: true, sent, failed, expired: expired.length });

@@ -8,7 +8,7 @@ const MAX_TOKENS = 1200;
 const AI_DAILY_LIMIT = 10;
 
 const CORS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://funeralos.net",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -40,6 +40,16 @@ Deno.serve(async (req: Request) => {
   const userId = authUser?.id as string | null;
   if (!userId) return json({ error: "Could not identify user" }, 401);
 
+  // AI Assistant is a Business-tier feature. The UI already hides/blocks it
+  // for Free/Pro, but that's client-side only — anyone with a valid JWT
+  // could otherwise call this endpoint directly regardless of plan.
+  const OWNER_EMAILS = ["ststamato@gmail.com", "funeralos.net@gmail.com"];
+  const isOwner = OWNER_EMAILS.includes(authUser.email);
+  const plan = isOwner ? "business" : (authUser.app_metadata?.plan || authUser.user_metadata?.plan || "free");
+  if (plan !== "business") {
+    return json({ error: "AI Assistant requires a Business plan" }, 403);
+  }
+
   let payload: Record<string, unknown>;
   try {
     payload = await req.json();
@@ -48,27 +58,36 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── Server-side rate limit check ────────────────────────────────────────────
+  // Atomic claim (row-locked in claim_ai_usage_slot) — done up front, before
+  // the Grok call, so two concurrent requests can't both read the same
+  // pre-increment count and both slip past the daily limit.
   const today = new Date().toISOString().split("T")[0];
   const sbHeaders = {
     apikey: serviceKey,
     Authorization: `Bearer ${serviceKey}`,
     "Content-Type": "application/json",
-    Prefer: "resolution=merge-duplicates,return=minimal",
   };
 
-  const usageRes = await fetch(
-    `${supabaseUrl}/rest/v1/ai_usage?user_id=eq.${encodeURIComponent(userId)}&select=calls_today,reset_date`,
-    { headers: sbHeaders }
-  );
-  const usageRows: any[] = usageRes.ok ? await usageRes.json() : [];
-  const usage = usageRows[0];
-  const callsToday = usage?.reset_date === today ? Number(usage?.calls_today ?? 0) : 0;
+  const claimRes = await fetch(`${supabaseUrl}/rest/v1/rpc/claim_ai_usage_slot`, {
+    method: "POST",
+    headers: sbHeaders,
+    body: JSON.stringify({ p_user_id: userId, p_limit: AI_DAILY_LIMIT, p_today: today }),
+  });
+  if (!claimRes.ok) {
+    console.error("claim_ai_usage_slot failed:", await claimRes.text());
+    return json({ error: "Could not check usage limit" }, 500);
+  }
+  const claimRows: any[] = await claimRes.json();
+  const claim = Array.isArray(claimRows) ? claimRows[0] : claimRows;
 
-  if (callsToday >= AI_DAILY_LIMIT) {
-    return json({ error: "daily_limit_reached", used: callsToday, limit: AI_DAILY_LIMIT }, 429);
+  if (!claim?.allowed) {
+    return json({ error: "daily_limit_reached", used: claim?.used ?? AI_DAILY_LIMIT, limit: AI_DAILY_LIMIT }, 429);
   }
 
   // ── Call xAI Grok ────────────────────────────────────────────────────────────
+  if (payload.lang !== "en" && payload.lang !== "el") {
+    console.warn(`ai-assistant: unexpected lang "${payload.lang}" from user ${userId} — defaulting to el`);
+  }
   const lang = payload.lang === "en" ? "en" : "el";
   const isQuestion = Boolean(payload.question);
   const systemPrompt = buildSystemPrompt(payload, lang);
@@ -103,14 +122,9 @@ Deno.serve(async (req: Request) => {
     const answer = grokData.choices?.[0]?.message?.content?.trim()
       || (lang === "en" ? "No answer available." : "Δεν υπάρχει απάντηση.");
 
-    // ── Increment counter after successful Grok call ────────────────────────
-    await fetch(`${supabaseUrl}/rest/v1/ai_usage?on_conflict=user_id`, {
-      method: "POST",
-      headers: sbHeaders,
-      body: JSON.stringify({ user_id: userId, calls_today: callsToday + 1, reset_date: today }),
-    });
-
-    return json({ answer, used: callsToday + 1, limit: AI_DAILY_LIMIT });
+    // Usage was already claimed atomically before the Grok call — nothing
+    // left to record here.
+    return json({ answer, used: claim.used, limit: AI_DAILY_LIMIT });
 
   } catch (err) {
     console.error("Edge function error:", err);

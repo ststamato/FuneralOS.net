@@ -3,7 +3,7 @@
 // Env vars needed: SUPABASE_SERVICE_ROLE_KEY  (SUPABASE_URL is auto-injected)
 
 const CORS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://funeralos.net",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -69,6 +69,8 @@ Deno.serve(async (req: Request) => {
 
       const subject = String(body.subject || "").trim().slice(0, 100);
       const message = String(body.message || "").trim().slice(0, 1000);
+      const requesterLang = body.lang === "en" ? "en" : "el";
+      const editionLabel = requesterLang === "en" ? "USA/English" : "Greek";
       if (!subject || !message) return json({ error: "Subject and message required" }, 400);
 
       const insRes = await fetch(`${supabaseUrl}/rest/v1/support_requests`, {
@@ -77,8 +79,8 @@ Deno.serve(async (req: Request) => {
         body: JSON.stringify({ user_id: userId, subject, message }),
       });
       if (!insRes.ok) {
-        const txt = await insRes.text();
-        return json({ error: "Failed to save: " + txt }, 500);
+        console.error("[submit_support] insert failed:", await insRes.text());
+        return json({ error: "Failed to save support request" }, 500);
       }
 
       // Return immediately — background tasks run after response
@@ -98,7 +100,7 @@ Deno.serve(async (req: Request) => {
               from: `FuneralOS <${fromEmail}>`,
               to: ["funeralos.net@gmail.com"],
               subject: `[Support] ${subject} — ${userEmail}`,
-              html: `<p><strong>Χρήστης:</strong> ${userEmail}</p><p><strong>Ημερομηνία:</strong> ${now}</p><p><strong>Μήνυμα:</strong></p><p>${message.replace(/\n/g, "<br>")}</p><p><a href="https://funeralos.net/admin.html">→ Δες το αίτημα</a></p>`,
+              html: `<p><strong>Χρήστης:</strong> ${userEmail}</p><p><strong>Έκδοση:</strong> ${editionLabel}</p><p><strong>Ημερομηνία:</strong> ${now}</p><p><strong>Μήνυμα:</strong></p><p>${message.replace(/\n/g, "<br>")}</p><p><a href="https://funeralos.net/admin.html">→ Δες το αίτημα</a></p>`,
             }),
           }).catch(e => console.error('[email]', e));
         }
@@ -109,6 +111,7 @@ Deno.serve(async (req: Request) => {
         const issueBody = [
           `**User:** ${userEmail}`,
           `**user_id:** ${userId}`,
+          `**Edition:** ${editionLabel}`,
           `**Date:** ${nowIso}`,
           ``,
           `**Message:**`,
@@ -154,6 +157,7 @@ ${claudeMd}
 ## Αίτημα υποστήριξης
 **Τίτλος:** [Support] ${subject} — ${userEmail}
 **user_id:** ${userId}
+**Έκδοση:** ${editionLabel}
 **Μήνυμα:**
 ${message}
 
@@ -390,8 +394,8 @@ ${message}
         headers: h,
       });
       if (!del.ok) {
-        const errText = await del.text();
-        return json({ error: "Failed to delete user: " + errText }, 500);
+        console.error("[delete_user] failed:", await del.text());
+        return json({ error: "Failed to delete user" }, 500);
       }
       return json({ ok: true });
     }
@@ -446,6 +450,27 @@ ${message}
       }));
 
       return json({ events: enriched });
+    }
+
+    // ── UNMATCHED WEBHOOK PAYMENTS (couldn't be matched to a user) ─────────────
+    if (action === "list_webhook_failures") {
+      const res = await fetch(
+        `${supabaseUrl}/rest/v1/webhook_unmatched_events?resolved_at=is.null&select=*&order=created_at.desc`,
+        { headers: h }
+      );
+      const rows = res.ok ? await res.json() : [];
+      return json({ events: rows });
+    }
+
+    if (action === "resolve_webhook_failure") {
+      const { id } = body as { id: string };
+      if (!id) return json({ error: "Missing id" }, 400);
+      await fetch(`${supabaseUrl}/rest/v1/webhook_unmatched_events?id=eq.${id}`, {
+        method: "PATCH",
+        headers: { ...h, Prefer: "return=minimal" },
+        body: JSON.stringify({ resolved_at: new Date().toISOString() }),
+      });
+      return json({ ok: true });
     }
 
     // ── SUPPORT LIST ──────────────────────────────────────────────────────────

@@ -12,6 +12,22 @@
 
   const FREE_CEREMONY_LIMIT = 5;
 
+  // Every localStorage key that holds one office's data — cleared on account
+  // switch and on explicit sign-out so a shared/kiosk device never leaks one
+  // office's cases/staff/fleet/financials into the next login.
+  const OFFICE_LOCAL_STORAGE_KEYS = [
+    "staurakaki_ceremonies_v8", "staurakaki_warehouse_v8", "staurakaki_sets_v8",
+    "staurakaki_changes_v8", "staurakaki_option_warehouse_v2", "staurakaki_custom_fields_v36",
+    "staurakaki_ai_seen_notes_v1", "staurakaki_ai_seen_alerts_v1",
+    "staurakaki_ai_chat_history_v1", "staurakaki_second_helpers_v1",
+    "staurakaki_push_sub_v1", "staurakaki_backup_v8",
+    "funeralos_en_usa_meta_v1", "funeralos_en_usa_settings_v1", "funeralos_en_timezone_v1",
+    "funeralos_usa_staff_v2", "funeralos_usa_fleet_v2",
+  ];
+  function clearOfficeLocalData() {
+    OFFICE_LOCAL_STORAGE_KEYS.forEach((k) => localStorage.removeItem(k));
+  }
+
   const { createClient } = window.supabase;
   const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -106,12 +122,7 @@
       // Clear localStorage if a different user logs in on the same device
       const storedId = localStorage.getItem("__funeralos_uid");
       if (storedId && storedId !== user.id) {
-        ["staurakaki_ceremonies_v8","staurakaki_warehouse_v8","staurakaki_sets_v8",
-         "staurakaki_changes_v8","staurakaki_option_warehouse_v2","staurakaki_custom_fields_v36",
-         "staurakaki_ai_seen_notes_v1","staurakaki_ai_seen_alerts_v1",
-         "staurakaki_ai_chat_history_v1","staurakaki_second_helpers_v1",
-         "staurakaki_push_sub_v1","staurakaki_backup_v8"
-        ].forEach(k => localStorage.removeItem(k));
+        clearOfficeLocalData();
       }
       localStorage.setItem("__funeralos_uid", user.id);
 
@@ -149,7 +160,7 @@
     const logoutBtn = document.getElementById("logoutBtn");
     if (logoutBtn) {
       logoutBtn.textContent = "Sign out";
-      logoutBtn.onclick = async () => { await sb.auth.signOut(); window.location.href = "/en/login"; };
+      logoutBtn.onclick = async () => { await sb.auth.signOut(); clearOfficeLocalData(); window.location.href = "/en/login"; };
     }
   }
 
@@ -194,9 +205,11 @@
 
       function _clientCeremonyCount() {
         const now = new Date();
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
         const list = (typeof ceremonies !== "undefined" ? ceremonies : []);
-        return list.filter(function(c) { return c.date && new Date(c.date) >= monthStart; }).length;
+        // id is Date.now().toString() at creation time — used as a creation-date
+        // proxy so this offline fallback matches the server's created_at check.
+        return list.filter(function(c) { const ts = Number(c.id); return ts && ts >= monthStart; }).length;
       }
 
       ceremonyForm.addEventListener("submit", async function (e) {
@@ -263,6 +276,7 @@
           if (a) {
             const u = new URL(a.href);
             u.searchParams.set("checkout[custom][user_id]", user.id);
+            u.searchParams.set("checkout[custom][lang]", "en");
             if (user.email) u.searchParams.set("checkout[email]", user.email);
             a.href = u.toString();
           }
@@ -305,6 +319,22 @@
           lock.textContent = "BIZ";
           lock.style.cssText = "margin-left:5px;font-size:9px;font-weight:700;background:#c8a96e;color:#0f1523;padding:1px 5px;border-radius:4px;letter-spacing:.5px;";
           hermesTab.appendChild(lock);
+        }
+        // Smart Ops Director (score/briefing/case health/alerts) is
+        // Business-only per pricing — the rest of the USA module suite
+        // (Cases/Staff/Fleet/Cremation/Finance/Schedule) is correctly
+        // Pro-tier and stays unlocked above via isPaid.
+        const directorSection = document.querySelector(".usa-v3-ai-director");
+        if (directorSection && !directorSection.dataset.locked) {
+          directorSection.dataset.locked = "1";
+          directorSection.style.display = "none";
+          const upsell = document.createElement("div");
+          upsell.className = "usa-panel";
+          upsell.style.cssText = "text-align:center;padding:24px;";
+          upsell.innerHTML = '<p style="margin:0 0 10px;font-weight:800;">🔒 Smart Ops Director is a Business-plan feature.</p>'
+            + '<p style="margin:0 0 14px;color:#8899aa;font-size:13px;">Daily briefing, operations score, case health and smart alerts.</p>'
+            + '<a href="javascript:void(0)" onclick="window.__showUpgrade && window.__showUpgrade(\'Smart Ops Director\',\'Upgrade to Business for the daily briefing, operations score, case health and smart alerts.\')" style="display:inline-block;background:#c8a96e;color:#0f1523;padding:8px 18px;border-radius:7px;font-size:12px;font-weight:700;text-decoration:none;">Upgrade to Business →</a>';
+          directorSection.insertAdjacentElement("afterend", upsell);
         }
       }, 400);
     }
@@ -482,9 +512,9 @@
     const el = document.getElementById("monthCeremonyCount");
     if (!el) return;
     const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
     const list = (typeof ceremonies !== "undefined" ? ceremonies : []);
-    el.textContent = list.filter(c => c.date && new Date(c.date) >= monthStart).length;
+    el.textContent = list.filter(c => { const ts = Number(c.id); return ts && ts >= monthStart; }).length;
   }
 
   document.addEventListener("renderAll", updateMonthCount);
@@ -495,6 +525,7 @@
     if (!user || !user.id) return baseUrl;
     const u = new URL(baseUrl);
     u.searchParams.set("checkout[custom][user_id]", user.id);
+    u.searchParams.set("checkout[custom][lang]", "en");
     if (user.email) u.searchParams.set("checkout[email]", user.email);
     return u.toString();
   }
@@ -517,6 +548,17 @@
   window.closeUpgradeModal = function () {
     const modal = document.getElementById("upgradeModal");
     if (modal) modal.classList.remove("open");
+  };
+
+  // Checkout opens in a new tab with no return redirect, so a user who just
+  // paid keeps seeing their old (cached) plan until the JWT naturally
+  // refreshes. This forces a session refresh + reload so app_metadata.plan
+  // (set by the lemon-webhook) is picked up immediately.
+  window.refreshMyPlan = async function () {
+    const btn = document.getElementById("refreshPlanBtn");
+    if (btn) { btn.disabled = true; btn.textContent = "Checking…"; }
+    try { await sb.auth.refreshSession(); } catch (_) {}
+    location.reload();
   };
 
   document.addEventListener("click", function (e) {
@@ -732,12 +774,26 @@
       }
     }
 
-    const result = await callEdgeFunction("team-invite", { email, role }, session.access_token);
+    const result = await callEdgeFunction("team-invite", { email, role, lang: "en" }, session.access_token);
     if (result.ok) {
-      msgEl.style.color = "#66cc88";
-      msgEl.textContent = "Invitation sent to " + email + ".";
       emailEl.value = "";
       renderTeamPanel();
+      if (result.data?.emailSent) {
+        msgEl.style.color = "#66cc88";
+        msgEl.textContent = "Invitation sent to " + email + ".";
+      } else {
+        msgEl.style.color = "#e0b866";
+        msgEl.innerHTML = "Couldn't send the invite email — copy this link and send it to them yourself: "
+          + '<br><a href="#" id="teamInviteCopyLink" style="color:#c8a96e;word-break:break-all;">' + (result.data?.inviteLink || "") + "</a>";
+        const copyLink = document.getElementById("teamInviteCopyLink");
+        if (copyLink && result.data?.inviteLink) {
+          copyLink.addEventListener("click", function (e) {
+            e.preventDefault();
+            navigator.clipboard?.writeText(result.data.inviteLink);
+            msgEl.textContent = "Link copied to clipboard.";
+          });
+        }
+      }
     } else {
       msgEl.style.color = "#e07070";
       msgEl.textContent = result.data?.error || result.data?.message || "Failed to send invite.";

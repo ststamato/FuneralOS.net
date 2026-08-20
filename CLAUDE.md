@@ -35,6 +35,8 @@ All calls are `POST` with JSON body `{ action: "...", ...params }`.
 | `list` | Owner | Returns all users with AI usage, profiles, referrals |
 | `support_list` | Owner | Returns all support requests with user emails |
 | `support_resolve` | Owner | Marks a support request as resolved |
+| `list_webhook_failures` | Owner | Returns unresolved Lemon Squeezy webhook events that couldn't be matched to a user |
+| `resolve_webhook_failure` | Owner | Marks an unmatched webhook event as resolved after manual review |
 | `update_notes` | Owner | Saves admin notes for a user profile |
 | `update_plan` | Owner | Changes a user's plan |
 | `update_ai_limit` | Owner | Changes AI call limit for a user |
@@ -44,15 +46,18 @@ Owner = `ststamato@gmail.com` or `funeralos.net@gmail.com`.
 
 ## Database Tables
 
-- `app_state` — one row per office: `id` (office owner's user id), `payload` (jsonb — warehouse, sets, changelog, etc.; ceremonies no longer live here, see below), `updated_at`
-- `ceremonies` — one row per case (moved out of `app_state.payload` to fix concurrent-save data loss): `id`, `office_id`, `data` (jsonb), `updated_at`, `updated_by`. Writes go through the `save_ceremony()` RPC (optimistic-locked on `updated_at`, also enforces the free-plan monthly limit server-side)
+- `app_state` — one row per office: `id` (office owner's user id), `payload` (jsonb — warehouse, sets, changelog, `usaStaff`/`usaFleet` (USA edition office-wide staff/fleet lists), etc.; ceremonies no longer live here, see below), `updated_at`
+- `ceremonies` — one row per case (moved out of `app_state.payload` to fix concurrent-save data loss): `id`, `office_id`, `data` (jsonb — includes `usaMeta` for the USA edition: case status/priority/finance/documents/timeline/scheduling, see `saas/usa.js`), `updated_at`, `updated_by`, `created_at`. Writes go through the `save_ceremony()` RPC (optimistic-locked on `updated_at`, also enforces the free-plan monthly limit server-side, keyed on `created_at`). Deletes go through `delete_ceremony()` (same optimistic-lock discipline); RLS restricts delete to the office owner or an admin-role member — editors can create/edit but not delete
 - `office_members` — team membership: `office_id`, `user_id`, `role` (`admin`/`editor`)
 - `office_invites` — pending team invites (service-role only, no client RLS)
-- `office_events` — per-office activity/change log
-- `profiles` — one row per user: `id`, `referral_code`, `referral_credits`, `referral_plan_until`, `admin_notes`, `features` (jsonb, per-user feature flags)
+- `office_events` — per-office activity/change log: `user_id` (who acted), `office_id` (which office it belongs to), `event_type`, `payload`
+- `case_documents` — USA edition case file attachments: `office_id`, `case_id`, `doc_type`, `storage_path` (private `case-documents` Storage bucket), `filename`. One row per (office, case, doc_type), replaced on re-upload
+- `profiles` — one row per user: `id`, `referral_code`, `referral_credits`, `referral_plan_until`, `admin_notes`, `features` (jsonb, per-user feature flags). No client update policy — all writes go through the signup trigger or owner-only admin-stats actions
 - `support_requests` — `id`, `user_id`, `subject`, `message`, `status` (open/resolved), `created_at`, `resolved_at`
-- `ai_usage` — `user_id`, `calls_today`, `reset_date`
+- `ai_usage` — `user_id`, `calls_today`, `reset_date`. Read-only for the owning user; all writes go through `claim_ai_usage_slot()` (service-role only)
 - `referrals` — tracks who referred whom
+- `processed_webhook_events` — replay protection for `lemon-webhook` (SHA-256 hash of each successfully-processed webhook body)
+- `webhook_unmatched_events` — Lemon Squeezy webhook events that couldn't be matched to a Supabase user; reviewed via the `list_webhook_failures`/`resolve_webhook_failure` admin-stats actions
 
 RLS is enabled on all tables. Users can read/write their own office's rows; team members (via `office_members`) share access to their office's `app_state`/`ceremonies` rows through the `is_office_member()` helper.
 

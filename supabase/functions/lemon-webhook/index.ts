@@ -1,11 +1,11 @@
 // FuneralOS — Lemon Squeezy Webhook Handler
 // Supabase Edge Function (Deno)
 // Secrets needed: LEMON_SQUEEZY_WEBHOOK_SECRET, RESEND_API_KEY
-// Optional:       FROM_EMAIL (default: FuneralOS <billing@funeralos.gr>)
+// Optional:       FROM_EMAIL (default: FuneralOS <billing@funeralos.net>)
 // Auto-injected:  SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 
 const CORS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://funeralos.net",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-signature",
 };
 
@@ -20,6 +20,41 @@ function getPlanFromProductName(name: string): "pro" | "business" | null {
   return null;
 }
 
+async function sha256Hex(text: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const digest = await crypto.subtle.digest("SHA-256", encoder.encode(text));
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function wasAlreadyProcessed(supabaseUrl: string, serviceKey: string, eventHash: string): Promise<boolean> {
+  const res = await fetch(`${supabaseUrl}/rest/v1/processed_webhook_events?id=eq.${eventHash}&select=id`, {
+    headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey },
+  });
+  if (!res.ok) return false; // fail open — don't block processing if the check itself fails
+  const rows = await res.json();
+  return Array.isArray(rows) && rows.length > 0;
+}
+
+async function markProcessed(supabaseUrl: string, serviceKey: string, eventHash: string): Promise<void> {
+  await fetch(`${supabaseUrl}/rest/v1/processed_webhook_events`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${serviceKey}`, apikey: serviceKey,
+      "Content-Type": "application/json", Prefer: "resolution=ignore-duplicates,return=minimal",
+    },
+    body: JSON.stringify({ id: eventHash }),
+  });
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
 async function verifySignature(secret: string, body: string, signature: string): Promise<boolean> {
   try {
     const encoder = new TextEncoder();
@@ -31,7 +66,7 @@ async function verifySignature(secret: string, body: string, signature: string):
     const sigBuffer = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
     const computed = Array.from(new Uint8Array(sigBuffer))
       .map(b => b.toString(16).padStart(2, "0")).join("");
-    return computed === signature;
+    return timingSafeEqual(computed, signature);
   } catch {
     return false;
   }
@@ -137,18 +172,28 @@ async function sendReceiptEmail(
   resendKey: string,
   toEmail: string,
   plan: string,
-  productName: string
+  productName: string,
+  lang: "en" | "el"
 ): Promise<void> {
   const planLabel = plan === "business" ? "Business" : "Pro";
   const from = Deno.env.get("FROM_EMAIL") || "FuneralOS <billing@funeralos.net>";
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from,
-      to: [toEmail],
-      subject: `✓ Your FuneralOS ${planLabel} plan is active`,
-      html: `<div style="font-family:sans-serif;max-width:540px;margin:0 auto;background:#0f1523;color:#c8daf0;padding:32px;border-radius:12px;">
+  const subject = lang === "el"
+    ? `✓ Το πλάνο FuneralOS ${planLabel} είναι ενεργό`
+    : `✓ Your FuneralOS ${planLabel} plan is active`;
+  const html = lang === "el"
+    ? `<div style="font-family:sans-serif;max-width:540px;margin:0 auto;background:#0f1523;color:#c8daf0;padding:32px;border-radius:12px;">
+        <h1 style="color:#c8a96e;margin:0 0 4px;font-size:22px;">FuneralOS</h1>
+        <h2 style="margin:0 0 24px;color:#fff;font-size:18px;">Το πλάνο σου ${planLabel} είναι πλέον ενεργό</h2>
+        <p style="margin:0 0 16px;">Ευχαριστούμε για τη συνδρομή σου στο <strong>FuneralOS ${planLabel}</strong>. Ο λογαριασμός σου αναβαθμίστηκε και όλες οι λειτουργίες είναι ξεκλείδωτες.</p>
+        <div style="background:rgba(200,169,110,.1);border:1px solid rgba(200,169,110,.3);border-radius:8px;padding:16px;margin:0 0 24px;">
+          <strong style="color:#c8a96e;">Πλάνο:</strong> ${planLabel}<br>
+          <strong style="color:#c8a96e;">Προϊόν:</strong> ${productName}<br>
+          <strong style="color:#c8a96e;">Λογαριασμός:</strong> ${toEmail}
+        </div>
+        <p style="margin:0 0 8px;">Διαχειρίσου τη συνδρομή σου ανά πάσα στιγμή από τις Ρυθμίσεις της εφαρμογής, ή επισκέψου τη <a href="https://app.lemonsqueezy.com/my-orders" style="color:#c8a96e;">σελίδα παραγγελιών Lemon Squeezy</a>.</p>
+        <p style="color:#8899aa;font-size:11px;margin-top:32px;border-top:1px solid rgba(255,255,255,.08);padding-top:16px;">FuneralOS — Επαγγελματικό λογισμικό διαχείρισης γραφείου τελετών</p>
+      </div>`
+    : `<div style="font-family:sans-serif;max-width:540px;margin:0 auto;background:#0f1523;color:#c8daf0;padding:32px;border-radius:12px;">
         <h1 style="color:#c8a96e;margin:0 0 4px;font-size:22px;">FuneralOS</h1>
         <h2 style="margin:0 0 24px;color:#fff;font-size:18px;">Your ${planLabel} plan is now active</h2>
         <p style="margin:0 0 16px;">Thank you for subscribing to <strong>FuneralOS ${planLabel}</strong>. Your account has been upgraded and all features are unlocked.</p>
@@ -159,11 +204,14 @@ async function sendReceiptEmail(
         </div>
         <p style="margin:0 0 8px;">Manage your subscription at any time from Settings in the app, or visit your <a href="https://app.lemonsqueezy.com/my-orders" style="color:#c8a96e;">Lemon Squeezy orders page</a>.</p>
         <p style="color:#8899aa;font-size:11px;margin-top:32px;border-top:1px solid rgba(255,255,255,.08);padding-top:16px;">FuneralOS — Professional funeral management software</p>
-      </div>`,
-    }),
+      </div>`;
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from, to: [toEmail], subject, html }),
   });
   if (!res.ok) console.warn(`Resend receipt email failed: ${res.status} ${await res.text()}`);
-  else console.log(`Receipt email sent to ${toEmail}`);
+  else console.log(`Receipt email sent to ${toEmail} (lang=${lang})`);
 }
 
 Deno.serve(async (req: Request) => {
@@ -187,6 +235,12 @@ Deno.serve(async (req: Request) => {
     return new Response("Invalid signature", { status: 401 });
   }
 
+  const eventHash = await sha256Hex(body);
+  if (await wasAlreadyProcessed(supabaseUrl, serviceKey, eventHash)) {
+    console.log(`Duplicate webhook delivery, already processed: ${eventHash}`);
+    return new Response("OK (duplicate)", { status: 200 });
+  }
+
   let payload: Record<string, unknown>;
   try { payload = JSON.parse(body); } catch { return new Response("Invalid JSON", { status: 400 }); }
 
@@ -194,6 +248,7 @@ Deno.serve(async (req: Request) => {
   const eventName   = (meta.event_name as string) || "";
   const customData  = (meta.custom_data as Record<string, unknown>) || {};
   const customUserId = (customData.user_id as string || "").trim();
+  const receiptLang: "en" | "el" = customData.lang === "el" ? "el" : "en";
 
   const attrs       = ((payload.data as Record<string, unknown>)?.attributes || {}) as Record<string, unknown>;
   const email       = (attrs.user_email as string || "").toLowerCase().trim();
@@ -259,6 +314,14 @@ Deno.serve(async (req: Request) => {
 
   if (!userId) {
     console.warn(`No Supabase user found for email: ${email} or user_id: ${customUserId}`);
+    // A retry won't fix an unmatched user, so this still acknowledges with
+    // 200 (unlike the plan-update failure path below) — but the payment was
+    // real and must not just vanish into logs. Record it for manual review.
+    await fetch(`${supabaseUrl}/rest/v1/webhook_unmatched_events`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ event_name: eventName, email, custom_user_id: customUserId || null, product_name: productName, payload }),
+    }).catch((e) => console.error("Failed to record unmatched webhook event", e));
     return new Response("OK", { status: 200 }); // 200 to prevent LS retries
   }
 
@@ -266,17 +329,25 @@ Deno.serve(async (req: Request) => {
   const ok = await setUserPlan(supabaseUrl, serviceKey, userId, userMeta, targetPlan);
   console.log(`Plan update → ${targetPlan} for ${email || customUserId}: ${ok ? "OK" : "FAILED"}`);
 
+  // Only record this event as processed once it has actually succeeded —
+  // a failed delivery must remain eligible for Lemon Squeezy's own retry.
+  if (ok) await markProcessed(supabaseUrl, serviceKey, eventHash);
+
   // Reward referrer on paid upgrade (pending referral becomes rewarded, +1 month)
   if (ok && targetPlan !== "free") {
     await rewardReferrer(supabaseUrl, serviceKey, userId);
     // Send receipt email for new subscriptions and one-time purchases
     if (resendKey && email && ["subscription_created", "order_created"].includes(eventName)) {
-      await sendReceiptEmail(resendKey, email, targetPlan, productName);
+      await sendReceiptEmail(resendKey, email, targetPlan, productName, receiptLang);
     }
   }
 
+  // Non-2xx when the plan update failed so Lemon Squeezy retries with its
+  // own backoff, instead of treating a failed write as delivered — the
+  // replay-protection above (markProcessed only on success) already
+  // guarantees a subsequent successful retry can't double-reward/double-email.
   return new Response(JSON.stringify({ ok, plan: targetPlan }), {
-    status: 200,
+    status: ok ? 200 : 500,
     headers: { ...CORS, "Content-Type": "application/json" },
   });
 });

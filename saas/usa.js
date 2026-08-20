@@ -66,26 +66,63 @@
   const DEFAULT_MODULES = Object.fromEntries(USA_MODULES_LIST.map(m=>[m.tab, true]));
   const addDays = (n)=>{ const d=new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); };
 
+  // USA case metadata (status, priority, finance, documents, timeline, etc.)
+  // used to live entirely in its own localStorage blob, invisible to every
+  // device but the one that wrote it and never synced to the cloud. It now
+  // rides inside each ceremony's own `usaMeta` field, so it syncs through
+  // the exact same save_ceremony() CAS/quota/RLS path the ceremony record
+  // itself already uses — no new backend needed. migrateLegacyUsaMeta()
+  // does a one-time copy of any pre-existing localStorage data into that
+  // field so upgrading devices don't lose what they already had.
+  let _usaMetaMigrated = false;
+  function migrateLegacyUsaMeta(list){
+    if (_usaMetaMigrated || window.__DEMO_MODE || !list || !list.length) return;
+    _usaMetaMigrated = true;
+    let legacy;
+    try { legacy = JSON.parse(localStorage.getItem(USA_META_KEY) || "{}") || {}; } catch { legacy = {}; }
+    if (!legacy || !Object.keys(legacy).length) return;
+    let changed = false;
+    list.forEach(c => {
+      if (!c.usaMeta && legacy[c.id]) { c.usaMeta = legacy[c.id]; changed = true; }
+    });
+    if (changed && typeof window.saveData === "function") window.saveData();
+    localStorage.removeItem(USA_META_KEY);
+  }
+
   function readCeremonies(){
     const raw = typeof window.__fosGetCeremonies === "function" ? window.__fosGetCeremonies() : null;
-    if (Array.isArray(raw) && raw.length) return raw;
-    try { return JSON.parse(localStorage.getItem("staurakaki_ceremonies_v8") || "[]") || []; } catch { return []; }
+    let list;
+    if (Array.isArray(raw) && raw.length) list = raw;
+    else { try { list = JSON.parse(localStorage.getItem("staurakaki_ceremonies_v8") || "[]") || []; } catch { list = []; } }
+    migrateLegacyUsaMeta(list);
+    return list;
   }
 
   function getMeta(){
     if (window.__DEMO_MODE) return window.__usaDemoMeta || {};
-    try { return JSON.parse(localStorage.getItem(USA_META_KEY) || "{}") || {}; } catch { return {}; }
+    const out = {};
+    readCeremonies().forEach(c => { if (c.usaMeta) out[c.id] = c.usaMeta; });
+    return out;
   }
 
   function saveMeta(meta){
     if (window.__DEMO_MODE) { window.__usaDemoMeta = meta; return; }
-    localStorage.setItem(USA_META_KEY, JSON.stringify(meta));
+    const list = readCeremonies();
+    list.forEach(c => { if (meta[c.id]) c.usaMeta = meta[c.id]; });
+    if (typeof window.saveData === "function") window.saveData();
   }
 
   function updateMeta(caseId, updates){
-    const meta = getMeta();
-    meta[caseId] = Object.assign({}, meta[caseId] || {}, updates);
-    saveMeta(meta);
+    if (window.__DEMO_MODE) {
+      const meta = window.__usaDemoMeta || {};
+      meta[caseId] = Object.assign({}, meta[caseId] || {}, updates);
+      window.__usaDemoMeta = meta;
+      return;
+    }
+    const ceremony = readCeremonies().find(c => c.id === caseId);
+    if (!ceremony) return;
+    ceremony.usaMeta = Object.assign({}, ceremony.usaMeta || {}, updates);
+    if (typeof window.saveData === "function") window.saveData();
   }
 
   function getSettings(){
@@ -162,7 +199,7 @@
   window.usaRenderSettings = renderUsaSettings;
 
   function mergeCase(ceremony){
-    const meta = getMeta()[ceremony.id] || {};
+    const meta = window.__DEMO_MODE ? (getMeta()[ceremony.id] || {}) : (ceremony.usaMeta || {});
     const rawType = (ceremony.burialType || "").toLowerCase();
     const disposition = rawType.includes("αποτε") ? "Cremation" : "Burial";
     return {
@@ -380,6 +417,13 @@
   const USA_STEPS = ()=>window.__usaLib.USA_STEPS;
   let usaFilter = "active";
 
+  // caseId -> { docType: {storage_path, filename, uploaded_at} } — synced from
+  // the case_documents table so uploaded files are visible to every teammate,
+  // not just the device that uploaded them.
+  let caseDocsCache = {};
+  let caseDocsLoaded = false;
+  let caseDocsLoading = false;
+
   const el = (id)=>document.getElementById(id);
   const safe = (s)=>String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const money = (n)=>"$"+(Number(n||0).toLocaleString("en-US"));
@@ -456,6 +500,82 @@
     renderUSA();
   }
 
+  async function loadCaseDocuments(){
+    if(caseDocsLoading || !window.__sb || typeof getCloudSession!=="function") return;
+    caseDocsLoading = true;
+    try{
+      const session = await getCloudSession();
+      if(!session) return;
+      const { data, error } = await window.__sb
+        .from("case_documents")
+        .select("case_id,doc_type,storage_path,filename,uploaded_at")
+        .eq("office_id", session.rowId);
+      if(error){ console.warn("Could not load case documents", error); return; }
+      const next = {};
+      (data||[]).forEach(row=>{
+        if(!next[row.case_id]) next[row.case_id] = {};
+        next[row.case_id][row.doc_type] = { storage_path: row.storage_path, filename: row.filename, uploaded_at: row.uploaded_at };
+      });
+      caseDocsCache = next;
+      caseDocsLoaded = true;
+      renderDocuments();
+    } finally {
+      caseDocsLoading = false;
+    }
+  }
+
+  async function uploadCaseDocument(caseId, docType, file){
+    if(!window.__sb || typeof getCloudSession!=="function"){ alert("Not connected. Try again."); return; }
+    const session = await getCloudSession();
+    if(!session){ alert("Please sign in again."); return; }
+
+    const safeDoc = String(docType).replace(/[^a-z0-9]+/gi, "_");
+    const path = `${session.rowId}/${caseId}/${Date.now()}_${safeDoc}_${file.name}`;
+
+    const { error: upErr } = await window.__sb.storage.from("case-documents").upload(path, file, { upsert: false });
+    if(upErr){ alert("Upload failed: " + upErr.message); return; }
+
+    const oldPath = (caseDocsCache[caseId]||{})[docType]?.storage_path || null;
+
+    const { error: dbErr } = await window.__sb.from("case_documents").upsert({
+      office_id: session.rowId, case_id: caseId, doc_type: docType,
+      storage_path: path, filename: file.name, uploaded_by: session.userId,
+      uploaded_at: new Date().toISOString(),
+    }, { onConflict: "office_id,case_id,doc_type" });
+    if(dbErr){ alert("Upload saved but could not record it: " + dbErr.message); return; }
+
+    if(oldPath && oldPath !== path) await window.__sb.storage.from("case-documents").remove([oldPath]);
+
+    if(!caseDocsCache[caseId]) caseDocsCache[caseId] = {};
+    caseDocsCache[caseId][docType] = { storage_path: path, filename: file.name, uploaded_at: new Date().toISOString() };
+
+    setDoc(caseId, docType, "Complete");
+  }
+
+  async function viewCaseDocument(caseId, docType){
+    const info = (caseDocsCache[caseId]||{})[docType];
+    if(!info || !window.__sb) return;
+    const { data, error } = await window.__sb.storage.from("case-documents").createSignedUrl(info.storage_path, 60);
+    if(error || !data?.signedUrl){ alert("Could not open document."); return; }
+    window.open(data.signedUrl, "_blank");
+  }
+
+  async function removeCaseDocument(caseId, docType){
+    const info = (caseDocsCache[caseId]||{})[docType];
+    if(!info) return;
+    if(!confirm("Remove this document?")) return;
+    if(window.__sb){
+      await window.__sb.storage.from("case-documents").remove([info.storage_path]);
+      const session = typeof getCloudSession==="function" ? await getCloudSession() : null;
+      if(session){
+        await window.__sb.from("case_documents").delete()
+          .eq("office_id", session.rowId).eq("case_id", caseId).eq("doc_type", docType);
+      }
+    }
+    if(caseDocsCache[caseId]) delete caseDocsCache[caseId][docType];
+    renderDocuments();
+  }
+
   function renderDirector(){
     const allCases = cases();
     const active = allCases.filter(c=>c.status!=="Closed");
@@ -503,8 +623,16 @@
 
   function renderDocuments(){
     const list = el("usaDocumentsList"); if(!list) return;
+    if(!caseDocsLoaded && !caseDocsLoading) loadCaseDocuments();
     const allCases = cases();
-    list.innerHTML = allCases.length ? allCases.map(c=>`<article class="usa-doc-card"><h3>${safe(c.decedent)}</h3><small>${safe(c.caseNumber)} · ${safe(c.status)}</small>${USA_DOCS().map(d=>{const st=(c.documents||{})[d]||"Missing"; return `<div class="usa-doc-row"><b>${safe(d)}</b><select class="usa-doc-status ${st.toLowerCase()}" data-id="${c.id}" data-doc="${safe(d)}"><option ${st==='Missing'?'selected':''}>Missing</option><option ${st==='Pending'?'selected':''}>Pending</option><option ${st==='Complete'?'selected':''}>Complete</option></select></div>`}).join("")}</article>`).join("") : `<div class="usa-panel">No cases yet. Create one from First Call Center.</div>`;
+    list.innerHTML = allCases.length ? allCases.map(c=>`<article class="usa-doc-card"><h3>${safe(c.decedent)}</h3><small>${safe(c.caseNumber)} · ${safe(c.status)}</small>${USA_DOCS().map(d=>{
+      const st=(c.documents||{})[d]||"Missing";
+      const file=(caseDocsCache[c.id]||{})[d];
+      const fileControls = file
+        ? `<button type="button" class="usa-doc-view" data-id="${c.id}" data-doc="${safe(d)}" title="${safe(file.filename)}">📎 ${safe(file.filename.length>18?file.filename.slice(0,15)+"…":file.filename)}</button><button type="button" class="usa-doc-remove" data-id="${c.id}" data-doc="${safe(d)}" title="Remove file">✕</button>`
+        : `<label class="usa-doc-upload">Attach<input type="file" class="usa-doc-file" data-id="${c.id}" data-doc="${safe(d)}" hidden></label>`;
+      return `<div class="usa-doc-row"><b>${safe(d)}</b><div class="usa-doc-controls"><select class="usa-doc-status ${st.toLowerCase()}" data-id="${c.id}" data-doc="${safe(d)}"><option ${st==='Missing'?'selected':''}>Missing</option><option ${st==='Pending'?'selected':''}>Pending</option><option ${st==='Complete'?'selected':''}>Complete</option></select>${fileControls}</div></div>`;
+    }).join("")}</article>`).join("") : `<div class="usa-panel">No cases yet. Create one from First Call Center.</div>`;
   }
 
   function renderUSA(){ renderDirector(); renderCases(); renderDocuments(); }
@@ -540,8 +668,16 @@
       e.target.reset();
       if(typeof window.v38SwitchTab === "function") window.v38SwitchTab("usaCases");
     });
-    document.addEventListener("click", (e)=>{ const b=e.target.closest("[data-usa-status]"); if(b) setStatus(b.dataset.id, b.dataset.usaStatus); });
-    document.addEventListener("change", (e)=>{ const s=e.target.closest(".usa-doc-status[data-id]"); if(s) setDoc(s.dataset.id, s.dataset.doc, s.value); });
+    document.addEventListener("click", (e)=>{
+      const b=e.target.closest("[data-usa-status]"); if(b) setStatus(b.dataset.id, b.dataset.usaStatus);
+      const v=e.target.closest(".usa-doc-view[data-id]"); if(v) viewCaseDocument(v.dataset.id, v.dataset.doc);
+      const r=e.target.closest(".usa-doc-remove[data-id]"); if(r) removeCaseDocument(r.dataset.id, r.dataset.doc);
+    });
+    document.addEventListener("change", (e)=>{
+      const s=e.target.closest(".usa-doc-status[data-id]"); if(s) setDoc(s.dataset.id, s.dataset.doc, s.value);
+      const f=e.target.closest(".usa-doc-file[data-id]");
+      if(f && f.files && f.files[0]){ uploadCaseDocument(f.dataset.id, f.dataset.doc, f.files[0]); f.value = ""; }
+    });
   }
 
   function showUsaTab(tabName){
@@ -606,8 +742,13 @@
   function loadKey(key){try{return JSON.parse(localStorage.getItem(key)||"[]")||[]}catch{return []}}
   function saveKey(key,data){localStorage.setItem(key,JSON.stringify(data))}
   function cases(){ return window.__usaLib.cases(); }
-  function staff(){ return loadKey(STAFF_KEY); }
-  function fleet(){ return loadKey(FLEET_KEY); }
+  // Staff/Fleet are office-wide (not per-case) — synced via app_state.payload
+  // through the global hooks app.js exposes, so every teammate sees the same
+  // roster/fleet instead of only the device that entered it.
+  function staff(){ return typeof window.__fosGetUsaStaff === "function" ? window.__fosGetUsaStaff() : loadKey(STAFF_KEY); }
+  function fleet(){ return typeof window.__fosGetUsaFleet === "function" ? window.__fosGetUsaFleet() : loadKey(FLEET_KEY); }
+  function saveStaff(d){ if (typeof window.__fosSetUsaStaff === "function") window.__fosSetUsaStaff(d); else saveKey(STAFF_KEY, d); }
+  function saveFleet(d){ if (typeof window.__fosSetUsaFleet === "function") window.__fosSetUsaFleet(d); else saveKey(FLEET_KEY, d); }
 
   function setCaseField(caseId, field, value){
     window.__usaLib.updateMeta(caseId, { [field]: value });
@@ -651,10 +792,45 @@
     box.innerHTML = list.length ? list.map(c=>`<article class="usa-case-card"><div class="usa-case-top"><div><h3>${safe(c.decedent)}</h3><small>${safe(c.caseNumber)} · ${safe(c.status)}</small></div><span class="usa-badge ${Number(c.balance||0)>0?'pending':'closed'}">${Number(c.balance||0)>0?'Unpaid':'Clean'}</span></div><div class="usa-form-grid usa-inline-editor"><label>Case Value<input class="usa-v2-number" data-case="${c.id}" data-field="caseValue" type="number" value="${Number(c.caseValue||0)}" /></label><label>Pending Balance<input class="usa-v2-number" data-case="${c.id}" data-field="balance" type="number" value="${Number(c.balance||0)}" /></label><label>Payment Status<select class="usa-v2-field" data-case="${c.id}" data-field="paymentStatus"><option ${c.paymentStatus==='Pending'?'selected':''}>Pending</option><option ${c.paymentStatus==='Partial'?'selected':''}>Partial</option><option ${c.paymentStatus==='Paid'?'selected':''}>Paid</option><option ${c.paymentStatus==='Insurance Assignment'?'selected':''}>Insurance Assignment</option></select></label></div></article>`).join('') : `<div class="usa-panel">No cases yet.</div>`;
   }
 
+  // Flags cases that share the same Service Date + the same Vehicle or the
+  // same Assigned Staff — there's no start/end time range in this data model
+  // (just a single serviceDate/serviceTime per case), so same-day + same
+  // resource is treated as a conflict rather than trying to reason about
+  // overlapping time windows.
+  function scheduleConflicts(){
+    const active = cases().filter(c=>c.status!=='Closed' && c.serviceDate);
+    const conflicts = {};
+    function checkGroup(resourceField, label){
+      const groups = {};
+      active.forEach(c=>{
+        const res = String(c[resourceField]||'').trim().toLowerCase();
+        if(!res) return;
+        const key = c.serviceDate+'|'+res;
+        (groups[key] = groups[key] || []).push(c);
+      });
+      Object.values(groups).forEach(group=>{
+        if(group.length < 2) return;
+        group.forEach(c=>{
+          (conflicts[c.id] = conflicts[c.id] || []).push(
+            `${label} "${c[resourceField]}" also booked for ${group.filter(x=>x.id!==c.id).map(x=>x.decedent||x.caseNumber).join(', ')} on ${c.serviceDate}`
+          );
+        });
+      });
+    }
+    checkGroup('vehicle','Vehicle');
+    checkGroup('assignedStaff','Staff');
+    return conflicts;
+  }
+
   function renderSchedule(){
     const box = el('usaScheduleList'); if(!box) return;
     const list = cases().filter(c=>c.status!=='Closed');
-    box.innerHTML = list.length ? list.map(c=>`<article class="usa-case-card"><div class="usa-case-top"><div><h3>${safe(c.decedent)}</h3><small>${safe(c.caseNumber)} · scheduling board</small></div><span class="usa-badge">Schedule</span></div><div class="usa-form-grid usa-inline-editor"><label>Viewing Date<input class="usa-v2-field" data-case="${c.id}" data-field="viewingDate" type="date" value="${safe(c.viewingDate||'')}" /></label><label>Viewing Room<input class="usa-v2-field" data-case="${c.id}" data-field="viewingRoom" value="${safe(c.viewingRoom||'')}" placeholder="Room A" /></label><label>Service Date<input class="usa-v2-field" data-case="${c.id}" data-field="serviceDate" type="date" value="${safe(c.serviceDate||'')}" /></label><label>Service Time<input class="usa-v2-field" data-case="${c.id}" data-field="serviceTime" type="time" value="${safe(c.serviceTime||'')}" /></label><label>Service Location<input class="usa-v2-field" data-case="${c.id}" data-field="serviceLocation" value="${safe(c.serviceLocation||'')}" /></label><label>Assigned Staff<input class="usa-v2-field" data-case="${c.id}" data-field="assignedStaff" value="${safe(c.assignedStaff||c.driver||'')}" /></label><label>Vehicle<input class="usa-v2-field" data-case="${c.id}" data-field="vehicle" value="${safe(c.vehicle||'')}" /></label><label>Cemetery / Crematory<input class="usa-v2-field" data-case="${c.id}" data-field="finalLocation" value="${safe(c.finalLocation||c.crematory||'')}" /></label></div></article>`).join('') : `<div class="usa-panel">No active cases to schedule.</div>`;
+    const conflicts = scheduleConflicts();
+    box.innerHTML = list.length ? list.map(c=>{
+      const warn = conflicts[c.id];
+      const warnHtml = warn ? `<div class="usa-alert danger" style="margin-top:8px;">⚠ Double-booking: ${warn.map(safe).join('<br>')}</div>` : '';
+      return `<article class="usa-case-card${warn?' usa-schedule-conflict':''}"><div class="usa-case-top"><div><h3>${safe(c.decedent)}</h3><small>${safe(c.caseNumber)} · scheduling board</small></div><span class="usa-badge${warn?' danger':''}">${warn?'⚠ Conflict':'Schedule'}</span></div><div class="usa-form-grid usa-inline-editor"><label>Viewing Date<input class="usa-v2-field" data-case="${c.id}" data-field="viewingDate" type="date" value="${safe(c.viewingDate||'')}" /></label><label>Viewing Room<input class="usa-v2-field" data-case="${c.id}" data-field="viewingRoom" value="${safe(c.viewingRoom||'')}" placeholder="Room A" /></label><label>Service Date<input class="usa-v2-field" data-case="${c.id}" data-field="serviceDate" type="date" value="${safe(c.serviceDate||'')}" /></label><label>Service Time<input class="usa-v2-field" data-case="${c.id}" data-field="serviceTime" type="time" value="${safe(c.serviceTime||'')}" /></label><label>Service Location<input class="usa-v2-field" data-case="${c.id}" data-field="serviceLocation" value="${safe(c.serviceLocation||'')}" /></label><label>Assigned Staff<input class="usa-v2-field" data-case="${c.id}" data-field="assignedStaff" value="${safe(c.assignedStaff||c.driver||'')}" /></label><label>Vehicle<input class="usa-v2-field" data-case="${c.id}" data-field="vehicle" value="${safe(c.vehicle||'')}" /></label><label>Cemetery / Crematory<input class="usa-v2-field" data-case="${c.id}" data-field="finalLocation" value="${safe(c.finalLocation||c.crematory||'')}" /></label></div>${warnHtml}</article>`;
+    }).join('') : `<div class="usa-panel">No active cases to schedule.</div>`;
   }
 
   function renderDirectorV2Extras(){
@@ -683,19 +859,19 @@
       e.preventDefault();
       const d = staff();
       d.push({id:uid(), name:el('usaStaffName')?.value||'Unnamed', role:el('usaStaffRole')?.value, shift:el('usaStaffShift')?.value, cert:el('usaStaffCert')?.value, assignment:'Available'});
-      saveKey(STAFF_KEY, d); e.target.reset(); renderAllV2();
+      saveStaff(d); e.target.reset(); renderAllV2();
     });
     el('usaFleetForm')?.addEventListener('submit', (e)=>{
       e.preventDefault();
       const d = fleet();
       d.push({id:uid(), name:el('usaFleetName')?.value||'Vehicle', type:el('usaFleetType')?.value, mileage:el('usaFleetMileage')?.value, service:el('usaFleetService')?.value, insurance:el('usaFleetInsurance')?.value, status:el('usaFleetStatus')?.value});
-      saveKey(FLEET_KEY, d); e.target.reset(); renderAllV2();
+      saveFleet(d); e.target.reset(); renderAllV2();
     });
     document.addEventListener('click', (e)=>{
       const s = e.target.closest('[data-v2-staff-del]');
-      if(s){ saveKey(STAFF_KEY, staff().filter(x=>x.id!==s.dataset.v2StaffDel)); renderAllV2(); }
+      if(s){ saveStaff(staff().filter(x=>x.id!==s.dataset.v2StaffDel)); renderAllV2(); }
       const f = e.target.closest('[data-v2-fleet-del]');
-      if(f){ saveKey(FLEET_KEY, fleet().filter(x=>x.id!==f.dataset.v2FleetDel)); renderAllV2(); }
+      if(f){ saveFleet(fleet().filter(x=>x.id!==f.dataset.v2FleetDel)); renderAllV2(); }
     });
     document.addEventListener('change', (e)=>{
       const cr = e.target.closest('.usa-v2-crem');
@@ -714,7 +890,7 @@
 
 
 // ================================
-// FuneralOS USA v3 - AI Operations Director
+// FuneralOS USA v3 - Smart Ops Director
 // Built as local-first intelligence layer on top of USA v2 data.
 // ================================
 (function(){
@@ -732,8 +908,8 @@
   const addDaysIso = (days)=>window.__usaTzDateStr(window.__usaGetTz(), days);
   const daysBetween = (date)=>window.__usaTzDaysBetween(date, window.__usaGetTz());
   const cases = ()=> window.__usaLib ? window.__usaLib.cases() : [];
-  const staff = ()=>load(STAFF_KEY);
-  const fleet = ()=>load(FLEET_KEY);
+  const staff = ()=> typeof window.__fosGetUsaStaff === "function" ? window.__fosGetUsaStaff() : load(STAFF_KEY);
+  const fleet = ()=> typeof window.__fosGetUsaFleet === "function" ? window.__fosGetUsaFleet() : load(FLEET_KEY);
 
   function isActive(c){ return c && c.status !== "Closed"; }
   function isUpcoming(c){ const d=c.serviceDate||c.viewingDate; const diff=daysBetween(d); return diff!==null && diff>=0 && diff<=7 && isActive(c); }

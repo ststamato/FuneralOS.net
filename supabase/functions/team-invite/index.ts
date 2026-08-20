@@ -5,7 +5,7 @@
 //          RESEND_API_KEY, FROM_EMAIL (optional), APP_URL (optional)
 
 const CORS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://funeralos.net",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -17,7 +17,6 @@ Deno.serve(async (req: Request) => {
   const anonKey     = Deno.env.get("SUPABASE_ANON_KEY") || "";
   const resendKey   = Deno.env.get("RESEND_API_KEY") || "";
   const fromEmail   = Deno.env.get("FROM_EMAIL") || "FuneralOS <team@funeralos.net>";
-  const appUrl      = Deno.env.get("APP_URL") || "https://funeralos.net/en/app";
 
   // Authenticate caller
   const authHeader = req.headers.get("Authorization") || "";
@@ -30,23 +29,56 @@ Deno.serve(async (req: Request) => {
   if (!userRes.ok) return new Response("Unauthorized", { status: 401, headers: CORS });
   const caller = await userRes.json();
   const callerId   = caller.id as string;
-  const callerMeta = (caller.user_metadata || {}) as Record<string, string>;
 
-  // Only admins can invite (solo users are implicitly admin of their own office)
-  const callerRole = callerMeta.office_role || "admin";
+  // Determine the caller's TRUE office and role server-side by looking up
+  // office_members — never trust user_metadata.office_id/office_role, which
+  // the client can set directly via supabase.auth.updateUser() and which
+  // previously let any authenticated user become "admin" of an arbitrary
+  // office just by editing their own metadata (full cross-tenant access via
+  // the self-membership insert below).
+  const memberRes = await fetch(`${supabaseUrl}/rest/v1/office_members?user_id=eq.${callerId}&select=office_id,role`, {
+    headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey },
+  });
+  const memberRows = memberRes.ok ? await memberRes.json() : [];
+  const membership = memberRows[0];
+
+  // office_id = caller's own user_id (solo owner, no membership row) or the
+  // real office they belong to per office_members.
+  const officeId = membership?.office_id || callerId;
+  const callerRole = membership?.role || "admin"; // solo users are implicitly admin of their own office
   if (callerRole !== "admin") {
     return new Response("Only admins can invite team members", { status: 403, headers: CORS });
   }
 
-  // The office_id = caller's own user_id (for solo admin) or existing office_id
-  const officeId = callerMeta.office_id || callerId;
+  // Server-side plan/team-size enforcement — the client (freemium.js) already
+  // checks this, but a direct API call could bypass it entirely otherwise.
+  const planUserRes = await fetch(`${supabaseUrl}/auth/v1/admin/users/${officeId}`, {
+    headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey },
+  });
+  const planUser = planUserRes.ok ? await planUserRes.json() : null;
+  const plan = planUser?.app_metadata?.plan || planUser?.user_metadata?.plan || "free";
+
+  if (plan === "free") {
+    return new Response("Team members require a Pro or Business plan", { status: 403, headers: CORS });
+  }
+  if (plan === "pro") {
+    const PRO_TEAM_LIMIT = 5;
+    const countRes = await fetch(`${supabaseUrl}/rest/v1/office_members?office_id=eq.${officeId}&select=user_id`, {
+      headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey },
+    });
+    const members = countRes.ok ? await countRes.json() : [];
+    if (members.length >= PRO_TEAM_LIMIT) {
+      return new Response(`Pro plan limit reached (${PRO_TEAM_LIMIT} members). Upgrade to Business for unlimited.`, { status: 403, headers: CORS });
+    }
+  }
 
   // Parse body
-  let email: string, role: string;
+  let email: string, role: string, lang: string;
   try {
     const body = await req.json();
     email = (body.email || "").toLowerCase().trim();
     role  = body.role || "editor";
+    lang  = body.lang === "el" ? "el" : "en";
   } catch {
     return new Response("Invalid JSON", { status: 400, headers: CORS });
   }
@@ -54,6 +86,8 @@ Deno.serve(async (req: Request) => {
   if (!["admin", "editor"].includes(role)) {
     return new Response("role must be admin or editor", { status: 400, headers: CORS });
   }
+
+  const appUrl = Deno.env.get("APP_URL") || (lang === "el" ? "https://funeralos.net/app" : "https://funeralos.net/en/app");
 
   const svcHeaders = {
     Authorization: `Bearer ${serviceKey}`,
@@ -83,31 +117,39 @@ Deno.serve(async (req: Request) => {
   const [invite] = await inviteRes.json();
 
   // Send invite email via Resend
+  let emailSent = false;
   if (resendKey && invite?.token) {
     const inviteLink = `${appUrl}?invite=${invite.token}`;
-    const emailRes = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from: fromEmail,
-        to: [email],
-        subject: "You've been invited to a FuneralOS office",
-        html: `<div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#0f1523;color:#c8daf0;padding:32px;border-radius:12px;">
+    const roleLabelEl = role === "admin" ? "διαχειριστής" : "συντάκτης";
+    const subject = lang === "el" ? "Προσκλήθηκες σε γραφείο στο FuneralOS" : "You've been invited to a FuneralOS office";
+    const html = lang === "el"
+      ? `<div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#0f1523;color:#c8daf0;padding:32px;border-radius:12px;">
+          <h1 style="color:#c8a96e;margin:0 0 4px;font-size:22px;">FuneralOS</h1>
+          <h2 style="margin:0 0 20px;color:#fff;font-size:18px;">Προσκλήθηκες σε γραφείο</h2>
+          <p style="margin:0 0 20px;">Προσκλήθηκες να συνεργαστείς στο FuneralOS ως <strong>${roleLabelEl}</strong>.</p>
+          <a href="${inviteLink}" style="display:inline-block;padding:12px 28px;background:#c8a96e;color:#0f1523;border-radius:9px;text-decoration:none;font-weight:700;font-size:15px;">Αποδοχή πρόσκλησης →</a>
+          <p style="margin-top:20px;color:#8899aa;font-size:12px;">Ο σύνδεσμος λήγει σε 7 ημέρες. Αν δεν έχεις ήδη λογαριασμό FuneralOS, θα σου ζητηθεί να δημιουργήσεις έναν πρώτα.</p>
+          <p style="color:#8899aa;font-size:11px;margin-top:32px;border-top:1px solid rgba(255,255,255,.08);padding-top:16px;">FuneralOS — Επαγγελματικό λογισμικό διαχείρισης γραφείου τελετών</p>
+        </div>`
+      : `<div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#0f1523;color:#c8daf0;padding:32px;border-radius:12px;">
           <h1 style="color:#c8a96e;margin:0 0 4px;font-size:22px;">FuneralOS</h1>
           <h2 style="margin:0 0 20px;color:#fff;font-size:18px;">You've been invited to join an office</h2>
           <p style="margin:0 0 20px;">You've been invited to collaborate on FuneralOS as <strong>${role}</strong>.</p>
           <a href="${inviteLink}" style="display:inline-block;padding:12px 28px;background:#c8a96e;color:#0f1523;border-radius:9px;text-decoration:none;font-weight:700;font-size:15px;">Accept Invitation →</a>
           <p style="margin-top:20px;color:#8899aa;font-size:12px;">This link expires in 7 days. If you don't have a FuneralOS account yet, you'll be asked to create one first.</p>
           <p style="color:#8899aa;font-size:11px;margin-top:32px;border-top:1px solid rgba(255,255,255,.08);padding-top:16px;">FuneralOS — Professional funeral management software</p>
-        </div>`,
-      }),
+        </div>`;
+    const emailRes = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: fromEmail, to: [email], subject, html }),
     });
     if (!emailRes.ok) console.warn(`Invite email failed: ${emailRes.status}`);
-    else console.log(`Invite email sent to ${email}`);
+    else { emailSent = true; console.log(`Invite email sent to ${email}`); }
   }
 
   return new Response(
-    JSON.stringify({ ok: true, office_id: officeId, role, token: invite?.token }),
+    JSON.stringify({ ok: true, office_id: officeId, role, token: invite?.token, emailSent, inviteLink: `${appUrl}?invite=${invite?.token}` }),
     { status: 200, headers: { ...CORS, "Content-Type": "application/json" } }
   );
 });

@@ -196,12 +196,17 @@
     const btn = document.getElementById('loginBtn');
     btn.disabled = true; btn.textContent = 'Σύνδεση...';
 
-    const { error } = await sb.auth.signInWithPassword({ email, password });
-    if (error) {
-      showMsg('loginMsg', translateError(error.message), 'error');
+    try {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) {
+        showMsg('loginMsg', translateError(error.message), 'error');
+      } else {
+        window.location.href = '/app';
+      }
+    } catch (e) {
+      showMsg('loginMsg', 'Αποτυχία σύνδεσης. Έλεγξε τη σύνδεσή σου και δοκίμασε ξανά.', 'error');
+    } finally {
       btn.disabled = false; btn.textContent = 'Σύνδεση';
-    } else {
-      window.location.href = '/app';
     }
   }
 
@@ -217,19 +222,23 @@
     const btn = document.getElementById('registerBtn');
     btn.disabled = true; btn.textContent = 'Δημιουργία...';
 
-    const referralCode = (document.getElementById('regReferral').value || '').trim().toUpperCase() || undefined;
-    const { error } = await sb.auth.signUp({
-      email, password,
-      options: { emailRedirectTo: 'https://funeralos.net/login.html', data: { office_name: office, plan: 'free', referred_by: referralCode } }
-    });
-    if (!error && referralCode) localStorage.removeItem('funeralos_ref');
+    try {
+      const referralCode = (document.getElementById('regReferral').value || '').trim().toUpperCase() || undefined;
+      const { error } = await sb.auth.signUp({
+        email, password,
+        options: { emailRedirectTo: 'https://funeralos.net/login.html', data: { office_name: office, plan: 'free', referred_by: referralCode } }
+      });
+      if (!error && referralCode) localStorage.removeItem('funeralos_ref');
 
-    if (error) {
-      const msg = error.message && error.message !== '{}' ? error.message : null;
-      showMsg('registerMsg', translateError(msg), 'error');
-      btn.disabled = false; btn.textContent = 'Δημιουργία λογαριασμού';
-    } else {
-      showMsg('registerMsg', '✓ Έγινε! Έλεγξε το email σου για επιβεβαίωση και μετά συνδέσου.', 'success');
+      if (error) {
+        const msg = error.message && error.message !== '{}' ? error.message : null;
+        showMsg('registerMsg', translateError(msg), 'error');
+      } else {
+        showMsg('registerMsg', '✓ Έγινε! Έλεγξε το email σου για επιβεβαίωση και μετά συνδέσου.', 'success');
+      }
+    } catch (e) {
+      showMsg('registerMsg', 'Αποτυχία δημιουργίας λογαριασμού. Έλεγξε τη σύνδεσή σου και δοκίμασε ξανά.', 'error');
+    } finally {
       btn.disabled = false; btn.textContent = 'Δημιουργία λογαριασμού';
     }
   }
@@ -237,10 +246,14 @@
   async function resetPassword() {
     const email = document.getElementById('loginEmail').value.trim();
     if (!email) { showMsg('loginMsg', 'Γράψε πρώτα το email σου παραπάνω.', 'error'); return; }
-    const redirectTo = location.origin + location.pathname.replace(/login\.html$/, 'reset.html');
-    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
-    if (error) showMsg('loginMsg', error.message, 'error');
-    else showMsg('loginMsg', 'Στάλθηκε email επαναφοράς. Έλεγξε τα εισερχόμενά σου.', 'success');
+    try {
+      const redirectTo = location.origin + location.pathname.replace(/login\.html$/, 'reset.html');
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+      if (error) showMsg('loginMsg', translateError(error.message), 'error');
+      else showMsg('loginMsg', 'Στάλθηκε email επαναφοράς. Έλεγξε τα εισερχόμενά σου.', 'success');
+    } catch (e) {
+      showMsg('loginMsg', 'Αποτυχία αποστολής. Δοκίμασε ξανά.', 'error');
+    }
   }
 
   function translateError(msg) {
@@ -250,7 +263,7 @@
     if (msg.includes('already registered')) return 'Αυτό το email είναι ήδη καταχωρημένο.';
     if (msg.includes('Password should')) return 'Ο κωδικός χρειάζεται τουλάχιστον 6 χαρακτήρες.';
     if (msg.includes('Unable to validate')) return 'Μη έγκυρο email.';
-    return msg;
+    return 'Κάτι πήγε στραβά. Δοκίμασε ξανά.';
   }
 
   // Enter key support

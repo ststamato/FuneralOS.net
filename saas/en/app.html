@@ -89,6 +89,7 @@
       </a>
     </div>
     <p style="font-size:11px;color:#8899aa;margin:0 0 12px;text-align:center;">Pro: unlimited cases &nbsp;·&nbsp; Business: Pro + AI Assistant + Hermes</p>
+    <button type="button" id="refreshPlanBtn" onclick="window.refreshMyPlan()" style="background:none;border:none;color:#c8a96e;font-size:12px;text-decoration:underline;cursor:pointer;margin:0 0 10px;">Already upgraded — refresh my plan</button>
     <button class="up-close" onclick="closeUpgradeModal()">Close</button>
   </div>
 </div>
@@ -433,7 +434,7 @@
           <input id="supportSubject" type="text" maxlength="100" placeholder="Subject..." style="width:100%;padding:10px 12px;background:#0f1a2e;border:1px solid rgba(200,169,110,.3);border-radius:8px;color:#e0e8f0;font-size:14px;box-sizing:border-box;margin-bottom:10px;" />
           <textarea id="supportMessage" maxlength="1000" placeholder="Describe your request..." style="width:100%;min-height:100px;padding:10px 12px;background:#0f1a2e;border:1px solid rgba(200,169,110,.3);border-radius:8px;color:#e0e8f0;font-size:14px;box-sizing:border-box;resize:vertical;"></textarea>
           <div style="display:flex;align-items:center;gap:12px;margin-top:10px;">
-            <button onclick="submitSupport('en')" style="padding:10px 20px;background:#c8a96e;color:#0f1523;border:none;border-radius:9px;font-weight:700;font-size:13px;cursor:pointer;">Send</button>
+            <button id="supportSendBtn" onclick="submitSupport('en')" style="padding:10px 20px;background:#c8a96e;color:#0f1523;border:none;border-radius:9px;font-weight:700;font-size:13px;cursor:pointer;">Send</button>
             <span id="supportFeedback" style="font-size:12px;"></span>
           </div>
         </div>
@@ -504,14 +505,14 @@
           <div id="usaAttentionList" class="usa-list"></div>
         </section>
         <section class="usa-panel">
-          <h3>Director AI Brief</h3>
+          <h3>Director's Daily Brief</h3>
           <div id="usaDirectorBrief" class="usa-brief"></div>
         </section>
       </div>
       <section class="usa-v3-ai-director">
         <div class="usa-section-head">
           <div>
-            <p class="usa-kicker">AI OPERATIONS DIRECTOR</p>
+            <p class="usa-kicker">SMART OPS DIRECTOR</p>
             <h2>30-Second Funeral Home Overview</h2>
             <p>Morning briefing, end-of-day recap, Operations Score, Case Health and smart alerts for independent funeral homes.</p>
           </div>
@@ -696,7 +697,7 @@
         <!-- Service -->
         <p style="font-size:11px;font-weight:700;letter-spacing:.8px;color:rgba(200,169,110,.7);text-transform:uppercase;margin:12px 0 6px;">Service</p>
         <div class="form-grid-2">
-          <label>Service date<input type="date" id="ceremonyDate" lang="en-US" /></label>
+          <label>Service date<input type="date" id="ceremonyDate" lang="en-US" /><span id="ceremonyDateError" style="display:none;color:#e07070;font-size:11px;">Date is required.</span></label>
           <label>Service time<input type="time" id="ceremonyTime" lang="en-US" /></label>
         </div>
         <label>Service location<input type="text" id="ceremonyPlace" placeholder="e.g. Riverside Church / Greenwood Cemetery" /></label>
@@ -871,7 +872,7 @@
 </script>
 <script src="freemium.js"></script>
 <script>window.__appLang = "en";</script>
-<script src="../app.js?v=11"></script>
+<script src="../app.js?v=13"></script>
 <script src="suppliers.js"></script>
 <script src="../usa.js?v=1"></script>
 
