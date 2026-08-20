@@ -12,6 +12,22 @@
 
   const FREE_CEREMONY_LIMIT = 5;
 
+  // Every localStorage key that holds one office's data — cleared on account
+  // switch and on explicit sign-out so a shared/kiosk device never leaks one
+  // office's cases/staff/fleet/financials into the next login.
+  const OFFICE_LOCAL_STORAGE_KEYS = [
+    "staurakaki_ceremonies_v8", "staurakaki_warehouse_v8", "staurakaki_sets_v8",
+    "staurakaki_changes_v8", "staurakaki_option_warehouse_v2", "staurakaki_custom_fields_v36",
+    "staurakaki_ai_seen_notes_v1", "staurakaki_ai_seen_alerts_v1",
+    "staurakaki_ai_chat_history_v1", "staurakaki_second_helpers_v1",
+    "staurakaki_push_sub_v1", "staurakaki_backup_v8",
+    "funeralos_en_usa_meta_v1", "funeralos_en_usa_settings_v1", "funeralos_en_timezone_v1",
+    "funeralos_usa_staff_v2", "funeralos_usa_fleet_v2",
+  ];
+  function clearOfficeLocalData() {
+    OFFICE_LOCAL_STORAGE_KEYS.forEach((k) => localStorage.removeItem(k));
+  }
+
   const { createClient } = window.supabase;
   const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -106,12 +122,7 @@
       // Clear localStorage if a different user logs in on the same device
       const storedId = localStorage.getItem("__funeralos_uid");
       if (storedId && storedId !== user.id) {
-        ["staurakaki_ceremonies_v8","staurakaki_warehouse_v8","staurakaki_sets_v8",
-         "staurakaki_changes_v8","staurakaki_option_warehouse_v2","staurakaki_custom_fields_v36",
-         "staurakaki_ai_seen_notes_v1","staurakaki_ai_seen_alerts_v1",
-         "staurakaki_ai_chat_history_v1","staurakaki_second_helpers_v1",
-         "staurakaki_push_sub_v1","staurakaki_backup_v8"
-        ].forEach(k => localStorage.removeItem(k));
+        clearOfficeLocalData();
       }
       localStorage.setItem("__funeralos_uid", user.id);
 
@@ -149,7 +160,7 @@
     const logoutBtn = document.getElementById("logoutBtn");
     if (logoutBtn) {
       logoutBtn.textContent = "Sign out";
-      logoutBtn.onclick = async () => { await sb.auth.signOut(); window.location.href = "/en/login"; };
+      logoutBtn.onclick = async () => { await sb.auth.signOut(); clearOfficeLocalData(); window.location.href = "/en/login"; };
     }
   }
 

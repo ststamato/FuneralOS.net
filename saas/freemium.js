@@ -15,6 +15,20 @@
   const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJxa2xwbnJncGlwcnR0enNwbG9lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMzA2NTgsImV4cCI6MjA5ODYwNjY1OH0.L9kumMt04wy0rlEfE79AwvGD8C2YWAyr_CIh9dDlBZQ";
 
   const FREE_CEREMONY_LIMIT = 5;
+
+  // Every localStorage key that holds one office's data — cleared on account
+  // switch and on explicit sign-out so a shared/kiosk device never leaks one
+  // office's cases into the next login.
+  const OFFICE_LOCAL_STORAGE_KEYS = [
+    "staurakaki_ceremonies_v8", "staurakaki_warehouse_v8", "staurakaki_sets_v8",
+    "staurakaki_changes_v8", "staurakaki_option_warehouse_v2", "staurakaki_custom_fields_v36",
+    "staurakaki_ai_seen_notes_v1", "staurakaki_ai_seen_alerts_v1",
+    "staurakaki_ai_chat_history_v1", "staurakaki_second_helpers_v1",
+    "staurakaki_push_sub_v1", "staurakaki_backup_v8",
+  ];
+  function clearOfficeLocalData() {
+    OFFICE_LOCAL_STORAGE_KEYS.forEach((k) => localStorage.removeItem(k));
+  }
   const STRIPE_PRO_LINK = "https://funeralos.lemonsqueezy.com/checkout/buy/6cdaa45a-02fe-4a51-b4ae-e51633d3b36d";
   const STRIPE_BUSINESS_LINK = "https://funeralos.lemonsqueezy.com/checkout/buy/3c72881b-2f6b-40be-970c-effe794d8de7";
 
@@ -104,12 +118,7 @@
       // Clear localStorage if a different user logs in on the same device
       const storedId = localStorage.getItem("__funeralos_uid");
       if (storedId && storedId !== user.id) {
-        ["staurakaki_ceremonies_v8","staurakaki_warehouse_v8","staurakaki_sets_v8",
-         "staurakaki_changes_v8","staurakaki_option_warehouse_v2","staurakaki_custom_fields_v36",
-         "staurakaki_ai_seen_notes_v1","staurakaki_ai_seen_alerts_v1",
-         "staurakaki_ai_chat_history_v1","staurakaki_second_helpers_v1",
-         "staurakaki_push_sub_v1","staurakaki_backup_v8"
-        ].forEach(k => localStorage.removeItem(k));
+        clearOfficeLocalData();
       }
       localStorage.setItem("__funeralos_uid", user.id);
 
@@ -158,6 +167,7 @@
     if (logoutBtn) {
       logoutBtn.onclick = async () => {
         await sb.auth.signOut();
+        clearOfficeLocalData();
         window.location.href = "/login.html";
       };
     }
