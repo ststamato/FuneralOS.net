@@ -48,24 +48,30 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── Server-side rate limit check ────────────────────────────────────────────
+  // Atomic claim (row-locked in claim_ai_usage_slot) — done up front, before
+  // the Grok call, so two concurrent requests can't both read the same
+  // pre-increment count and both slip past the daily limit.
   const today = new Date().toISOString().split("T")[0];
   const sbHeaders = {
     apikey: serviceKey,
     Authorization: `Bearer ${serviceKey}`,
     "Content-Type": "application/json",
-    Prefer: "resolution=merge-duplicates,return=minimal",
   };
 
-  const usageRes = await fetch(
-    `${supabaseUrl}/rest/v1/ai_usage?user_id=eq.${encodeURIComponent(userId)}&select=calls_today,reset_date`,
-    { headers: sbHeaders }
-  );
-  const usageRows: any[] = usageRes.ok ? await usageRes.json() : [];
-  const usage = usageRows[0];
-  const callsToday = usage?.reset_date === today ? Number(usage?.calls_today ?? 0) : 0;
+  const claimRes = await fetch(`${supabaseUrl}/rest/v1/rpc/claim_ai_usage_slot`, {
+    method: "POST",
+    headers: sbHeaders,
+    body: JSON.stringify({ p_user_id: userId, p_limit: AI_DAILY_LIMIT, p_today: today }),
+  });
+  if (!claimRes.ok) {
+    console.error("claim_ai_usage_slot failed:", await claimRes.text());
+    return json({ error: "Could not check usage limit" }, 500);
+  }
+  const claimRows: any[] = await claimRes.json();
+  const claim = Array.isArray(claimRows) ? claimRows[0] : claimRows;
 
-  if (callsToday >= AI_DAILY_LIMIT) {
-    return json({ error: "daily_limit_reached", used: callsToday, limit: AI_DAILY_LIMIT }, 429);
+  if (!claim?.allowed) {
+    return json({ error: "daily_limit_reached", used: claim?.used ?? AI_DAILY_LIMIT, limit: AI_DAILY_LIMIT }, 429);
   }
 
   // ── Call xAI Grok ────────────────────────────────────────────────────────────
@@ -103,14 +109,9 @@ Deno.serve(async (req: Request) => {
     const answer = grokData.choices?.[0]?.message?.content?.trim()
       || (lang === "en" ? "No answer available." : "Δεν υπάρχει απάντηση.");
 
-    // ── Increment counter after successful Grok call ────────────────────────
-    await fetch(`${supabaseUrl}/rest/v1/ai_usage?on_conflict=user_id`, {
-      method: "POST",
-      headers: sbHeaders,
-      body: JSON.stringify({ user_id: userId, calls_today: callsToday + 1, reset_date: today }),
-    });
-
-    return json({ answer, used: callsToday + 1, limit: AI_DAILY_LIMIT });
+    // Usage was already claimed atomically before the Grok call — nothing
+    // left to record here.
+    return json({ answer, used: claim.used, limit: AI_DAILY_LIMIT });
 
   } catch (err) {
     console.error("Edge function error:", err);

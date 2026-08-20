@@ -434,6 +434,41 @@ $$;
 
 grant execute on function public.get_office_plan(uuid) to authenticated;
 
+-- Atomically check-and-increment a user's daily AI call counter. Row-locked
+-- (`for update`) so two concurrent ai-assistant requests can't both read the
+-- same pre-increment count and both slip past the daily limit. Called by the
+-- ai-assistant edge function via the service role — granted to service_role
+-- only, not authenticated, so a client can never claim a slot for another
+-- user's id.
+create or replace function public.claim_ai_usage_slot(p_user_id uuid, p_limit integer, p_today date)
+returns table(allowed boolean, used integer)
+language plpgsql security definer set search_path = public as $$
+declare
+  v_calls integer;
+  v_reset date;
+begin
+  insert into ai_usage (user_id, calls_today, reset_date)
+  values (p_user_id, 0, p_today)
+  on conflict (user_id) do nothing;
+
+  select calls_today, reset_date into v_calls, v_reset
+  from ai_usage where user_id = p_user_id
+  for update;
+
+  if v_reset is distinct from p_today then v_calls := 0; end if;
+
+  if v_calls >= p_limit then
+    return query select false, v_calls;
+    return;
+  end if;
+
+  update ai_usage set calls_today = v_calls + 1, reset_date = p_today where user_id = p_user_id;
+  return query select true, v_calls + 1;
+end;
+$$;
+
+grant execute on function public.claim_ai_usage_slot(uuid, integer, date) to service_role;
+
 -- Optimistic-lock save: no `security definer`, so the RLS policies above are
 -- what actually enforce access — this just adds compare-and-swap on updated_at.
 -- Also the ONLY server-side enforcement of the free-plan monthly ceremony
