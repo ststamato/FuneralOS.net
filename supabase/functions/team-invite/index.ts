@@ -83,6 +83,7 @@ Deno.serve(async (req: Request) => {
   const [invite] = await inviteRes.json();
 
   // Send invite email via Resend
+  let emailSent = false;
   if (resendKey && invite?.token) {
     const inviteLink = `${appUrl}?invite=${invite.token}`;
     const emailRes = await fetch("https://api.resend.com/emails", {
@@ -103,11 +104,11 @@ Deno.serve(async (req: Request) => {
       }),
     });
     if (!emailRes.ok) console.warn(`Invite email failed: ${emailRes.status}`);
-    else console.log(`Invite email sent to ${email}`);
+    else { emailSent = true; console.log(`Invite email sent to ${email}`); }
   }
 
   return new Response(
-    JSON.stringify({ ok: true, office_id: officeId, role, token: invite?.token }),
+    JSON.stringify({ ok: true, office_id: officeId, role, token: invite?.token, emailSent, inviteLink: `${appUrl}?invite=${invite?.token}` }),
     { status: 200, headers: { ...CORS, "Content-Type": "application/json" } }
   );
 });

@@ -736,10 +736,24 @@
 
     const result = await callEdgeFunction("team-invite", { email, role }, session.access_token);
     if (result.ok) {
-      msgEl.style.color = "#66cc88";
-      msgEl.textContent = "Invitation sent to " + email + ".";
       emailEl.value = "";
       renderTeamPanel();
+      if (result.data?.emailSent) {
+        msgEl.style.color = "#66cc88";
+        msgEl.textContent = "Invitation sent to " + email + ".";
+      } else {
+        msgEl.style.color = "#e0b866";
+        msgEl.innerHTML = "Couldn't send the invite email — copy this link and send it to them yourself: "
+          + '<br><a href="#" id="teamInviteCopyLink" style="color:#c8a96e;word-break:break-all;">' + (result.data?.inviteLink || "") + "</a>";
+        const copyLink = document.getElementById("teamInviteCopyLink");
+        if (copyLink && result.data?.inviteLink) {
+          copyLink.addEventListener("click", function (e) {
+            e.preventDefault();
+            navigator.clipboard?.writeText(result.data.inviteLink);
+            msgEl.textContent = "Link copied to clipboard.";
+          });
+        }
+      }
     } else {
       msgEl.style.color = "#e07070";
       msgEl.textContent = result.data?.error || result.data?.message || "Failed to send invite.";
