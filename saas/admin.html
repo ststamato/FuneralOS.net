@@ -443,6 +443,7 @@
     <button id="tabUsers" onclick="switchTab('users')" style="padding:8px 20px;border-radius:8px;border:none;background:#c8a96e;color:#0f1523;font-weight:700;font-size:13px;cursor:pointer;">👥 Users</button>
     <button id="tabAudit" onclick="switchTab('audit')" style="padding:8px 20px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.6);font-weight:700;font-size:13px;cursor:pointer;">📋 Audit Log</button>
     <button id="tabSupport" onclick="switchTab('support')" style="padding:8px 20px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.6);font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;">🎫 Αιτήματα <span id="supportBadge" style="display:none;background:#f87171;color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:10px;min-width:16px;text-align:center;"></span></button>
+    <button id="tabPayments" onclick="switchTab('payments')" style="padding:8px 20px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.6);font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;">💳 Ασύνδετες πληρωμές <span id="paymentsBadge" style="display:none;background:#f87171;color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:10px;min-width:16px;text-align:center;"></span></button>
   </div>
 
   <!-- Users view -->
@@ -499,6 +500,31 @@
           </tr>
         </thead>
         <tbody id="supportTableBody">
+          <tr class="empty-row"><td colspan="5">Φόρτωση...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Unmatched Webhook Payments view -->
+  <div id="viewPayments" style="display:none;">
+    <div class="toolbar" style="margin-bottom:12px;">
+      <button class="refresh-btn" onclick="loadWebhookFailures()">↺ Ανανέωση</button>
+      <span class="count-lbl" id="paymentsCountLbl"></span>
+    </div>
+    <p style="font-size:12px;color:rgba(255,255,255,.5);margin:0 0 12px;">Πληρωμές από τη LemonSqueezy που δεν αντιστοιχίστηκαν αυτόματα σε λογαριασμό χρήστη (π.χ. τυπογραφικό λάθος στο email κατά το checkout). Έλεγξε χειροκίνητα και αναβάθμισε το σωστό λογαριασμό μέσω του tab Users, μετά πάτα "Επιλύθηκε".</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Ημερομηνία</th>
+            <th>Email</th>
+            <th>Προϊόν</th>
+            <th>Event</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="paymentsTableBody">
           <tr class="empty-row"><td colspan="5">Φόρτωση...</td></tr>
         </tbody>
       </table>
@@ -1239,16 +1265,18 @@
   }
 
   // ── Tab switcher ────────────────────────────────────────────────────────────
-  let currentTab  = "users";
-  let auditRows   = [];
-  let supportRows = [];
+  let currentTab   = "users";
+  let auditRows    = [];
+  let supportRows  = [];
+  let paymentRows  = [];
 
   window.switchTab = function(tab) {
     currentTab = tab;
-    document.getElementById("viewUsers").style.display   = tab === "users"   ? "" : "none";
-    document.getElementById("viewAudit").style.display   = tab === "audit"   ? "" : "none";
-    document.getElementById("viewSupport").style.display = tab === "support" ? "" : "none";
-    ["tabUsers", "tabAudit", "tabSupport"].forEach(function(id) {
+    document.getElementById("viewUsers").style.display    = tab === "users"    ? "" : "none";
+    document.getElementById("viewAudit").style.display    = tab === "audit"    ? "" : "none";
+    document.getElementById("viewSupport").style.display  = tab === "support"  ? "" : "none";
+    document.getElementById("viewPayments").style.display = tab === "payments" ? "" : "none";
+    ["tabUsers", "tabAudit", "tabSupport", "tabPayments"].forEach(function(id) {
       const tabKey = id.replace("tab", "").toLowerCase();
       const active = tabKey === tab;
       const el = document.getElementById(id);
@@ -1256,8 +1284,9 @@
       el.style.color      = active ? "#0f1523"                  : "rgba(255,255,255,.6)";
       el.style.border     = active ? "none"                     : "1px solid rgba(255,255,255,.15)";
     });
-    if (tab === "audit"   && auditRows.length   === 0) loadAuditLog();
-    if (tab === "support" && supportRows.length  === 0) loadSupport();
+    if (tab === "audit"    && auditRows.length   === 0) loadAuditLog();
+    if (tab === "support"  && supportRows.length === 0) loadSupport();
+    if (tab === "payments" && paymentRows.length === 0) loadWebhookFailures();
   };
 
   // ── Audit Log ───────────────────────────────────────────────────────────────
@@ -1391,6 +1420,63 @@
       '</tr>';
     }).join("");
   }
+
+  // ── Unmatched Webhook Payments ───────────────────────────────────────────────
+  async function loadWebhookFailures() {
+    document.getElementById("paymentsTableBody").innerHTML =
+      '<tr class="empty-row"><td colspan="5">Φόρτωση...</td></tr>';
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      const res = await fetch(ADMIN_FN, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token },
+        body: JSON.stringify({ action: "list_webhook_failures" }),
+      });
+      const data = await res.json();
+      paymentRows = data.events || [];
+      renderWebhookFailuresTable(paymentRows);
+      document.getElementById("paymentsCountLbl").textContent = paymentRows.length + " ασύνδετες";
+      const badge = document.getElementById("paymentsBadge");
+      if (badge) { badge.textContent = paymentRows.length; badge.style.display = paymentRows.length > 0 ? "inline-flex" : "none"; }
+    } catch (err) {
+      document.getElementById("paymentsTableBody").innerHTML =
+        '<tr class="empty-row"><td colspan="5">Σφάλμα: ' + esc(String(err)) + '</td></tr>';
+    }
+  }
+  window.loadWebhookFailures = loadWebhookFailures;
+
+  function renderWebhookFailuresTable(rows) {
+    const tbody = document.getElementById("paymentsTableBody");
+    if (!rows.length) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Καμία ασύνδετη πληρωμή. 🎉</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(function(r) {
+      return '<tr>' +
+        '<td style="font-size:12px;white-space:nowrap;">' + fmtDate(r.created_at) + '</td>' +
+        '<td style="font-size:12px;">' + esc(r.email || r.custom_user_id || "—") + '</td>' +
+        '<td style="font-size:12px;">' + esc(r.product_name || "—") + '</td>' +
+        '<td style="font-size:11px;color:rgba(255,255,255,.5);">' + esc(r.event_name || "") + '</td>' +
+        '<td><button onclick="resolveWebhookFailure(\'' + r.id + '\')" style="padding:4px 12px;background:rgba(134,239,172,.12);color:#86efac;border:1px solid rgba(134,239,172,.25);border-radius:6px;font-size:11px;cursor:pointer;font-weight:700;">Επιλύθηκε</button></td>' +
+      '</tr>';
+    }).join("");
+  }
+
+  window.resolveWebhookFailure = async function(id) {
+    if (!confirm("Να σημειωθεί ως επιλυμένη; (Βεβαιώσου ότι έχεις ήδη αναβαθμίσει τον σωστό λογαριασμό.)")) return;
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      await fetch(ADMIN_FN, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token },
+        body: JSON.stringify({ action: "resolve_webhook_failure", id }),
+      });
+      paymentRows = [];
+      loadWebhookFailures();
+    } catch (err) {
+      alert("Σφάλμα: " + err.message);
+    }
+  };
 
   window.openSupportModal = function(idx) {
     const r = supportRows[idx];

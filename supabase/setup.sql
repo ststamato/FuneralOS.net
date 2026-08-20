@@ -109,6 +109,22 @@ create table if not exists processed_webhook_events (
   received_at timestamptz default now()
 );
 
+-- Lemon Squeezy webhook events that couldn't be matched to a Supabase user
+-- (checkout email typo, guest checkout, signup/webhook race). Previously
+-- just console.warn'd and dropped — the customer was charged and got no
+-- plan, with nothing anywhere to find and fix it later. Service-role only;
+-- surfaced read-only to the owner via admin-stats' list_webhook_failures.
+create table if not exists webhook_unmatched_events (
+  id              uuid primary key default gen_random_uuid(),
+  event_name      text,
+  email           text,
+  custom_user_id  text,
+  product_name    text,
+  payload         jsonb,
+  created_at      timestamptz default now(),
+  resolved_at     timestamptz
+);
+
 -- Case document attachments (USA edition — see saas/usa.js). Stores a
 -- reference to a file in the private 'case-documents' Storage bucket; one
 -- row per (office, case, document type), replaced on re-upload.
@@ -160,6 +176,7 @@ alter table referrals      enable row level security;
 alter table office_members enable row level security;
 alter table office_invites enable row level security;
 alter table processed_webhook_events enable row level security;
+alter table webhook_unmatched_events enable row level security;
 alter table case_documents enable row level security;
 
 -- app_state: role-differentiated access
@@ -262,6 +279,8 @@ create policy "office admin can remove members" on office_members
 -- office_invites: no client policies — RLS blocks clients, service role bypasses RLS
 
 -- processed_webhook_events: no client policies — RLS blocks clients, service role bypasses RLS
+
+-- webhook_unmatched_events: no client policies — RLS blocks clients, service role bypasses RLS
 
 -- case_documents: owner or office member (same model as ceremonies).
 -- Needs insert + update policies (not just insert) because the client

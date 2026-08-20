@@ -300,6 +300,14 @@ Deno.serve(async (req: Request) => {
 
   if (!userId) {
     console.warn(`No Supabase user found for email: ${email} or user_id: ${customUserId}`);
+    // A retry won't fix an unmatched user, so this still acknowledges with
+    // 200 (unlike the plan-update failure path below) — but the payment was
+    // real and must not just vanish into logs. Record it for manual review.
+    await fetch(`${supabaseUrl}/rest/v1/webhook_unmatched_events`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ event_name: eventName, email, custom_user_id: customUserId || null, product_name: productName, payload }),
+    }).catch((e) => console.error("Failed to record unmatched webhook event", e));
     return new Response("OK", { status: 200 }); // 200 to prevent LS retries
   }
 

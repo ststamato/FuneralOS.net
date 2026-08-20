@@ -452,6 +452,27 @@ ${message}
       return json({ events: enriched });
     }
 
+    // ── UNMATCHED WEBHOOK PAYMENTS (couldn't be matched to a user) ─────────────
+    if (action === "list_webhook_failures") {
+      const res = await fetch(
+        `${supabaseUrl}/rest/v1/webhook_unmatched_events?resolved_at=is.null&select=*&order=created_at.desc`,
+        { headers: h }
+      );
+      const rows = res.ok ? await res.json() : [];
+      return json({ events: rows });
+    }
+
+    if (action === "resolve_webhook_failure") {
+      const { id } = body as { id: string };
+      if (!id) return json({ error: "Missing id" }, 400);
+      await fetch(`${supabaseUrl}/rest/v1/webhook_unmatched_events?id=eq.${id}`, {
+        method: "PATCH",
+        headers: { ...h, Prefer: "return=minimal" },
+        body: JSON.stringify({ resolved_at: new Date().toISOString() }),
+      });
+      return json({ ok: true });
+    }
+
     // ── SUPPORT LIST ──────────────────────────────────────────────────────────
     if (action === "support_list") {
       const [reqsRes, usersRes] = await Promise.all([
