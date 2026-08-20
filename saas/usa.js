@@ -813,7 +813,7 @@
 
 
 // ================================
-// FuneralOS USA v3 - AI Operations Director
+// FuneralOS USA v3 - Smart Ops Director
 // Built as local-first intelligence layer on top of USA v2 data.
 // ================================
 (function(){
