@@ -756,7 +756,7 @@
       }
     }
 
-    const result = await callEdgeFunction("team-invite", { email, role }, session.access_token);
+    const result = await callEdgeFunction("team-invite", { email, role, lang: "en" }, session.access_token);
     if (result.ok) {
       emailEl.value = "";
       renderTeamPanel();

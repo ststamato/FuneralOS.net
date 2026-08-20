@@ -17,7 +17,6 @@ Deno.serve(async (req: Request) => {
   const anonKey     = Deno.env.get("SUPABASE_ANON_KEY") || "";
   const resendKey   = Deno.env.get("RESEND_API_KEY") || "";
   const fromEmail   = Deno.env.get("FROM_EMAIL") || "FuneralOS <team@funeralos.net>";
-  const appUrl      = Deno.env.get("APP_URL") || "https://funeralos.net/en/app";
 
   // Authenticate caller
   const authHeader = req.headers.get("Authorization") || "";
@@ -64,11 +63,12 @@ Deno.serve(async (req: Request) => {
   }
 
   // Parse body
-  let email: string, role: string;
+  let email: string, role: string, lang: string;
   try {
     const body = await req.json();
     email = (body.email || "").toLowerCase().trim();
     role  = body.role || "editor";
+    lang  = body.lang === "el" ? "el" : "en";
   } catch {
     return new Response("Invalid JSON", { status: 400, headers: CORS });
   }
@@ -76,6 +76,8 @@ Deno.serve(async (req: Request) => {
   if (!["admin", "editor"].includes(role)) {
     return new Response("role must be admin or editor", { status: 400, headers: CORS });
   }
+
+  const appUrl = Deno.env.get("APP_URL") || (lang === "el" ? "https://funeralos.net/app" : "https://funeralos.net/en/app");
 
   const svcHeaders = {
     Authorization: `Bearer ${serviceKey}`,
@@ -108,22 +110,29 @@ Deno.serve(async (req: Request) => {
   let emailSent = false;
   if (resendKey && invite?.token) {
     const inviteLink = `${appUrl}?invite=${invite.token}`;
-    const emailRes = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from: fromEmail,
-        to: [email],
-        subject: "You've been invited to a FuneralOS office",
-        html: `<div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#0f1523;color:#c8daf0;padding:32px;border-radius:12px;">
+    const roleLabelEl = role === "admin" ? "διαχειριστής" : "συντάκτης";
+    const subject = lang === "el" ? "Προσκλήθηκες σε γραφείο στο FuneralOS" : "You've been invited to a FuneralOS office";
+    const html = lang === "el"
+      ? `<div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#0f1523;color:#c8daf0;padding:32px;border-radius:12px;">
+          <h1 style="color:#c8a96e;margin:0 0 4px;font-size:22px;">FuneralOS</h1>
+          <h2 style="margin:0 0 20px;color:#fff;font-size:18px;">Προσκλήθηκες σε γραφείο</h2>
+          <p style="margin:0 0 20px;">Προσκλήθηκες να συνεργαστείς στο FuneralOS ως <strong>${roleLabelEl}</strong>.</p>
+          <a href="${inviteLink}" style="display:inline-block;padding:12px 28px;background:#c8a96e;color:#0f1523;border-radius:9px;text-decoration:none;font-weight:700;font-size:15px;">Αποδοχή πρόσκλησης →</a>
+          <p style="margin-top:20px;color:#8899aa;font-size:12px;">Ο σύνδεσμος λήγει σε 7 ημέρες. Αν δεν έχεις ήδη λογαριασμό FuneralOS, θα σου ζητηθεί να δημιουργήσεις έναν πρώτα.</p>
+          <p style="color:#8899aa;font-size:11px;margin-top:32px;border-top:1px solid rgba(255,255,255,.08);padding-top:16px;">FuneralOS — Επαγγελματικό λογισμικό διαχείρισης γραφείου τελετών</p>
+        </div>`
+      : `<div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#0f1523;color:#c8daf0;padding:32px;border-radius:12px;">
           <h1 style="color:#c8a96e;margin:0 0 4px;font-size:22px;">FuneralOS</h1>
           <h2 style="margin:0 0 20px;color:#fff;font-size:18px;">You've been invited to join an office</h2>
           <p style="margin:0 0 20px;">You've been invited to collaborate on FuneralOS as <strong>${role}</strong>.</p>
           <a href="${inviteLink}" style="display:inline-block;padding:12px 28px;background:#c8a96e;color:#0f1523;border-radius:9px;text-decoration:none;font-weight:700;font-size:15px;">Accept Invitation →</a>
           <p style="margin-top:20px;color:#8899aa;font-size:12px;">This link expires in 7 days. If you don't have a FuneralOS account yet, you'll be asked to create one first.</p>
           <p style="color:#8899aa;font-size:11px;margin-top:32px;border-top:1px solid rgba(255,255,255,.08);padding-top:16px;">FuneralOS — Professional funeral management software</p>
-        </div>`,
-      }),
+        </div>`;
+    const emailRes = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: fromEmail, to: [email], subject, html }),
     });
     if (!emailRes.ok) console.warn(`Invite email failed: ${emailRes.status}`);
     else { emailSent = true; console.log(`Invite email sent to ${email}`); }
