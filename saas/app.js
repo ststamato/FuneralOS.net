@@ -1980,8 +1980,27 @@ function helperOptions(includeEmpty = false) {
 
 // ---------------- Ceremony modal ----------------
 let editingId = null;
+let modalOpenSnapshot = null; // serialized form state at open time, for a dirty-check on Cancel
+
+function serializeCeremonyForm() {
+  const form = $("ceremonyForm");
+  if (!form) return "";
+  const parts = [];
+  form.querySelectorAll("input, select, textarea").forEach((el) => {
+    if (el.type === "radio" || el.type === "checkbox") {
+      if (el.checked) parts.push((el.name || el.id) + "=" + el.value);
+    } else {
+      parts.push((el.id || el.name) + "=" + el.value);
+    }
+  });
+  return parts.join("|");
+}
 
 function closeCeremonyModal() {
+  if (modalOpenSnapshot !== null && serializeCeremonyForm() !== modalOpenSnapshot) {
+    if (!confirm(t("Να απορριφθούν οι αλλαγές;", "Discard your changes?"))) return;
+  }
+  modalOpenSnapshot = null;
   $("ceremonyModal")?.classList.add("hidden");
 }
 
@@ -5473,6 +5492,7 @@ function openCeremonyModal(id = null) {
   renderCustomFieldsForm(c);
   toggleCremationUI();
   modal.classList.remove("hidden");
+  modalOpenSnapshot = serializeCeremonyForm();
 }
 
 // Override v36: σώζει και customValues
@@ -5521,6 +5541,7 @@ function saveCeremony(e) {
   }
   saveBackup("saveCeremonyV36");
   saveData();
+  modalOpenSnapshot = null; // just saved — skip the dirty-check on close
   closeCeremonyModal();
   renderAll();
 }
