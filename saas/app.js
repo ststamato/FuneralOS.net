@@ -5117,6 +5117,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if ($("addCustomFieldBtn")) $("addCustomFieldBtn").onclick = () => openCustomFieldModal(null);
     on($("customFieldForm"), "submit", saveCustomField);
     on($("ceremonyForm"), "input", scheduleCeremonyDraftSave);
+    on($("ceremonyDate"), "input", () => { const e = $("ceremonyDateError"); if (e) e.style.display = "none"; });
     if ($("cancelCustomFieldBtn")) $("cancelCustomFieldBtn").onclick = closeCustomFieldModal;
     if ($("newCeremonyHeroBtn")) $("newCeremonyHeroBtn").onclick = () => openCeremonyModal(null);
 
@@ -5573,6 +5574,8 @@ function openCeremonyModal(id = null) {
   toggleCremationUI();
   modal.classList.remove("hidden");
   modalOpenSnapshot = serializeCeremonyForm();
+  const dateErrorEl0 = $("ceremonyDateError");
+  if (dateErrorEl0) dateErrorEl0.style.display = "none";
 
   const draft = loadCeremonyDraft();
   const draftFresh = draft && draft.savedAt && (Date.now() - draft.savedAt < 24 * 60 * 60 * 1000);
@@ -5596,6 +5599,13 @@ function saveCeremony(e) {
   const name = val("deceasedName").trim();
   const place = val("ceremonyPlace").trim();
   if (!name && !place) { alert("Θέλω τουλάχιστον ένα από: Όνομα θανόντα ή Τοποθεσία."); return; }
+  const dateErrorEl = $("ceremonyDateError");
+  if (!val("ceremonyDate")) {
+    if (dateErrorEl) dateErrorEl.style.display = "";
+    $("ceremonyDate")?.focus();
+    return;
+  }
+  if (dateErrorEl) dateErrorEl.style.display = "none";
   const selectedGraveType = document.querySelector('input[name="graveType"]:checked')?.value || "Τριετία";
   const payload = {
     date: val("ceremonyDate") || "", time: val("ceremonyTime") || "", name, place,
