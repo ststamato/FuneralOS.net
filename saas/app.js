@@ -1851,53 +1851,6 @@ function weekLabel(weekOffset, mondayStr) {
 }
 
 // ---------------- WhatsApp + Share ----------------
-function buildWhatsAppMessage(c) {
-  const lines = [];
-  lines.push(`🪦 Τελετή — ΣΤΑΥΡΑΚΑΚΗ`);
-
-  if (c.date || c.time) {
-    const dline = c.date ? formatDate(c.date) : "—";
-    lines.push(`Ημερομηνία: ${dline}${c.time ? ` • ${c.time}` : ""}`);
-  }
-
-  if (c.name) lines.push(`Όνομα θανόντα: ${c.name}`);
-  if (c.place) lines.push(`Τοποθεσία: ${c.place}`);
-
-  const method = (c.burialType || "Ταφή").trim();
-  lines.push(`Τρόπος: ${method}`);
-
-  if (method === "Αποτεφρωση") {
-    lines.push(`Συνοδοί αίθουσας: ${Number(c.cremationEscortCount || 0)}`);
-    if (c.cremationParishNote) lines.push(`Ενορία πριν (σημ.): ${c.cremationParishNote}`);
-  } else {
-    if (c.graveType) lines.push(`Τάφος: ${c.graveType}`);
-    if (c.graveType === "Οικογενειακός" && c.graveNumber) lines.push(`Αριθμός τάφου: ${c.graveNumber}`);
-    if (c.graveType === "Τριετία" && c.graveZone) lines.push(`Ζώνη: ${c.graveZone}`);
-  }
-
-  if (c.responsible && c.responsible !== "-") lines.push(`Υπεύθυνος τελετής: ${c.responsible}`);
-  if (c.secondPerson && c.secondPerson !== "Κανένας") lines.push(`2ο άτομο: ${c.secondPerson}`);
-  if (c.suitcase && c.suitcase !== "-") lines.push(`Βαλίτσα: ${c.suitcase}`);
-
-  if (c.coffin) lines.push(`Φέρετρο: ${c.coffin}`);
-  if (c.set) lines.push(`ΣΕΤ: ${c.set}`);
-  if (c.flowers) lines.push(`Στεφάνια/Λουλούδια: ${c.flowers}`);
-
-  const decorLine = c.decor ? `${c.decor}${c.decorNote ? ` – ${c.decorNote}` : ""}` : "";
-  if (decorLine) lines.push(`Στολισμός: ${decorLine}`);
-
-  if (c.pallbearers) lines.push(`Φραγκοφόροι: ${c.pallbearers}`);
-  if (c.coffee) lines.push(`Καφές: ${c.coffee}${c.coffeePlace ? ` – ${c.coffeePlace}` : ""}`);
-
-  if (c.pickup) lines.push(`Παραλαβή: ${c.pickup}`);
-  if (c.pickupSecondPerson) lines.push(`2ο άτομο παραλαβής: ${c.pickupSecondPerson}`);
-  if (c.pickupDate) lines.push(`Ημερομηνία παραλαβής: ${formatDate(c.pickupDate)}`);
-  if (c.coldRoom) lines.push(`Ψυκτικός θάλαμος: ${c.coldRoom}`);
-  if (c.notes) lines.push(`Σημειώσεις: ${c.notes}`);
-
-  return lines.join("\n");
-}
-
 function openWhatsApp(c) {
   const msg = buildWhatsAppMessage(c);
   window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
@@ -2993,80 +2946,6 @@ function ensureHistorySearchUI() {
   wrap.appendChild(input);
   controls.appendChild(wrap);
   controls.dataset.ready = "1";
-}
-
-function renderHistory() {
-  ensureHistorySearchUI();
-  const container = $("historyList");
-  if (!container) return;
-  container.innerHTML = "";
-
-  if (!ceremonies.length) {
-    container.innerHTML = `<p style="font-size:13px;color:#6b7280;">${t("Δεν υπάρχουν καταχωρημένες τελετές.", "No ceremonies recorded yet.")}</p>`;
-    return;
-  }
-
-  const q = (historyQuery || "").trim().toLowerCase();
-  const filtered = ceremonies.filter((c) => {
-    if (!q) return true;
-    const blob = [
-      c.case_id, c.name, c.place, c.burialType,
-      c.responsible, c.secondPerson, c.pickupSecondPerson, c.suitcase,
-      c.coffin, c.set, c.flowers, c.announcementStatus, c.decor, c.decorNote,
-      c.pallbearers, c.coffee, c.coffeePlace,
-      c.pickup, c.pickupDate, c.coldRoom,
-      c.graveType, c.graveNumber, c.graveZone,
-      c.notes, c.date, c.time,
-      c.cremationEscortCount, c.cremationParishNote
-    ].filter(Boolean).join(" ").toLowerCase();
-
-    return blob.includes(q);
-  });
-
-  const sorted = [...filtered].sort(
-    (a, b) => (b.date || "").localeCompare(a.date || "") || (b.time || "").localeCompare(a.time || "")
-  );
-
-  if (!sorted.length) {
-    container.innerHTML = '<p style="font-size:13px;color:#6b7280;">Δεν βρέθηκαν αποτελέσματα.</p>';
-    return;
-  }
-
-  for (const c of sorted) {
-    const card = document.createElement("div");
-    card.className = "ceremony-card history-card-clickable";
-    card.dataset.id = c.id;
-    card.title = "Πάτησε για να ανοίξει η καρτέλα";
-
-    const header = document.createElement("div");
-    header.className = "ceremony-header";
-
-    const name = document.createElement("div");
-    name.className = "ceremony-name";
-    name.textContent = c.name || "-";
-
-    const date = document.createElement("div");
-    date.className = "ceremony-date";
-    date.textContent = (c.date ? formatDate(c.date) : "—") + (c.time ? ` • ${c.time}` : "");
-
-    header.append(name, date);
-
-    const place = document.createElement("div");
-    place.className = "ceremony-place";
-    place.textContent = c.place || "";
-
-    const mini = document.createElement("div");
-    mini.className = "history-mini";
-    mini.textContent = [
-      c.pickup ? `Παραλαβή: ${c.pickup}` : "",
-      c.coffin ? `Φέρετρο: ${c.coffin}` : "",
-      c.set ? `ΣΕΤ: ${c.set}` : ""
-    ].filter(Boolean).join(" · ");
-
-    card.append(header, place, mini);
-    card.addEventListener("click", () => openCeremonyModal(c.id));
-    container.appendChild(card);
-  }
 }
 
 // ---------------- Stats ----------------
@@ -4436,32 +4315,6 @@ function aiFindCeremoniesByQuestion(question, sourceList = ceremonies) {
   const keys = aiQuestionKeywords(question);
   if (!keys.length) return [];
   return (sourceList || []).filter(c => aiFieldHasAllKeywords(aiCeremonySearchBlob(c), keys));
-}
-
-function aiAnswerSearchResults(question, list) {
-  const keys = aiQuestionKeywords(question);
-  const target = keys.length ? ` για ${keys.join(" ")}` : "";
-  const wantsCount = normalizeTextKey(question).includes("ΠΟΣ") || normalizeTextKey(question).includes("ΜΕΤΡ") || normalizeTextKey(question).includes("ΣΥΝΟΛ");
-  const lines = [];
-  lines.push(`${wantsCount ? "Βρήκα" : "Σχετικά αποτελέσματα"}${target}: ${list.length}.`);
-  if (!list.length) {
-    lines.push("• Δεν βρέθηκε καταχώρηση με αυτά τα στοιχεία στην εφαρμογή.");
-    return lines.join("\n");
-  }
-  list
-    .sort((a,b)=>(a.date||"").localeCompare(b.date||"") || (a.time||"").localeCompare(b.time||""))
-    .slice(0, 20)
-    .forEach(c => {
-      const extra = [
-        c.pickup ? `Παραλαβή: ${c.pickup}` : "",
-        c.place ? `Τόπος: ${c.place}` : "",
-        c.coldRoom ? `Ψυκτικός: ${c.coldRoom}` : "",
-        c.notes ? `Σημ.: ${String(c.notes).slice(0, 80)}${String(c.notes).length > 80 ? "…" : ""}` : ""
-      ].filter(Boolean).join(" · ");
-      lines.push(`• ${c.date || "-"} ${c.time || "-"} — ${c.name || "-"}${extra ? ` — ${extra}` : ""}`);
-    });
-  if (list.length > 20) lines.push(`• +${list.length - 20} ακόμη.`);
-  return lines.join("\n");
 }
 
 function aiQuestionTimeFilter(question, list = ceremonies) {
