@@ -1810,7 +1810,10 @@ async function loadData() {
     // USA edition per-case metadata (status/priority/finance/documents/etc.,
     // see usa.js) — this whitelist mapping would otherwise silently strip it
     // on every load since it rebuilds each ceremony from named fields only.
-    ...(c.usaMeta && typeof c.usaMeta === "object" ? { usaMeta: c.usaMeta } : {})
+    ...(c.usaMeta && typeof c.usaMeta === "object" ? { usaMeta: c.usaMeta } : {}),
+    // GR edition document checklist (see gr-documents.js) — same whitelist
+    // gap as usaMeta above would otherwise strip it on every load.
+    ...(c.documents && typeof c.documents === "object" ? { documents: c.documents } : {})
   }));
 
   if (!Array.isArray(warehouse)) {
@@ -2854,6 +2857,7 @@ function setupTabs() {
       if (tab === "warehouse") $("warehouseTab")?.classList.add("active");
       if (tab === "stats") $("statsTab")?.classList.add("active");
       if (tab === "history") $("historyTab")?.classList.add("active");
+      if (tab === "documents") { $("documentsTab")?.classList.add("active"); if (typeof window.__grRenderDocuments === "function") window.__grRenderDocuments(); }
       if (tab === "settings") $("settingsTab")?.classList.add("active");
       if (tab === "hermes") $("hermesTab")?.classList.add("active");
       if (String(tab).startsWith("usa")) { $(tab + "Tab")?.classList.add("active"); window.scrollTo(0,0); }
