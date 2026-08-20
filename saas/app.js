@@ -2091,7 +2091,7 @@ function renderTrashPanel() {
     return;
   }
   el.innerHTML = deletedCeremonies.map(c => {
-    const when = c.deleted_at ? new Date(c.deleted_at).toLocaleDateString() : "—";
+    const when = c.deleted_at ? new Date(c.deleted_at).toLocaleDateString(window.__appLang === "en" ? "en-US" : "el-GR") : "—";
     return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.07);">
       <div style="flex:1;min-width:0;">
         <div style="font-size:14px;color:#c8daf0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.name || t("(χωρίς όνομα)","(no name)")}</div>
