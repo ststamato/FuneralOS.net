@@ -50,6 +50,11 @@ Deno.serve(async (req: Request) => {
   const invite = invites[0];
   if (!invite) return new Response("Invite not found or already used", { status: 404, headers: CORS });
 
+  // Reject if the logged-in user's email doesn't match the invited email
+  if ((invitee.email || "").toLowerCase() !== (invite.email || "").toLowerCase()) {
+    return new Response("This invite was sent to a different email address", { status: 403, headers: CORS });
+  }
+
   // Check expiry
   if (new Date(invite.expires_at) < new Date()) {
     return new Response("Invite has expired", { status: 410, headers: CORS });
