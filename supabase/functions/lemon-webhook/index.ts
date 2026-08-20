@@ -20,6 +20,32 @@ function getPlanFromProductName(name: string): "pro" | "business" | null {
   return null;
 }
 
+async function sha256Hex(text: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const digest = await crypto.subtle.digest("SHA-256", encoder.encode(text));
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function wasAlreadyProcessed(supabaseUrl: string, serviceKey: string, eventHash: string): Promise<boolean> {
+  const res = await fetch(`${supabaseUrl}/rest/v1/processed_webhook_events?id=eq.${eventHash}&select=id`, {
+    headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey },
+  });
+  if (!res.ok) return false; // fail open — don't block processing if the check itself fails
+  const rows = await res.json();
+  return Array.isArray(rows) && rows.length > 0;
+}
+
+async function markProcessed(supabaseUrl: string, serviceKey: string, eventHash: string): Promise<void> {
+  await fetch(`${supabaseUrl}/rest/v1/processed_webhook_events`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${serviceKey}`, apikey: serviceKey,
+      "Content-Type": "application/json", Prefer: "resolution=ignore-duplicates,return=minimal",
+    },
+    body: JSON.stringify({ id: eventHash }),
+  });
+}
+
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
@@ -196,6 +222,12 @@ Deno.serve(async (req: Request) => {
     return new Response("Invalid signature", { status: 401 });
   }
 
+  const eventHash = await sha256Hex(body);
+  if (await wasAlreadyProcessed(supabaseUrl, serviceKey, eventHash)) {
+    console.log(`Duplicate webhook delivery, already processed: ${eventHash}`);
+    return new Response("OK (duplicate)", { status: 200 });
+  }
+
   let payload: Record<string, unknown>;
   try { payload = JSON.parse(body); } catch { return new Response("Invalid JSON", { status: 400 }); }
 
@@ -274,6 +306,10 @@ Deno.serve(async (req: Request) => {
   // Update plan
   const ok = await setUserPlan(supabaseUrl, serviceKey, userId, userMeta, targetPlan);
   console.log(`Plan update → ${targetPlan} for ${email || customUserId}: ${ok ? "OK" : "FAILED"}`);
+
+  // Only record this event as processed once it has actually succeeded —
+  // a failed delivery must remain eligible for Lemon Squeezy's own retry.
+  if (ok) await markProcessed(supabaseUrl, serviceKey, eventHash);
 
   // Reward referrer on paid upgrade (pending referral becomes rewarded, +1 month)
   if (ok && targetPlan !== "free") {

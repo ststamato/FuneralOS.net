@@ -83,6 +83,15 @@ create table if not exists office_invites (
   unique (office_id, email)
 );
 
+-- Processed Lemon Squeezy webhook events (replay protection — service-role
+-- access only). id = SHA-256 hash of the raw webhook body; a hash is only
+-- recorded once its event has been fully, successfully processed, so a
+-- retry of a genuinely failed delivery is never blocked.
+create table if not exists processed_webhook_events (
+  id          text primary key,
+  received_at timestamptz default now()
+);
+
 -- ── RLS helper (SECURITY DEFINER breaks policy self-recursion) ───────────────
 
 -- Used by office_members SELECT policy and by app_state/office_events policies.
@@ -106,6 +115,7 @@ alter table profiles       enable row level security;
 alter table referrals      enable row level security;
 alter table office_members enable row level security;
 alter table office_invites enable row level security;
+alter table processed_webhook_events enable row level security;
 
 -- app_state: role-differentiated access
 drop policy if exists "user own state"                     on app_state;
@@ -189,6 +199,8 @@ create policy "office admin can remove members" on office_members
   for delete using (office_id = auth.uid());
 
 -- office_invites: no client policies — RLS blocks clients, service role bypasses RLS
+
+-- processed_webhook_events: no client policies — RLS blocks clients, service role bypasses RLS
 
 -- ── Triggers ─────────────────────────────────────────────────────────────────
 
