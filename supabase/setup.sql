@@ -121,6 +121,18 @@ returns boolean language sql security definer stable set search_path = public as
   );
 $$;
 
+-- Same pattern, restricted to admin-role members — used where an action
+-- should be admin/owner-only rather than open to any office member.
+create or replace function public.is_office_admin(p_office_id uuid)
+returns boolean language sql security definer stable set search_path = public as $$
+  select exists (
+    select 1 from public.office_members
+    where office_id = p_office_id
+      and user_id   = auth.uid()
+      and role      = 'admin'
+  );
+$$;
+
 -- ── Row Level Security ────────────────────────────────────────────────────────
 
 alter table app_state      enable row level security;
@@ -413,9 +425,11 @@ drop policy if exists "ceremonies insert" on ceremonies;
 drop policy if exists "ceremonies update" on ceremonies;
 drop policy if exists "ceremonies delete" on ceremonies;
 
--- Mirrors app_state's member policy. Delete is NOT owner-only here (unlike
--- app_state) — moving a single case to trash is a normal, low-blast-radius
--- editor action, not a wipe of the whole office's data.
+-- Select/insert/update: any office member (admin or editor) — editors need
+-- to be able to create and edit cases. Delete is admin/owner-only: an editor
+-- role should not be able to remove a case another teammate is working on;
+-- "role-based access" is meant to actually mean something at the data layer,
+-- not just hide a button in the UI.
 create policy "ceremonies select" on ceremonies
   for select using (office_id = auth.uid() or public.is_office_member(ceremonies.office_id));
 create policy "ceremonies insert" on ceremonies
@@ -423,7 +437,7 @@ create policy "ceremonies insert" on ceremonies
 create policy "ceremonies update" on ceremonies
   for update using (office_id = auth.uid() or public.is_office_member(ceremonies.office_id));
 create policy "ceremonies delete" on ceremonies
-  for delete using (office_id = auth.uid() or public.is_office_member(ceremonies.office_id));
+  for delete using (office_id = auth.uid() or public.is_office_admin(ceremonies.office_id));
 
 -- Authoritative plan lookup — mirrors the client fallback in freemium.js
 -- (app_metadata is server-only, set by lemon-webhook on payment; clients
