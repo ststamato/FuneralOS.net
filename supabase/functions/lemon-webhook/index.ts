@@ -20,6 +20,15 @@ function getPlanFromProductName(name: string): "pro" | "business" | null {
   return null;
 }
 
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
 async function verifySignature(secret: string, body: string, signature: string): Promise<boolean> {
   try {
     const encoder = new TextEncoder();
@@ -31,7 +40,7 @@ async function verifySignature(secret: string, body: string, signature: string):
     const sigBuffer = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
     const computed = Array.from(new Uint8Array(sigBuffer))
       .map(b => b.toString(16).padStart(2, "0")).join("");
-    return computed === signature;
+    return timingSafeEqual(computed, signature);
   } catch {
     return false;
   }
