@@ -7312,15 +7312,18 @@ window.submitSupport = async function (lang) {
   const subject = (document.getElementById("supportSubject")?.value || "").trim();
   const message = (document.getElementById("supportMessage")?.value || "").trim();
   const fb = document.getElementById("supportFeedback");
+  const btn = document.getElementById("supportSendBtn");
   if (!subject || !message) {
     if (fb) { fb.textContent = lang === "en" ? "Please fill in both fields." : "Συμπλήρωσε θέμα και μήνυμα."; fb.style.color = "#f87171"; }
     return;
   }
+  if (btn?.disabled) return; // already sending — ignore double taps
   const session = await getCloudSession();
   if (!session?.token) {
     if (fb) { fb.textContent = lang === "en" ? "Not signed in." : "Δεν είσαι συνδεδεμένος."; fb.style.color = "#f87171"; }
     return;
   }
+  if (btn) btn.disabled = true;
   if (fb) { fb.textContent = lang === "en" ? "Sending…" : "Αποστολή…"; fb.style.color = "rgba(200,169,110,.7)"; }
   try {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-stats`, {
@@ -7344,6 +7347,8 @@ window.submitSupport = async function (lang) {
       if (fb) { fb.textContent = data?.error || (lang === "en" ? "Error sending." : "Σφάλμα αποστολής."); fb.style.color = "#f87171"; }
     }
   } catch (err) {
-    if (fb) { fb.textContent = String(err); fb.style.color = "#f87171"; }
+    if (fb) { fb.textContent = lang === "en" ? "Connection failed. Please try again." : "Αποτυχία σύνδεσης. Δοκίμασε ξανά."; fb.style.color = "#f87171"; }
+  } finally {
+    if (btn) btn.disabled = false;
   }
 };
