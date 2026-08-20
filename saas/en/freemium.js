@@ -319,6 +319,22 @@
           lock.style.cssText = "margin-left:5px;font-size:9px;font-weight:700;background:#c8a96e;color:#0f1523;padding:1px 5px;border-radius:4px;letter-spacing:.5px;";
           hermesTab.appendChild(lock);
         }
+        // Smart Ops Director (score/briefing/case health/alerts) is
+        // Business-only per pricing — the rest of the USA module suite
+        // (Cases/Staff/Fleet/Cremation/Finance/Schedule) is correctly
+        // Pro-tier and stays unlocked above via isPaid.
+        const directorSection = document.querySelector(".usa-v3-ai-director");
+        if (directorSection && !directorSection.dataset.locked) {
+          directorSection.dataset.locked = "1";
+          directorSection.style.display = "none";
+          const upsell = document.createElement("div");
+          upsell.className = "usa-panel";
+          upsell.style.cssText = "text-align:center;padding:24px;";
+          upsell.innerHTML = '<p style="margin:0 0 10px;font-weight:800;">🔒 Smart Ops Director is a Business-plan feature.</p>'
+            + '<p style="margin:0 0 14px;color:#8899aa;font-size:13px;">Daily briefing, operations score, case health and smart alerts.</p>'
+            + '<a href="javascript:void(0)" onclick="window.__showUpgrade && window.__showUpgrade(\'Smart Ops Director\',\'Upgrade to Business for the daily briefing, operations score, case health and smart alerts.\')" style="display:inline-block;background:#c8a96e;color:#0f1523;padding:8px 18px;border-radius:7px;font-size:12px;font-weight:700;text-decoration:none;">Upgrade to Business →</a>';
+          directorSection.insertAdjacentElement("afterend", upsell);
+        }
       }, 400);
     }
 
