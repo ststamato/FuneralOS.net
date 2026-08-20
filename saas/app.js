@@ -2016,26 +2016,65 @@ function helperOptions(includeEmpty = false) {
 // ---------------- Ceremony modal ----------------
 let editingId = null;
 let modalOpenSnapshot = null; // serialized form state at open time, for a dirty-check on Cancel
+const CEREMONY_DRAFT_KEY = "staurakaki_ceremony_draft_v1";
+
+function captureCeremonyFormValues() {
+  const form = $("ceremonyForm");
+  const values = {};
+  if (!form) return values;
+  form.querySelectorAll("input, select, textarea").forEach((el) => {
+    const key = el.id || el.name;
+    if (!key) return;
+    if (el.type === "radio" || el.type === "checkbox") values[key] = el.checked;
+    else values[key] = el.value;
+  });
+  return values;
+}
+
+function applyCeremonyFormValues(values) {
+  const form = $("ceremonyForm");
+  if (!form || !values) return;
+  form.querySelectorAll("input, select, textarea").forEach((el) => {
+    const key = el.id || el.name;
+    if (!key || !(key in values)) return;
+    if (el.type === "radio" || el.type === "checkbox") el.checked = !!values[key];
+    else el.value = values[key];
+  });
+}
 
 function serializeCeremonyForm() {
-  const form = $("ceremonyForm");
-  if (!form) return "";
-  const parts = [];
-  form.querySelectorAll("input, select, textarea").forEach((el) => {
-    if (el.type === "radio" || el.type === "checkbox") {
-      if (el.checked) parts.push((el.name || el.id) + "=" + el.value);
-    } else {
-      parts.push((el.id || el.name) + "=" + el.value);
-    }
-  });
-  return parts.join("|");
+  return JSON.stringify(captureCeremonyFormValues());
+}
+
+// Draft persistence — a phone call or a backgrounded/killed PWA tab used to
+// mean everything typed into this form was gone with no warning. Debounced
+// autosave to localStorage while the modal is open, offered back on reopen.
+function saveCeremonyDraft() {
+  try {
+    localStorage.setItem(CEREMONY_DRAFT_KEY, JSON.stringify({
+      editingId, values: captureCeremonyFormValues(), savedAt: Date.now(),
+    }));
+  } catch (e) { console.warn("Could not save ceremony draft", e); }
+}
+function loadCeremonyDraft() {
+  try { return JSON.parse(localStorage.getItem(CEREMONY_DRAFT_KEY)); } catch { return null; }
+}
+function clearCeremonyDraft() {
+  try { localStorage.removeItem(CEREMONY_DRAFT_KEY); } catch (e) {}
+}
+let _draftSaveTimer = null;
+function scheduleCeremonyDraftSave() {
+  clearTimeout(_draftSaveTimer);
+  _draftSaveTimer = setTimeout(saveCeremonyDraft, 800);
 }
 
 function closeCeremonyModal() {
   if (modalOpenSnapshot !== null && serializeCeremonyForm() !== modalOpenSnapshot) {
     if (!confirm(t("Να απορριφθούν οι αλλαγές;", "Discard your changes?"))) return;
   }
+  clearTimeout(_draftSaveTimer);
   modalOpenSnapshot = null;
+  clearCeremonyDraft();
   $("ceremonyModal")?.classList.add("hidden");
 }
 
@@ -5077,6 +5116,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if ($("newCeremonyBtn")) $("newCeremonyBtn").onclick = () => openCeremonyModal(null);
     if ($("addCustomFieldBtn")) $("addCustomFieldBtn").onclick = () => openCustomFieldModal(null);
     on($("customFieldForm"), "submit", saveCustomField);
+    on($("ceremonyForm"), "input", scheduleCeremonyDraftSave);
     if ($("cancelCustomFieldBtn")) $("cancelCustomFieldBtn").onclick = closeCustomFieldModal;
     if ($("newCeremonyHeroBtn")) $("newCeremonyHeroBtn").onclick = () => openCeremonyModal(null);
 
@@ -5533,6 +5573,21 @@ function openCeremonyModal(id = null) {
   toggleCremationUI();
   modal.classList.remove("hidden");
   modalOpenSnapshot = serializeCeremonyForm();
+
+  const draft = loadCeremonyDraft();
+  const draftFresh = draft && draft.savedAt && (Date.now() - draft.savedAt < 24 * 60 * 60 * 1000);
+  if (draftFresh && draft.editingId === id && JSON.stringify(draft.values || {}) !== modalOpenSnapshot) {
+    if (confirm(t(
+      "Βρέθηκε μη αποθηκευμένη πρόχειρη έκδοση αυτής της φόρμας. Να τη φορτώσω;",
+      "An unsaved draft of this form was found. Load it?"
+    ))) {
+      applyCeremonyFormValues(draft.values);
+      toggleCremationUI();
+      modalOpenSnapshot = serializeCeremonyForm();
+    } else {
+      clearCeremonyDraft();
+    }
+  }
 }
 
 // Override v36: σώζει και customValues
@@ -5581,7 +5636,7 @@ function saveCeremony(e) {
   }
   saveBackup("saveCeremonyV36");
   saveData();
-  modalOpenSnapshot = null; // just saved — skip the dirty-check on close
+  modalOpenSnapshot = null; // just saved — skip the dirty-check on close (closeCeremonyModal() below also clears the draft)
   closeCeremonyModal();
   renderAll();
 }
