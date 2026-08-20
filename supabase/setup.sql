@@ -194,7 +194,12 @@ drop policy if exists "Users can insert own profile" on profiles;
 drop policy if exists "Users can update own profile" on profiles;
 create policy "Users can view own profile"   on profiles for select using (auth.uid() = id);
 create policy "Users can insert own profile" on profiles for insert with check (auth.uid() = id);
-create policy "Users can update own profile" on profiles for update using (auth.uid() = id);
+-- No client update policy: referral_credits/referral_plan_until/referred_by
+-- are written only by the reward_referrer_on_upgrade() trigger, and
+-- admin_notes/features only by owner-only admin-stats actions (service
+-- role, bypasses RLS). No legitimate client flow updates this table, and a
+-- self-update policy previously let any user set their own referral fields
+-- directly (referral-credit fraud).
 
 -- referrals: read own (as referrer or referred); insert via trigger only
 drop policy if exists "user own referrals"             on referrals;
