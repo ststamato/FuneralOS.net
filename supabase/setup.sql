@@ -422,6 +422,8 @@ create table if not exists support_requests (
 
 alter table support_requests enable row level security;
 
+drop policy if exists "user insert own support" on support_requests;
+drop policy if exists "user read own support"   on support_requests;
 create policy "user insert own support" on support_requests
   for insert with check (auth.uid() = user_id);
 
