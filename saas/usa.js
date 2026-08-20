@@ -66,26 +66,63 @@
   const DEFAULT_MODULES = Object.fromEntries(USA_MODULES_LIST.map(m=>[m.tab, true]));
   const addDays = (n)=>{ const d=new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); };
 
+  // USA case metadata (status, priority, finance, documents, timeline, etc.)
+  // used to live entirely in its own localStorage blob, invisible to every
+  // device but the one that wrote it and never synced to the cloud. It now
+  // rides inside each ceremony's own `usaMeta` field, so it syncs through
+  // the exact same save_ceremony() CAS/quota/RLS path the ceremony record
+  // itself already uses — no new backend needed. migrateLegacyUsaMeta()
+  // does a one-time copy of any pre-existing localStorage data into that
+  // field so upgrading devices don't lose what they already had.
+  let _usaMetaMigrated = false;
+  function migrateLegacyUsaMeta(list){
+    if (_usaMetaMigrated || window.__DEMO_MODE || !list || !list.length) return;
+    _usaMetaMigrated = true;
+    let legacy;
+    try { legacy = JSON.parse(localStorage.getItem(USA_META_KEY) || "{}") || {}; } catch { legacy = {}; }
+    if (!legacy || !Object.keys(legacy).length) return;
+    let changed = false;
+    list.forEach(c => {
+      if (!c.usaMeta && legacy[c.id]) { c.usaMeta = legacy[c.id]; changed = true; }
+    });
+    if (changed && typeof window.saveData === "function") window.saveData();
+    localStorage.removeItem(USA_META_KEY);
+  }
+
   function readCeremonies(){
     const raw = typeof window.__fosGetCeremonies === "function" ? window.__fosGetCeremonies() : null;
-    if (Array.isArray(raw) && raw.length) return raw;
-    try { return JSON.parse(localStorage.getItem("staurakaki_ceremonies_v8") || "[]") || []; } catch { return []; }
+    let list;
+    if (Array.isArray(raw) && raw.length) list = raw;
+    else { try { list = JSON.parse(localStorage.getItem("staurakaki_ceremonies_v8") || "[]") || []; } catch { list = []; } }
+    migrateLegacyUsaMeta(list);
+    return list;
   }
 
   function getMeta(){
     if (window.__DEMO_MODE) return window.__usaDemoMeta || {};
-    try { return JSON.parse(localStorage.getItem(USA_META_KEY) || "{}") || {}; } catch { return {}; }
+    const out = {};
+    readCeremonies().forEach(c => { if (c.usaMeta) out[c.id] = c.usaMeta; });
+    return out;
   }
 
   function saveMeta(meta){
     if (window.__DEMO_MODE) { window.__usaDemoMeta = meta; return; }
-    localStorage.setItem(USA_META_KEY, JSON.stringify(meta));
+    const list = readCeremonies();
+    list.forEach(c => { if (meta[c.id]) c.usaMeta = meta[c.id]; });
+    if (typeof window.saveData === "function") window.saveData();
   }
 
   function updateMeta(caseId, updates){
-    const meta = getMeta();
-    meta[caseId] = Object.assign({}, meta[caseId] || {}, updates);
-    saveMeta(meta);
+    if (window.__DEMO_MODE) {
+      const meta = window.__usaDemoMeta || {};
+      meta[caseId] = Object.assign({}, meta[caseId] || {}, updates);
+      window.__usaDemoMeta = meta;
+      return;
+    }
+    const ceremony = readCeremonies().find(c => c.id === caseId);
+    if (!ceremony) return;
+    ceremony.usaMeta = Object.assign({}, ceremony.usaMeta || {}, updates);
+    if (typeof window.saveData === "function") window.saveData();
   }
 
   function getSettings(){
@@ -162,7 +199,7 @@
   window.usaRenderSettings = renderUsaSettings;
 
   function mergeCase(ceremony){
-    const meta = getMeta()[ceremony.id] || {};
+    const meta = window.__DEMO_MODE ? (getMeta()[ceremony.id] || {}) : (ceremony.usaMeta || {});
     const rawType = (ceremony.burialType || "").toLowerCase();
     const disposition = rawType.includes("αποτε") ? "Cremation" : "Burial";
     return {
