@@ -3753,6 +3753,15 @@ function maybeNotifyForChanges_LocalOnly() {
 
 async function refreshFromCloudForPush() {
   if (!USE_CLOUD) return;
+  // cloudLoadData() below is unconditionally authoritative — it reassigns
+  // warehouse/changeLog/customLists/deletedCeremonies/etc. straight from the
+  // server. Running that while a local save is pending or in flight would
+  // silently revert an offline/slow-network edit the moment this 45s poll
+  // fires, with no toast or any signal to the user (worse than the
+  // documented save conflict path, which at least shows one). Skip this
+  // refresh entirely in that case — the pending save will sync the local
+  // state to the server on its own once it succeeds.
+  if (_cloudSaveInFlight || localStorage.getItem(PENDING_SAVE_KEY) === "1") return;
   try {
     await cloudLoadData();
     setsWarehouse = normalizeSetsWarehouseList(setsWarehouse);
