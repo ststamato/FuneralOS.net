@@ -383,7 +383,8 @@ create or replace function public.get_office_plan(p_office_id uuid)
 returns text language sql security definer stable set search_path = public as $$
   select coalesce(raw_app_meta_data->>'plan', raw_user_meta_data->>'plan', 'free')
   from auth.users
-  where id = p_office_id;
+  where id = p_office_id
+    and (p_office_id = auth.uid() or public.is_office_member(p_office_id));
 $$;
 
 grant execute on function public.get_office_plan(uuid) to authenticated;
