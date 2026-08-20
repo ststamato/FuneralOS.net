@@ -170,12 +170,17 @@
     const btn = document.getElementById('loginBtn');
     btn.disabled = true; btn.textContent = 'Signing in...';
 
-    const { error } = await sb.auth.signInWithPassword({ email, password });
-    if (error) {
-      showMsg('loginMsg', translateError(error.message), 'error');
+    try {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) {
+        showMsg('loginMsg', translateError(error.message), 'error');
+      } else {
+        window.location.href = '/en/app';
+      }
+    } catch (e) {
+      showMsg('loginMsg', 'Connection failed. Please check your connection and try again.', 'error');
+    } finally {
       btn.disabled = false; btn.textContent = 'Sign in';
-    } else {
-      window.location.href = '/en/app';
     }
   }
 
@@ -191,19 +196,23 @@
     const btn = document.getElementById('registerBtn');
     btn.disabled = true; btn.textContent = 'Creating account...';
 
-    const referralCode = (document.getElementById('regReferral').value || '').trim().toUpperCase() || undefined;
-    const { error } = await sb.auth.signUp({
-      email, password,
-      options: { emailRedirectTo: 'https://funeralos.net/en/login.html', data: { office_name: office, plan: 'free', referred_by: referralCode } }
-    });
-    if (!error && referralCode) localStorage.removeItem('funeralos_ref');
+    try {
+      const referralCode = (document.getElementById('regReferral').value || '').trim().toUpperCase() || undefined;
+      const { error } = await sb.auth.signUp({
+        email, password,
+        options: { emailRedirectTo: 'https://funeralos.net/en/login.html', data: { office_name: office, plan: 'free', referred_by: referralCode } }
+      });
+      if (!error && referralCode) localStorage.removeItem('funeralos_ref');
 
-    if (error) {
-      const msg = error.message && error.message !== '{}' ? error.message : null;
-      showMsg('registerMsg', translateError(msg), 'error');
-      btn.disabled = false; btn.textContent = 'Create account';
-    } else {
-      showMsg('registerMsg', '✓ Account created! Check your email to confirm, then sign in.', 'success');
+      if (error) {
+        const msg = error.message && error.message !== '{}' ? error.message : null;
+        showMsg('registerMsg', translateError(msg), 'error');
+      } else {
+        showMsg('registerMsg', '✓ Account created! Check your email to confirm, then sign in.', 'success');
+      }
+    } catch (e) {
+      showMsg('registerMsg', 'Connection failed. Please check your connection and try again.', 'error');
+    } finally {
       btn.disabled = false; btn.textContent = 'Create account';
     }
   }
@@ -211,10 +220,14 @@
   async function resetPassword() {
     const email = document.getElementById('loginEmail').value.trim();
     if (!email) { showMsg('loginMsg', 'Enter your email address above first.', 'error'); return; }
-    const redirectTo = location.origin + location.pathname.replace(/\/(login\.html|login)$/, '/reset.html');
-    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
-    if (error) showMsg('loginMsg', error.message, 'error');
-    else showMsg('loginMsg', 'Password reset email sent. Check your inbox.', 'success');
+    try {
+      const redirectTo = location.origin + location.pathname.replace(/\/(login\.html|login)$/, '/reset.html');
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+      if (error) showMsg('loginMsg', translateError(error.message), 'error');
+      else showMsg('loginMsg', 'Password reset email sent. Check your inbox.', 'success');
+    } catch (e) {
+      showMsg('loginMsg', 'Failed to send. Please try again.', 'error');
+    }
   }
 
   function translateError(msg) {
