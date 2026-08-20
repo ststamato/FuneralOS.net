@@ -792,10 +792,45 @@
     box.innerHTML = list.length ? list.map(c=>`<article class="usa-case-card"><div class="usa-case-top"><div><h3>${safe(c.decedent)}</h3><small>${safe(c.caseNumber)} · ${safe(c.status)}</small></div><span class="usa-badge ${Number(c.balance||0)>0?'pending':'closed'}">${Number(c.balance||0)>0?'Unpaid':'Clean'}</span></div><div class="usa-form-grid usa-inline-editor"><label>Case Value<input class="usa-v2-number" data-case="${c.id}" data-field="caseValue" type="number" value="${Number(c.caseValue||0)}" /></label><label>Pending Balance<input class="usa-v2-number" data-case="${c.id}" data-field="balance" type="number" value="${Number(c.balance||0)}" /></label><label>Payment Status<select class="usa-v2-field" data-case="${c.id}" data-field="paymentStatus"><option ${c.paymentStatus==='Pending'?'selected':''}>Pending</option><option ${c.paymentStatus==='Partial'?'selected':''}>Partial</option><option ${c.paymentStatus==='Paid'?'selected':''}>Paid</option><option ${c.paymentStatus==='Insurance Assignment'?'selected':''}>Insurance Assignment</option></select></label></div></article>`).join('') : `<div class="usa-panel">No cases yet.</div>`;
   }
 
+  // Flags cases that share the same Service Date + the same Vehicle or the
+  // same Assigned Staff — there's no start/end time range in this data model
+  // (just a single serviceDate/serviceTime per case), so same-day + same
+  // resource is treated as a conflict rather than trying to reason about
+  // overlapping time windows.
+  function scheduleConflicts(){
+    const active = cases().filter(c=>c.status!=='Closed' && c.serviceDate);
+    const conflicts = {};
+    function checkGroup(resourceField, label){
+      const groups = {};
+      active.forEach(c=>{
+        const res = String(c[resourceField]||'').trim().toLowerCase();
+        if(!res) return;
+        const key = c.serviceDate+'|'+res;
+        (groups[key] = groups[key] || []).push(c);
+      });
+      Object.values(groups).forEach(group=>{
+        if(group.length < 2) return;
+        group.forEach(c=>{
+          (conflicts[c.id] = conflicts[c.id] || []).push(
+            `${label} "${c[resourceField]}" also booked for ${group.filter(x=>x.id!==c.id).map(x=>x.decedent||x.caseNumber).join(', ')} on ${c.serviceDate}`
+          );
+        });
+      });
+    }
+    checkGroup('vehicle','Vehicle');
+    checkGroup('assignedStaff','Staff');
+    return conflicts;
+  }
+
   function renderSchedule(){
     const box = el('usaScheduleList'); if(!box) return;
     const list = cases().filter(c=>c.status!=='Closed');
-    box.innerHTML = list.length ? list.map(c=>`<article class="usa-case-card"><div class="usa-case-top"><div><h3>${safe(c.decedent)}</h3><small>${safe(c.caseNumber)} · scheduling board</small></div><span class="usa-badge">Schedule</span></div><div class="usa-form-grid usa-inline-editor"><label>Viewing Date<input class="usa-v2-field" data-case="${c.id}" data-field="viewingDate" type="date" value="${safe(c.viewingDate||'')}" /></label><label>Viewing Room<input class="usa-v2-field" data-case="${c.id}" data-field="viewingRoom" value="${safe(c.viewingRoom||'')}" placeholder="Room A" /></label><label>Service Date<input class="usa-v2-field" data-case="${c.id}" data-field="serviceDate" type="date" value="${safe(c.serviceDate||'')}" /></label><label>Service Time<input class="usa-v2-field" data-case="${c.id}" data-field="serviceTime" type="time" value="${safe(c.serviceTime||'')}" /></label><label>Service Location<input class="usa-v2-field" data-case="${c.id}" data-field="serviceLocation" value="${safe(c.serviceLocation||'')}" /></label><label>Assigned Staff<input class="usa-v2-field" data-case="${c.id}" data-field="assignedStaff" value="${safe(c.assignedStaff||c.driver||'')}" /></label><label>Vehicle<input class="usa-v2-field" data-case="${c.id}" data-field="vehicle" value="${safe(c.vehicle||'')}" /></label><label>Cemetery / Crematory<input class="usa-v2-field" data-case="${c.id}" data-field="finalLocation" value="${safe(c.finalLocation||c.crematory||'')}" /></label></div></article>`).join('') : `<div class="usa-panel">No active cases to schedule.</div>`;
+    const conflicts = scheduleConflicts();
+    box.innerHTML = list.length ? list.map(c=>{
+      const warn = conflicts[c.id];
+      const warnHtml = warn ? `<div class="usa-alert danger" style="margin-top:8px;">⚠ Double-booking: ${warn.map(safe).join('<br>')}</div>` : '';
+      return `<article class="usa-case-card${warn?' usa-schedule-conflict':''}"><div class="usa-case-top"><div><h3>${safe(c.decedent)}</h3><small>${safe(c.caseNumber)} · scheduling board</small></div><span class="usa-badge${warn?' danger':''}">${warn?'⚠ Conflict':'Schedule'}</span></div><div class="usa-form-grid usa-inline-editor"><label>Viewing Date<input class="usa-v2-field" data-case="${c.id}" data-field="viewingDate" type="date" value="${safe(c.viewingDate||'')}" /></label><label>Viewing Room<input class="usa-v2-field" data-case="${c.id}" data-field="viewingRoom" value="${safe(c.viewingRoom||'')}" placeholder="Room A" /></label><label>Service Date<input class="usa-v2-field" data-case="${c.id}" data-field="serviceDate" type="date" value="${safe(c.serviceDate||'')}" /></label><label>Service Time<input class="usa-v2-field" data-case="${c.id}" data-field="serviceTime" type="time" value="${safe(c.serviceTime||'')}" /></label><label>Service Location<input class="usa-v2-field" data-case="${c.id}" data-field="serviceLocation" value="${safe(c.serviceLocation||'')}" /></label><label>Assigned Staff<input class="usa-v2-field" data-case="${c.id}" data-field="assignedStaff" value="${safe(c.assignedStaff||c.driver||'')}" /></label><label>Vehicle<input class="usa-v2-field" data-case="${c.id}" data-field="vehicle" value="${safe(c.vehicle||'')}" /></label><label>Cemetery / Crematory<input class="usa-v2-field" data-case="${c.id}" data-field="finalLocation" value="${safe(c.finalLocation||c.crematory||'')}" /></label></div>${warnHtml}</article>`;
+    }).join('') : `<div class="usa-panel">No active cases to schedule.</div>`;
   }
 
   function renderDirectorV2Extras(){
