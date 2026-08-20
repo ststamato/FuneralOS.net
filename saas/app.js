@@ -7418,7 +7418,7 @@ window.submitSupport = async function (lang) {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-stats`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
-      body: JSON.stringify({ action: "submit_support", subject, message }),
+      body: JSON.stringify({ action: "submit_support", subject, message, lang: window.__appLang === "en" ? "en" : "el" }),
     });
     const data = await res.json();
     if (data?.ok) {

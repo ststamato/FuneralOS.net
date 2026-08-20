@@ -69,6 +69,8 @@ Deno.serve(async (req: Request) => {
 
       const subject = String(body.subject || "").trim().slice(0, 100);
       const message = String(body.message || "").trim().slice(0, 1000);
+      const requesterLang = body.lang === "en" ? "en" : "el";
+      const editionLabel = requesterLang === "en" ? "USA/English" : "Greek";
       if (!subject || !message) return json({ error: "Subject and message required" }, 400);
 
       const insRes = await fetch(`${supabaseUrl}/rest/v1/support_requests`, {
@@ -98,7 +100,7 @@ Deno.serve(async (req: Request) => {
               from: `FuneralOS <${fromEmail}>`,
               to: ["funeralos.net@gmail.com"],
               subject: `[Support] ${subject} — ${userEmail}`,
-              html: `<p><strong>Χρήστης:</strong> ${userEmail}</p><p><strong>Ημερομηνία:</strong> ${now}</p><p><strong>Μήνυμα:</strong></p><p>${message.replace(/\n/g, "<br>")}</p><p><a href="https://funeralos.net/admin.html">→ Δες το αίτημα</a></p>`,
+              html: `<p><strong>Χρήστης:</strong> ${userEmail}</p><p><strong>Έκδοση:</strong> ${editionLabel}</p><p><strong>Ημερομηνία:</strong> ${now}</p><p><strong>Μήνυμα:</strong></p><p>${message.replace(/\n/g, "<br>")}</p><p><a href="https://funeralos.net/admin.html">→ Δες το αίτημα</a></p>`,
             }),
           }).catch(e => console.error('[email]', e));
         }
@@ -109,6 +111,7 @@ Deno.serve(async (req: Request) => {
         const issueBody = [
           `**User:** ${userEmail}`,
           `**user_id:** ${userId}`,
+          `**Edition:** ${editionLabel}`,
           `**Date:** ${nowIso}`,
           ``,
           `**Message:**`,
@@ -154,6 +157,7 @@ ${claudeMd}
 ## Αίτημα υποστήριξης
 **Τίτλος:** [Support] ${subject} — ${userEmail}
 **user_id:** ${userId}
+**Έκδοση:** ${editionLabel}
 **Μήνυμα:**
 ${message}
 
