@@ -1,21 +1,64 @@
 // Service Worker — Τελετές Σταυρακάκη
-// V41.3 — Web Push Notifications
+// V41.4 — Web Push Notifications + offline app-shell cache
 //
 // ΑΣΦΑΛΕΙΑ / ΦΙΛΟΣΟΦΙΑ:
-// - ΔΕΝ έχει "fetch" handler => δεν παρεμβαίνει στη φόρτωση ή στο cache της
-//   εφαρμογής. Άρα δεν μπορεί να "σπάσει" την εφαρμογή ούτε να δείξει παλιό
-//   περιεχόμενο. Κάνει ΜΟΝΟ δύο πράγματα: λαμβάνει push και ανοίγει την εφαρμογή
-//   στο tap.
-// - Το app.js ήδη τον καταχωρεί (SW_PATH = "./sw.js") μόλις ο χρήστης πατήσει
-//   "🔔 Push". Πριν υπήρχε αυτό το αρχείο, η καταχώρηση αποτύγχανε αθόρυβα.
+// - Ο fetch handler παρακάτω καλύπτει ΜΟΝΟ το static app shell (HTML/CSS/JS
+//   same-origin). Είναι network-first: κάθε φόρτωση δοκιμάζει πρώτα το
+//   δίκτυο, οπότε online ο χρήστης βλέπει πάντα φρέσκο περιεχόμενο — μηδενικό
+//   ρίσκο stale UI. Το cache χρησιμοποιείται ΜΟΝΟ σαν fallback όταν το δίκτυο
+//   αποτυγχάνει (killed tab / καθόλου σήμα), ώστε η εφαρμογή τουλάχιστον να
+//   ανοίγει αντί να μη φορτώνει καθόλου. Ποτέ δεν αγγίζει κλήσεις προς
+//   Supabase (διαφορετικό origin, εξαιρείται αυτόματα) — τα δεδομένα δεν
+//   κρύβονται ποτέ πίσω από stale cache.
+// - Το app.js ήδη τον καταχωρεί (SW_PATH = "/sw.js") μόλις ο χρήστης πατήσει
+//   "🔔 Push" ή στο αρχικό load. Κάνει επίσης λήψη push και ανοίγει την
+//   εφαρμογή στο tap.
 
-self.addEventListener("install", () => {
+const SHELL_CACHE_NAME = "fos-shell-v1";
+const SHELL_URLS = [
+  "/app.html", "/login.html", "/styles.css", "/config.js",
+  "/app.js", "/freemium.js",
+  "/en/app.html", "/en/login.html", "/en/freemium.js", "/usa.js",
+];
+
+self.addEventListener("install", (event) => {
   // Ενεργοποίηση αμέσως, χωρίς να περιμένει κλείσιμο tabs.
   self.skipWaiting();
+  event.waitUntil(
+    caches.open(SHELL_CACHE_NAME)
+      .then((cache) => cache.addAll(SHELL_URLS))
+      .catch((e) => console.warn("SW precache skipped", e))
+  );
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    Promise.all([
+      self.clients.claim(),
+      caches.keys().then((names) =>
+        Promise.all(names.filter((n) => n !== SHELL_CACHE_NAME).map((n) => caches.delete(n)))
+      ),
+    ])
+  );
+});
+
+self.addEventListener("fetch", (event) => {
+  const req = event.request;
+  if (req.method !== "GET") return;
+
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return; // never touch Supabase or any cross-origin call
+  if (!/\.(html|css|js)$/.test(url.pathname)) return; // static shell files only
+
+  event.respondWith(
+    fetch(req)
+      .then((res) => {
+        const resClone = res.clone();
+        caches.open(SHELL_CACHE_NAME).then((cache) => cache.put(req, resClone)).catch(() => {});
+        return res;
+      })
+      .catch(() => caches.match(req))
+  );
 });
 
 // Λήψη push από το Supabase Edge Function "push_sender".
