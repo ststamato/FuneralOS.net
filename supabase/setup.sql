@@ -92,6 +92,21 @@ create table if not exists processed_webhook_events (
   received_at timestamptz default now()
 );
 
+-- Case document attachments (USA edition — see saas/usa.js). Stores a
+-- reference to a file in the private 'case-documents' Storage bucket; one
+-- row per (office, case, document type), replaced on re-upload.
+create table if not exists case_documents (
+  id           uuid primary key default gen_random_uuid(),
+  office_id    uuid references auth.users(id) on delete cascade,
+  case_id      text not null,
+  doc_type     text not null,
+  storage_path text not null,
+  filename     text not null,
+  uploaded_at  timestamptz default now(),
+  uploaded_by  uuid references auth.users(id) on delete set null,
+  unique (office_id, case_id, doc_type)
+);
+
 -- ── RLS helper (SECURITY DEFINER breaks policy self-recursion) ───────────────
 
 -- Used by office_members SELECT policy and by app_state/office_events policies.
@@ -116,6 +131,7 @@ alter table referrals      enable row level security;
 alter table office_members enable row level security;
 alter table office_invites enable row level security;
 alter table processed_webhook_events enable row level security;
+alter table case_documents enable row level security;
 
 -- app_state: role-differentiated access
 drop policy if exists "user own state"                     on app_state;
@@ -201,6 +217,23 @@ create policy "office admin can remove members" on office_members
 -- office_invites: no client policies — RLS blocks clients, service role bypasses RLS
 
 -- processed_webhook_events: no client policies — RLS blocks clients, service role bypasses RLS
+
+-- case_documents: owner or office member (same model as ceremonies).
+-- Needs insert + update policies (not just insert) because the client
+-- upserts on (office_id, case_id, doc_type) when a document is replaced.
+drop policy if exists "case_documents select" on case_documents;
+drop policy if exists "case_documents insert" on case_documents;
+drop policy if exists "case_documents update" on case_documents;
+drop policy if exists "case_documents delete" on case_documents;
+create policy "case_documents select" on case_documents
+  for select using (office_id = auth.uid() or public.is_office_member(office_id));
+create policy "case_documents insert" on case_documents
+  for insert with check (office_id = auth.uid() or public.is_office_member(office_id));
+create policy "case_documents update" on case_documents
+  for update using (office_id = auth.uid() or public.is_office_member(office_id))
+  with check (office_id = auth.uid() or public.is_office_member(office_id));
+create policy "case_documents delete" on case_documents
+  for delete using (office_id = auth.uid() or public.is_office_member(office_id));
 
 -- ── Triggers ─────────────────────────────────────────────────────────────────
 
@@ -540,3 +573,42 @@ on conflict (office_id, id) do nothing;
 -- silently resurrect deleted ceremonies for any office that's legitimately
 -- empty post-migration. Idempotent — a no-op once the key is gone.
 update app_state set payload = payload - 'ceremonies' where payload ? 'ceremonies';
+
+-- ── Storage: case document attachments (USA edition) ──────────────────────────
+-- Private bucket; path convention is {office_id}/{case_id}/{filename}, so
+-- policies can check the office_id folder segment directly.
+
+insert into storage.buckets (id, name, public)
+values ('case-documents', 'case-documents', false)
+on conflict (id) do nothing;
+
+drop policy if exists "case-documents storage insert" on storage.objects;
+drop policy if exists "case-documents storage select" on storage.objects;
+drop policy if exists "case-documents storage delete" on storage.objects;
+
+create policy "case-documents storage insert" on storage.objects
+  for insert with check (
+    bucket_id = 'case-documents'
+    and (
+      (storage.foldername(name))[1]::uuid = auth.uid()
+      or public.is_office_member((storage.foldername(name))[1]::uuid)
+    )
+  );
+
+create policy "case-documents storage select" on storage.objects
+  for select using (
+    bucket_id = 'case-documents'
+    and (
+      (storage.foldername(name))[1]::uuid = auth.uid()
+      or public.is_office_member((storage.foldername(name))[1]::uuid)
+    )
+  );
+
+create policy "case-documents storage delete" on storage.objects
+  for delete using (
+    bucket_id = 'case-documents'
+    and (
+      (storage.foldername(name))[1]::uuid = auth.uid()
+      or public.is_office_member((storage.foldername(name))[1]::uuid)
+    )
+  );
