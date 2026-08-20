@@ -224,7 +224,7 @@
     if (msg.includes('already registered')) return 'This email is already registered.';
     if (msg.includes('Password should')) return 'Password must be at least 6 characters.';
     if (msg.includes('Unable to validate')) return 'Please enter a valid email address.';
-    return msg;
+    return 'Something went wrong. Please try again.';
   }
 
   document.addEventListener('keydown', function(e) {

@@ -1,11 +1,11 @@
 // FuneralOS — Lemon Squeezy Webhook Handler
 // Supabase Edge Function (Deno)
 // Secrets needed: LEMON_SQUEEZY_WEBHOOK_SECRET, RESEND_API_KEY
-// Optional:       FROM_EMAIL (default: FuneralOS <billing@funeralos.gr>)
+// Optional:       FROM_EMAIL (default: FuneralOS <billing@funeralos.net>)
 // Auto-injected:  SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 
 const CORS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://funeralos.net",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-signature",
 };
 

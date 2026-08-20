@@ -5,7 +5,7 @@
 //          RESEND_API_KEY, FROM_EMAIL (optional), APP_URL (optional)
 
 const CORS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://funeralos.net",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 

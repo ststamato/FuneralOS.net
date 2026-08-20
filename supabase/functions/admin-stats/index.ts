@@ -3,7 +3,7 @@
 // Env vars needed: SUPABASE_SERVICE_ROLE_KEY  (SUPABASE_URL is auto-injected)
 
 const CORS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://funeralos.net",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 

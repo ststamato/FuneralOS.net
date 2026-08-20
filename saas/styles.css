@@ -179,6 +179,7 @@ h2 { margin-top: 8px; }
 .card-buttons .delete {
   background: #fef2f2;
   color: #b91c1c;
+  margin-left: 6px;
 }
 
 .warehouse-section { margin-top: 14px; }
@@ -1690,7 +1691,7 @@ body::before{
 /* ── Touch targets — at least 44px tall on touch devices ── */
 @media (pointer: coarse) {
   .tab-button, .new-ceremony { min-height: 40px; }
-  .card-buttons button, .warehouse-actions button { min-height: 40px; }
+  .card-buttons button, .warehouse-actions button { min-height: 44px; }
   .modal-actions button { min-height: 44px; }
   .add-option-btn, .warehouse-controls button { min-height: 40px; }
   .logout-btn { min-height: 36px; min-width: 60px; }

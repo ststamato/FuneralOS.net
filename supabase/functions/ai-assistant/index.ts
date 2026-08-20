@@ -8,7 +8,7 @@ const MAX_TOKENS = 1200;
 const AI_DAILY_LIMIT = 10;
 
 const CORS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://funeralos.net",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
