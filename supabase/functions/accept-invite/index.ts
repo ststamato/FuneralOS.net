@@ -60,13 +60,6 @@ Deno.serve(async (req: Request) => {
     return new Response("Invite has expired", { status: 410, headers: CORS });
   }
 
-  // Mark invite as accepted
-  await fetch(`${supabaseUrl}/rest/v1/office_invites?id=eq.${invite.id}`, {
-    method: "PATCH",
-    headers: { ...svcHeaders, Prefer: "return=minimal" },
-    body: JSON.stringify({ accepted_at: new Date().toISOString() }),
-  });
-
   // Update invitee's user_metadata with office_id and role
   const metaRes = await fetch(`${supabaseUrl}/auth/v1/admin/users/${inviteeId}`, {
     method: "PUT",
@@ -81,7 +74,7 @@ Deno.serve(async (req: Request) => {
   }
 
   // Add to office_members (idempotent)
-  await fetch(`${supabaseUrl}/rest/v1/office_members`, {
+  const memberRes = await fetch(`${supabaseUrl}/rest/v1/office_members`, {
     method: "POST",
     headers: { ...svcHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
     body: JSON.stringify({
@@ -90,6 +83,19 @@ Deno.serve(async (req: Request) => {
       role: invite.role,
       invited_by: invite.invited_by,
     }),
+  });
+  if (!memberRes.ok) {
+    console.error("Failed to add office member", await memberRes.text());
+    return new Response("Failed to join office", { status: 500, headers: CORS });
+  }
+
+  // Only mark the invite accepted now that both steps above have actually
+  // succeeded — if either had failed and we'd already burned accepted_at,
+  // the invitee would be stuck with no way to retry the same token.
+  await fetch(`${supabaseUrl}/rest/v1/office_invites?id=eq.${invite.id}`, {
+    method: "PATCH",
+    headers: { ...svcHeaders, Prefer: "return=minimal" },
+    body: JSON.stringify({ accepted_at: new Date().toISOString() }),
   });
 
   console.log(`Invite accepted: user=${inviteeId} office=${invite.office_id} role=${invite.role}`);
