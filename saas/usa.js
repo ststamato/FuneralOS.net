@@ -742,8 +742,13 @@
   function loadKey(key){try{return JSON.parse(localStorage.getItem(key)||"[]")||[]}catch{return []}}
   function saveKey(key,data){localStorage.setItem(key,JSON.stringify(data))}
   function cases(){ return window.__usaLib.cases(); }
-  function staff(){ return loadKey(STAFF_KEY); }
-  function fleet(){ return loadKey(FLEET_KEY); }
+  // Staff/Fleet are office-wide (not per-case) — synced via app_state.payload
+  // through the global hooks app.js exposes, so every teammate sees the same
+  // roster/fleet instead of only the device that entered it.
+  function staff(){ return typeof window.__fosGetUsaStaff === "function" ? window.__fosGetUsaStaff() : loadKey(STAFF_KEY); }
+  function fleet(){ return typeof window.__fosGetUsaFleet === "function" ? window.__fosGetUsaFleet() : loadKey(FLEET_KEY); }
+  function saveStaff(d){ if (typeof window.__fosSetUsaStaff === "function") window.__fosSetUsaStaff(d); else saveKey(STAFF_KEY, d); }
+  function saveFleet(d){ if (typeof window.__fosSetUsaFleet === "function") window.__fosSetUsaFleet(d); else saveKey(FLEET_KEY, d); }
 
   function setCaseField(caseId, field, value){
     window.__usaLib.updateMeta(caseId, { [field]: value });
@@ -819,19 +824,19 @@
       e.preventDefault();
       const d = staff();
       d.push({id:uid(), name:el('usaStaffName')?.value||'Unnamed', role:el('usaStaffRole')?.value, shift:el('usaStaffShift')?.value, cert:el('usaStaffCert')?.value, assignment:'Available'});
-      saveKey(STAFF_KEY, d); e.target.reset(); renderAllV2();
+      saveStaff(d); e.target.reset(); renderAllV2();
     });
     el('usaFleetForm')?.addEventListener('submit', (e)=>{
       e.preventDefault();
       const d = fleet();
       d.push({id:uid(), name:el('usaFleetName')?.value||'Vehicle', type:el('usaFleetType')?.value, mileage:el('usaFleetMileage')?.value, service:el('usaFleetService')?.value, insurance:el('usaFleetInsurance')?.value, status:el('usaFleetStatus')?.value});
-      saveKey(FLEET_KEY, d); e.target.reset(); renderAllV2();
+      saveFleet(d); e.target.reset(); renderAllV2();
     });
     document.addEventListener('click', (e)=>{
       const s = e.target.closest('[data-v2-staff-del]');
-      if(s){ saveKey(STAFF_KEY, staff().filter(x=>x.id!==s.dataset.v2StaffDel)); renderAllV2(); }
+      if(s){ saveStaff(staff().filter(x=>x.id!==s.dataset.v2StaffDel)); renderAllV2(); }
       const f = e.target.closest('[data-v2-fleet-del]');
-      if(f){ saveKey(FLEET_KEY, fleet().filter(x=>x.id!==f.dataset.v2FleetDel)); renderAllV2(); }
+      if(f){ saveFleet(fleet().filter(x=>x.id!==f.dataset.v2FleetDel)); renderAllV2(); }
     });
     document.addEventListener('change', (e)=>{
       const cr = e.target.closest('.usa-v2-crem');
@@ -868,8 +873,8 @@
   const addDaysIso = (days)=>window.__usaTzDateStr(window.__usaGetTz(), days);
   const daysBetween = (date)=>window.__usaTzDaysBetween(date, window.__usaGetTz());
   const cases = ()=> window.__usaLib ? window.__usaLib.cases() : [];
-  const staff = ()=>load(STAFF_KEY);
-  const fleet = ()=>load(FLEET_KEY);
+  const staff = ()=> typeof window.__fosGetUsaStaff === "function" ? window.__fosGetUsaStaff() : load(STAFF_KEY);
+  const fleet = ()=> typeof window.__fosGetUsaFleet === "function" ? window.__fosGetUsaFleet() : load(FLEET_KEY);
 
   function isActive(c){ return c && c.status !== "Closed"; }
   function isUpcoming(c){ const d=c.serviceDate||c.viewingDate; const diff=daysBetween(d); return diff!==null && diff>=0 && diff<=7 && isActive(c); }

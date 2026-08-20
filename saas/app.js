@@ -221,6 +221,16 @@ let aiChatHistory = [];
 let customFields = [];
 let customLists = [];
 let sectionData = {};
+// USA edition staff/fleet lists (office-wide, not per-case — see usa.js).
+// Declared here unconditionally so cloudSaveAll()/cloudLoadData() can
+// include them in the app_state sync for any edition; the Greek edition
+// simply never populates them since it doesn't load usa.js.
+let usaStaff = [];
+let usaFleet = [];
+window.__fosGetUsaStaff = () => usaStaff;
+window.__fosSetUsaStaff = (arr) => { usaStaff = Array.isArray(arr) ? arr : []; saveData(); };
+window.__fosGetUsaFleet = () => usaFleet;
+window.__fosSetUsaFleet = (arr) => { usaFleet = Array.isArray(arr) ? arr : []; saveData(); };
 
 // ---------------- LocalStorage Keys ----------------
 const CEREMONIES_KEY = "staurakaki_ceremonies_v8";
@@ -239,6 +249,8 @@ const CUSTOM_FIELDS_KEY = "staurakaki_custom_fields_v36";
 const CUSTOM_LISTS_KEY = window.__appLang === "en" ? "funeralos_en_custom_lists_v1" : "staurakaki_custom_lists_v1";
 const SECTION_DATA_KEY = "funeralos_section_data_v1";
 const TRASH_KEY = "staurakaki_trash_v1";
+const USA_STAFF_KEY = "funeralos_usa_staff_v2";
+const USA_FLEET_KEY = "funeralos_usa_fleet_v2";
 const OFFICE_EVENTS_LOCAL_KEY = "staurakaki_office_events_v1";
 const OFFICE_DNA_LOCAL_KEY = "staurakaki_office_dna_v1";
 const PENDING_SAVE_KEY = "staurakaki_pending_sync_v1";
@@ -1088,6 +1100,8 @@ async function cloudLoadData() {
     if (Array.isArray(p.aiChatHistory)) aiChatHistory = p.aiChatHistory;
     if (Array.isArray(p.customFields)) customFields = p.customFields;
     if (Array.isArray(p.deletedCeremonies)) deletedCeremonies = p.deletedCeremonies;
+    if (Array.isArray(p.usaStaff)) usaStaff = p.usaStaff;
+    if (Array.isArray(p.usaFleet)) usaFleet = p.usaFleet;
     if (window.__appLang === "en") {
       if (Array.isArray(p.enCustomLists)) customLists = p.enCustomLists;
       if (Array.isArray(p.customLists)) {
@@ -1135,6 +1149,7 @@ async function cloudSaveAll() {
     warehouse, setsWarehouse, secondHelpers, optionWarehouse,
     changeLog, pushSubs, aiSeenNotes, aiSeenAlerts, aiChatHistory,
     customFields, customLists: grCustomLists, enCustomLists, deletedCeremonies,
+    usaStaff, usaFleet,
     sync_ts: Date.now(),
   };
 
@@ -1699,6 +1714,8 @@ async function loadData() {
         try { customLists   = JSON.parse(localStorage.getItem(CUSTOM_LISTS_KEY))    || []; } catch {}
         try { sectionData   = JSON.parse(localStorage.getItem(SECTION_DATA_KEY))    || {}; } catch {}
         try { deletedCeremonies = JSON.parse(localStorage.getItem(TRASH_KEY))       || []; } catch {}
+        try { usaStaff      = JSON.parse(localStorage.getItem(USA_STAFF_KEY))       || []; } catch {}
+        try { usaFleet      = JSON.parse(localStorage.getItem(USA_FLEET_KEY))       || []; } catch {}
         setTimeout(() => cloudSaveAll(), 3000);
       } else {
         // Cloud row exists — it is authoritative (covers intentionally-empty offices too)
@@ -1714,6 +1731,8 @@ async function loadData() {
         localStorage.setItem(AI_CHAT_HISTORY_KEY, JSON.stringify(aiChatHistory || []));
         localStorage.setItem(CUSTOM_FIELDS_KEY,   JSON.stringify(customFields || []));
         localStorage.setItem(CUSTOM_LISTS_KEY,    JSON.stringify(customLists || []));
+        localStorage.setItem(USA_STAFF_KEY,       JSON.stringify(usaStaff || []));
+        localStorage.setItem(USA_FLEET_KEY,       JSON.stringify(usaFleet || []));
       }
     } catch (e) {
       console.error("Cloud load error, falling back to local", e);
@@ -1733,6 +1752,8 @@ async function loadData() {
       try { customLists = JSON.parse(localStorage.getItem(CUSTOM_LISTS_KEY)) || []; } catch { customLists = []; }
       try { sectionData = JSON.parse(localStorage.getItem(SECTION_DATA_KEY)) || {}; } catch { sectionData = {}; }
       try { deletedCeremonies = JSON.parse(localStorage.getItem(TRASH_KEY)) || []; } catch { deletedCeremonies = []; }
+      try { usaStaff = JSON.parse(localStorage.getItem(USA_STAFF_KEY)) || []; } catch { usaStaff = []; }
+      try { usaFleet = JSON.parse(localStorage.getItem(USA_FLEET_KEY)) || []; } catch { usaFleet = []; }
     }
   } else {
     try { ceremonies = JSON.parse(localStorage.getItem(CEREMONIES_KEY)) || []; } catch { ceremonies = []; }
@@ -1748,6 +1769,8 @@ async function loadData() {
     try { customLists = JSON.parse(localStorage.getItem(CUSTOM_LISTS_KEY)) || []; } catch { customLists = []; }
     try { sectionData = JSON.parse(localStorage.getItem(SECTION_DATA_KEY)) || {}; } catch { sectionData = {}; }
     try { deletedCeremonies = JSON.parse(localStorage.getItem(TRASH_KEY)) || []; } catch { deletedCeremonies = []; }
+    try { usaStaff = JSON.parse(localStorage.getItem(USA_STAFF_KEY)) || []; } catch { usaStaff = []; }
+    try { usaFleet = JSON.parse(localStorage.getItem(USA_FLEET_KEY)) || []; } catch { usaFleet = []; }
   }
 
   ceremonies = (ceremonies || []).map((c) => ({
@@ -1783,7 +1806,11 @@ async function loadData() {
     graveNumber: c.graveNumber ?? "",
     graveZone: c.graveZone ?? "",
     notes: c.notes ?? "",
-    customValues: c.customValues && typeof c.customValues === "object" ? c.customValues : {}
+    customValues: c.customValues && typeof c.customValues === "object" ? c.customValues : {},
+    // USA edition per-case metadata (status/priority/finance/documents/etc.,
+    // see usa.js) — this whitelist mapping would otherwise silently strip it
+    // on every load since it rebuilds each ceremony from named fields only.
+    ...(c.usaMeta && typeof c.usaMeta === "object" ? { usaMeta: c.usaMeta } : {})
   }));
 
   if (!Array.isArray(warehouse)) {
@@ -1819,6 +1846,8 @@ async function saveData() {
   localStorage.setItem(CUSTOM_LISTS_KEY, JSON.stringify(customLists || []));
   localStorage.setItem(SECTION_DATA_KEY, JSON.stringify(sectionData || {}));
   localStorage.setItem(TRASH_KEY, JSON.stringify(deletedCeremonies || []));
+  localStorage.setItem(USA_STAFF_KEY, JSON.stringify(usaStaff || []));
+  localStorage.setItem(USA_FLEET_KEY, JSON.stringify(usaFleet || []));
   if (USE_CLOUD) cloudSaveAll().catch((e) => console.error("Cloud save error (ignored)", e));
 }
 

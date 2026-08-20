@@ -46,8 +46,8 @@ Owner = `ststamato@gmail.com` or `funeralos.net@gmail.com`.
 
 ## Database Tables
 
-- `app_state` — one row per office: `id` (office owner's user id), `payload` (jsonb — warehouse, sets, changelog, etc.; ceremonies no longer live here, see below), `updated_at`
-- `ceremonies` — one row per case (moved out of `app_state.payload` to fix concurrent-save data loss): `id`, `office_id`, `data` (jsonb), `updated_at`, `updated_by`, `created_at`. Writes go through the `save_ceremony()` RPC (optimistic-locked on `updated_at`, also enforces the free-plan monthly limit server-side, keyed on `created_at`). Deletes go through `delete_ceremony()` (same optimistic-lock discipline); RLS restricts delete to the office owner or an admin-role member — editors can create/edit but not delete
+- `app_state` — one row per office: `id` (office owner's user id), `payload` (jsonb — warehouse, sets, changelog, `usaStaff`/`usaFleet` (USA edition office-wide staff/fleet lists), etc.; ceremonies no longer live here, see below), `updated_at`
+- `ceremonies` — one row per case (moved out of `app_state.payload` to fix concurrent-save data loss): `id`, `office_id`, `data` (jsonb — includes `usaMeta` for the USA edition: case status/priority/finance/documents/timeline/scheduling, see `saas/usa.js`), `updated_at`, `updated_by`, `created_at`. Writes go through the `save_ceremony()` RPC (optimistic-locked on `updated_at`, also enforces the free-plan monthly limit server-side, keyed on `created_at`). Deletes go through `delete_ceremony()` (same optimistic-lock discipline); RLS restricts delete to the office owner or an admin-role member — editors can create/edit but not delete
 - `office_members` — team membership: `office_id`, `user_id`, `role` (`admin`/`editor`)
 - `office_invites` — pending team invites (service-role only, no client RLS)
 - `office_events` — per-office activity/change log: `user_id` (who acted), `office_id` (which office it belongs to), `event_type`, `payload`
