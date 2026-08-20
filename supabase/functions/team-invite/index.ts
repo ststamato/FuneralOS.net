@@ -29,16 +29,26 @@ Deno.serve(async (req: Request) => {
   if (!userRes.ok) return new Response("Unauthorized", { status: 401, headers: CORS });
   const caller = await userRes.json();
   const callerId   = caller.id as string;
-  const callerMeta = (caller.user_metadata || {}) as Record<string, string>;
 
-  // Only admins can invite (solo users are implicitly admin of their own office)
-  const callerRole = callerMeta.office_role || "admin";
+  // Determine the caller's TRUE office and role server-side by looking up
+  // office_members — never trust user_metadata.office_id/office_role, which
+  // the client can set directly via supabase.auth.updateUser() and which
+  // previously let any authenticated user become "admin" of an arbitrary
+  // office just by editing their own metadata (full cross-tenant access via
+  // the self-membership insert below).
+  const memberRes = await fetch(`${supabaseUrl}/rest/v1/office_members?user_id=eq.${callerId}&select=office_id,role`, {
+    headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey },
+  });
+  const memberRows = memberRes.ok ? await memberRes.json() : [];
+  const membership = memberRows[0];
+
+  // office_id = caller's own user_id (solo owner, no membership row) or the
+  // real office they belong to per office_members.
+  const officeId = membership?.office_id || callerId;
+  const callerRole = membership?.role || "admin"; // solo users are implicitly admin of their own office
   if (callerRole !== "admin") {
     return new Response("Only admins can invite team members", { status: 403, headers: CORS });
   }
-
-  // The office_id = caller's own user_id (for solo admin) or existing office_id
-  const officeId = callerMeta.office_id || callerId;
 
   // Server-side plan/team-size enforcement — the client (freemium.js) already
   // checks this, but a direct API call could bypass it entirely otherwise.
