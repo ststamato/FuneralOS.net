@@ -4340,7 +4340,12 @@ function aiBuildCloudPayload() {
     generatedAt: new Date().toISOString(),
     device: getDeviceLabel() || "",
     userId: window.__authUser?.id || null,
-    lang: window.__appLang === "en" ? "en" : "el",
+    lang: (() => {
+      if (window.__appLang !== "en" && window.__appLang !== "el") {
+        console.warn('window.__appLang unexpectedly not "en"/"el" (' + window.__appLang + ") — defaulting to el");
+      }
+      return window.__appLang === "en" ? "en" : "el";
+    })(),
     officeName: window.__authOfficeName || "",
     today,
     tomorrow,

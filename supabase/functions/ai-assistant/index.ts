@@ -75,6 +75,9 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── Call xAI Grok ────────────────────────────────────────────────────────────
+  if (payload.lang !== "en" && payload.lang !== "el") {
+    console.warn(`ai-assistant: unexpected lang "${payload.lang}" from user ${userId} — defaulting to el`);
+  }
   const lang = payload.lang === "en" ? "en" : "el";
   const isQuestion = Boolean(payload.question);
   const systemPrompt = buildSystemPrompt(payload, lang);
