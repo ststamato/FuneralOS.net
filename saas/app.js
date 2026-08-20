@@ -339,6 +339,7 @@ async function syncOfficeDnaToCloud(memories) {
 
 function emitOfficeEvent(type, ceremony, extra = {}) {
   const event = {
+    _localId: nowTs() + "_" + Math.random().toString(36).slice(2, 8),
     case_id: ceremony?.case_id || ensureCeremonyCaseId(ceremony),
     app: "teletes",
     type,
@@ -358,38 +359,72 @@ function emitOfficeEvent(type, ceremony, extra = {}) {
   saveLocalOfficeEvent(event);
 
   if (!USE_CLOUD) return;
-  // Insert cloud event asynchronously — non-blocking, silent on failure.
-  // Uses user JWT (not anon key) and maps to the table schema: event_type + user_id.
-  (async () => {
-    try {
-      const s = await getCloudSession();
-      if (!s) return;
-      await fetch(`${SUPABASE_URL}/rest/v1/office_events`, {
-        method: "POST",
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${s.token}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Prefer: "return=minimal",
-        },
-        body: JSON.stringify({
-          user_id: s.userId,
-          event_type: type,
-          payload: {
-            ...event.payload,
-            case_id: event.case_id,
-            app: event.app,
-            title: event.title,
-          },
-        }),
-      });
-    } catch (e) {
-      console.warn("office_events insert skipped", e);
-    }
-  })();
+  syncOfficeEventToCloud(event);
 }
 
+function markLocalOfficeEventSynced(localId) {
+  try {
+    const list = loadLocalOfficeEvents();
+    const idx = list.findIndex((e) => e._localId === localId);
+    if (idx !== -1) {
+      list[idx]._synced = true;
+      localStorage.setItem(OFFICE_EVENTS_LOCAL_KEY, JSON.stringify(list));
+    }
+  } catch (e) {
+    console.warn("Could not mark office event synced", e);
+  }
+}
+
+async function syncOfficeEventToCloud(event) {
+  // Uses user JWT (not anon key) and maps to the table schema: event_type + user_id.
+  // Checks res.ok (unlike the old fire-and-forget version) so a failed insert
+  // stays flagged as pending instead of being silently dropped.
+  try {
+    const s = await getCloudSession();
+    if (!s) return;
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/office_events`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${s.token}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({
+        user_id: s.userId,
+        event_type: event.type,
+        payload: {
+          ...event.payload,
+          case_id: event.case_id,
+          app: event.app,
+          title: event.title,
+        },
+      }),
+    });
+    if (res.ok) markLocalOfficeEventSynced(event._localId);
+    else console.warn("office_events insert failed, will retry:", res.status);
+  } catch (e) {
+    console.warn("office_events insert failed, will retry:", e);
+  }
+}
+
+let _retryingOfficeEvents = false;
+async function retryPendingOfficeEvents() {
+  if (_retryingOfficeEvents || !USE_CLOUD) return;
+  _retryingOfficeEvents = true;
+  try {
+    const pending = loadLocalOfficeEvents().filter((e) => e._localId && !e._synced);
+    for (const event of pending) await syncOfficeEventToCloud(event);
+  } finally {
+    _retryingOfficeEvents = false;
+  }
+}
+
+window.addEventListener("online", retryPendingOfficeEvents);
+// Also sweep once shortly after load, to catch events that failed while
+// online (transient server error) rather than only the offline→online case.
+setTimeout(retryPendingOfficeEvents, 4000);
 
 // ---------------- V38.6 Case Bridge — πρώτη επικοινωνία εφαρμογών ----------------
 const OFFICE_MODULE_URLS = {
