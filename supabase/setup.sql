@@ -29,6 +29,11 @@ create table if not exists office_events (
   created_at timestamptz default now()
 );
 
+-- office_id was missing entirely — the table only recorded who performed an
+-- action, not which office it belonged to (backfilled further below, once
+-- office_members exists).
+alter table office_events add column if not exists office_id uuid references auth.users(id) on delete cascade;
+
 -- AI Usage (daily rate limiting)
 create table if not exists ai_usage (
   user_id     uuid primary key references auth.users(id) on delete cascade,
@@ -68,6 +73,18 @@ create table if not exists office_members (
   joined_at  timestamptz default now(),
   unique (office_id, user_id)
 );
+
+-- office_events.office_id backfill (deferred to here — needs office_members
+-- to exist). Maps each existing row to its actor's real office via
+-- office_members, falling back to the actor's own id for solo owners
+-- (office_id == owner's user id in this app's model). Idempotent — only
+-- touches rows still missing office_id.
+update office_events oe
+set office_id = coalesce(
+  (select om.office_id from office_members om where om.user_id = oe.user_id limit 1),
+  oe.user_id
+)
+where office_id is null;
 
 -- Office Invites (service-role access only — no client RLS policies)
 create table if not exists office_invites (
@@ -181,17 +198,25 @@ drop policy if exists "user own events"         on office_events;
 drop policy if exists "office_events select"    on office_events;
 drop policy if exists "office_events insert"    on office_events;
 
--- All office members see the whole office's event log
+-- All office members see the whole office's event log. The third clause of
+-- the old policy — is_office_member(auth.uid()) — didn't reference the row
+-- at all, so once true for a caller it made the whole OR evaluate to true
+-- for every row: any user who was a member of any office could read every
+-- office's event log. office_id (added above) lets this be scoped correctly.
 create policy "office_events select" on office_events
   for select using (
     user_id = auth.uid()
-    or public.is_office_member(office_events.user_id)
-    or public.is_office_member(auth.uid())
+    or office_id = auth.uid()
+    or public.is_office_member(office_id)
   );
 
--- Anyone can insert their own events
+-- Events must be attributed to the real caller, for their own office
+-- (owner) or an office they're an actual member of.
 create policy "office_events insert" on office_events
-  for insert with check (auth.uid() = user_id);
+  for insert with check (
+    auth.uid() = user_id
+    and (office_id = auth.uid() or public.is_office_member(office_id))
+  );
 
 -- ai_usage
 drop policy if exists "user own ai_usage"      on ai_usage;

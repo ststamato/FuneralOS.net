@@ -393,6 +393,7 @@ async function syncOfficeEventToCloud(event) {
       },
       body: JSON.stringify({
         user_id: s.userId,
+        office_id: s.rowId,
         event_type: event.type,
         payload: {
           ...event.payload,
