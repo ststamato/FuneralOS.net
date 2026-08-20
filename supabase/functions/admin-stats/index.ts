@@ -77,8 +77,8 @@ Deno.serve(async (req: Request) => {
         body: JSON.stringify({ user_id: userId, subject, message }),
       });
       if (!insRes.ok) {
-        const txt = await insRes.text();
-        return json({ error: "Failed to save: " + txt }, 500);
+        console.error("[submit_support] insert failed:", await insRes.text());
+        return json({ error: "Failed to save support request" }, 500);
       }
 
       // Return immediately — background tasks run after response
@@ -390,8 +390,8 @@ ${message}
         headers: h,
       });
       if (!del.ok) {
-        const errText = await del.text();
-        return json({ error: "Failed to delete user: " + errText }, 500);
+        console.error("[delete_user] failed:", await del.text());
+        return json({ error: "Failed to delete user" }, 500);
       }
       return json({ ok: true });
     }
