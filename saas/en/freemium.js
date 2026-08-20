@@ -276,6 +276,7 @@
           if (a) {
             const u = new URL(a.href);
             u.searchParams.set("checkout[custom][user_id]", user.id);
+            u.searchParams.set("checkout[custom][lang]", "en");
             if (user.email) u.searchParams.set("checkout[email]", user.email);
             a.href = u.toString();
           }
@@ -524,6 +525,7 @@
     if (!user || !user.id) return baseUrl;
     const u = new URL(baseUrl);
     u.searchParams.set("checkout[custom][user_id]", user.id);
+    u.searchParams.set("checkout[custom][lang]", "en");
     if (user.email) u.searchParams.set("checkout[email]", user.email);
     return u.toString();
   }

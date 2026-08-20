@@ -172,18 +172,28 @@ async function sendReceiptEmail(
   resendKey: string,
   toEmail: string,
   plan: string,
-  productName: string
+  productName: string,
+  lang: "en" | "el"
 ): Promise<void> {
   const planLabel = plan === "business" ? "Business" : "Pro";
   const from = Deno.env.get("FROM_EMAIL") || "FuneralOS <billing@funeralos.net>";
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from,
-      to: [toEmail],
-      subject: `✓ Your FuneralOS ${planLabel} plan is active`,
-      html: `<div style="font-family:sans-serif;max-width:540px;margin:0 auto;background:#0f1523;color:#c8daf0;padding:32px;border-radius:12px;">
+  const subject = lang === "el"
+    ? `✓ Το πλάνο FuneralOS ${planLabel} είναι ενεργό`
+    : `✓ Your FuneralOS ${planLabel} plan is active`;
+  const html = lang === "el"
+    ? `<div style="font-family:sans-serif;max-width:540px;margin:0 auto;background:#0f1523;color:#c8daf0;padding:32px;border-radius:12px;">
+        <h1 style="color:#c8a96e;margin:0 0 4px;font-size:22px;">FuneralOS</h1>
+        <h2 style="margin:0 0 24px;color:#fff;font-size:18px;">Το πλάνο σου ${planLabel} είναι πλέον ενεργό</h2>
+        <p style="margin:0 0 16px;">Ευχαριστούμε για τη συνδρομή σου στο <strong>FuneralOS ${planLabel}</strong>. Ο λογαριασμός σου αναβαθμίστηκε και όλες οι λειτουργίες είναι ξεκλείδωτες.</p>
+        <div style="background:rgba(200,169,110,.1);border:1px solid rgba(200,169,110,.3);border-radius:8px;padding:16px;margin:0 0 24px;">
+          <strong style="color:#c8a96e;">Πλάνο:</strong> ${planLabel}<br>
+          <strong style="color:#c8a96e;">Προϊόν:</strong> ${productName}<br>
+          <strong style="color:#c8a96e;">Λογαριασμός:</strong> ${toEmail}
+        </div>
+        <p style="margin:0 0 8px;">Διαχειρίσου τη συνδρομή σου ανά πάσα στιγμή από τις Ρυθμίσεις της εφαρμογής, ή επισκέψου τη <a href="https://app.lemonsqueezy.com/my-orders" style="color:#c8a96e;">σελίδα παραγγελιών Lemon Squeezy</a>.</p>
+        <p style="color:#8899aa;font-size:11px;margin-top:32px;border-top:1px solid rgba(255,255,255,.08);padding-top:16px;">FuneralOS — Επαγγελματικό λογισμικό διαχείρισης γραφείου τελετών</p>
+      </div>`
+    : `<div style="font-family:sans-serif;max-width:540px;margin:0 auto;background:#0f1523;color:#c8daf0;padding:32px;border-radius:12px;">
         <h1 style="color:#c8a96e;margin:0 0 4px;font-size:22px;">FuneralOS</h1>
         <h2 style="margin:0 0 24px;color:#fff;font-size:18px;">Your ${planLabel} plan is now active</h2>
         <p style="margin:0 0 16px;">Thank you for subscribing to <strong>FuneralOS ${planLabel}</strong>. Your account has been upgraded and all features are unlocked.</p>
@@ -194,11 +204,14 @@ async function sendReceiptEmail(
         </div>
         <p style="margin:0 0 8px;">Manage your subscription at any time from Settings in the app, or visit your <a href="https://app.lemonsqueezy.com/my-orders" style="color:#c8a96e;">Lemon Squeezy orders page</a>.</p>
         <p style="color:#8899aa;font-size:11px;margin-top:32px;border-top:1px solid rgba(255,255,255,.08);padding-top:16px;">FuneralOS — Professional funeral management software</p>
-      </div>`,
-    }),
+      </div>`;
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from, to: [toEmail], subject, html }),
   });
   if (!res.ok) console.warn(`Resend receipt email failed: ${res.status} ${await res.text()}`);
-  else console.log(`Receipt email sent to ${toEmail}`);
+  else console.log(`Receipt email sent to ${toEmail} (lang=${lang})`);
 }
 
 Deno.serve(async (req: Request) => {
@@ -235,6 +248,7 @@ Deno.serve(async (req: Request) => {
   const eventName   = (meta.event_name as string) || "";
   const customData  = (meta.custom_data as Record<string, unknown>) || {};
   const customUserId = (customData.user_id as string || "").trim();
+  const receiptLang: "en" | "el" = customData.lang === "el" ? "el" : "en";
 
   const attrs       = ((payload.data as Record<string, unknown>)?.attributes || {}) as Record<string, unknown>;
   const email       = (attrs.user_email as string || "").toLowerCase().trim();
@@ -324,7 +338,7 @@ Deno.serve(async (req: Request) => {
     await rewardReferrer(supabaseUrl, serviceKey, userId);
     // Send receipt email for new subscriptions and one-time purchases
     if (resendKey && email && ["subscription_created", "order_created"].includes(eventName)) {
-      await sendReceiptEmail(resendKey, email, targetPlan, productName);
+      await sendReceiptEmail(resendKey, email, targetPlan, productName, receiptLang);
     }
   }
 
