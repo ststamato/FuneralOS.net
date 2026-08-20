@@ -536,6 +536,14 @@ end;
 $$;
 
 grant execute on function public.claim_ai_usage_slot(uuid, integer, date) to service_role;
+-- Supabase grants EXECUTE on every new public-schema function to anon AND
+-- authenticated by default (its own platform convention, on top of Postgres'
+-- own PUBLIC-by-default) — which would otherwise let any authenticated user
+-- call this SECURITY DEFINER function directly via
+-- /rest/v1/rpc/claim_ai_usage_slot with an arbitrary p_user_id, burning
+-- through (or resetting the reset_date on) another user's daily AI quota.
+-- The grant above only adds service_role; this closes both default gaps.
+revoke execute on function public.claim_ai_usage_slot(uuid, integer, date) from public, anon, authenticated;
 
 -- Removes expired push subscriptions from app_state.payload.pushSubs without
 -- the blind full-payload read-then-write push_sender used to do (read
