@@ -68,16 +68,20 @@ self.addEventListener("push", (event) => {
     data = event.data ? event.data.json() : {};
   } catch (_e) {
     try {
-      data = { title: "Σταυρακάκη", body: event.data ? event.data.text() : "" };
+      // No access to window.__appLang or the office name in a service
+      // worker — the sender always includes a real title/body (see
+      // sendEdgePushBatch in app.js), so this is a last-resort fallback
+      // only and deliberately brand-neutral rather than guessing a locale.
+      data = { title: "FuneralOS", body: event.data ? event.data.text() : "" };
     } catch (_e2) {
       data = {};
     }
   }
 
-  const title = data.title || "Σταυρακάκη — Νέα αλλαγή";
+  const title = data.title || "FuneralOS — Update";
   const options = {
-    body: data.body || "Υπάρχει νέα ενημέρωση στην εφαρμογή.",
-    tag: data.tag || "staurakaki-update",
+    body: data.body || "There's a new update in the app.",
+    tag: data.tag || "funeralos-update",
     renotify: true,
     data: { url: data.url || "./index.html" },
   };

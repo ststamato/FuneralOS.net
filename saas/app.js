@@ -726,7 +726,7 @@ async function sendEdgePushBatch(batch) {
   if (window.location.hostname !== "funeralos.net") return;
 
   const me = getDeviceLabel() || t("Άγνωστη συσκευή", "Unknown device");
-  const title = t("Σταυρακάκη — Νέα αλλαγή", "FuneralOS — New update");
+  const title = `${window.__authOfficeName || "FuneralOS"} — ${t("Νέα αλλαγή", "New update")}`;
   let body = "";
 
   if (batch.length === 1) {
@@ -3689,8 +3689,8 @@ async function subscribePush(reg) {
   setPushPref("on");
 
   try {
-    new Notification("Σταυρακάκη — Push ενεργό ✅", {
-      body: "Έγινε εγγραφή στο Push. (Για πραγματικό push θέλει sender Edge Function)"
+    new Notification(`${window.__authOfficeName || "FuneralOS"} — ${t("Push ενεργό ✅", "Push active ✅")}`, {
+      body: t("Έγινε εγγραφή στο Push. (Για πραγματικό push θέλει sender Edge Function)", "Push subscription registered. (Real push needs the sender Edge Function.)")
     });
   } catch {}
 
@@ -3742,7 +3742,7 @@ function maybeNotifyForChanges_LocalOnly() {
     const nts = Number(newest.ts) || 0;
     if (nts <= last) return;
 
-    const title = t("Σταυρακάκη — Νέα αλλαγή", "FuneralOS — New update");
+    const title = `${window.__authOfficeName || "FuneralOS"} — ${t("Νέα αλλαγή", "New update")}`;
     const body = `${newest.device || t("Άλλη συσκευή", "Another device")}: ${newest.summary || t("Αλλαγή", "Update")}`;
     new Notification(title, { body });
 

@@ -48,8 +48,11 @@ Deno.serve(async (req: Request) => {
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
 
+  // The caller (sendEdgePushBatch in app.js) always sends a real,
+  // locale-appropriate title/body — this function has no locale info of its
+  // own, so the fallback is deliberately brand-neutral rather than Greek.
   const title   = String(body.title  || "FuneralOS");
-  const message = String(body.body   || "Νέα αλλαγή");
+  const message = String(body.body   || "Update");
 
   // Load push subscriptions from this user's app_state
   const h = {
