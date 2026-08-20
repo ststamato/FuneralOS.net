@@ -491,9 +491,9 @@ async function copyCaseBridge(c) {
   const text = buildCaseBridgeText(c);
   try {
     await navigator.clipboard.writeText(text);
-    alert("Αντιγράφηκαν τα στοιχεία της υπόθεσης.");
+    alert(t("Αντιγράφηκαν τα στοιχεία της υπόθεσης.", "Case details copied."));
   } catch {
-    prompt("Αντιγραφή στοιχείων υπόθεσης", text);
+    prompt(t("Αντιγραφή στοιχείων υπόθεσης", "Copy case details"), text);
   }
   emitOfficeEvent("case_bridge_copied", c, { title: "Αντιγραφή υπόθεσης", payload: { text } });
 }
@@ -1504,14 +1504,14 @@ function optionLabelForPrompt(key) {
 function addOption(key) {
   ensureOptionWarehouse();
   const label = optionLabelForPrompt(key);
-  const value = prompt(`Νέα επιλογή για ${label}:`, "");
+  const value = prompt(t(`Νέα επιλογή για ${label}:`, `New option for ${label}:`), "");
   if (value === null) return;
   const clean = String(value).trim().replace(/\s+/g, " ");
-  if (!clean && key !== "pickupSecondPeople" && key !== "graveZones") return alert("Γράψε τιμή.");
-  if (getOptions(key).some(x => normalizeTextKey(x) === normalizeTextKey(clean))) return alert("Υπάρχει ήδη αυτή η επιλογή.");
+  if (!clean && key !== "pickupSecondPeople" && key !== "graveZones") return alert(t("Γράψε τιμή.", "Enter a value."));
+  if (getOptions(key).some(x => normalizeTextKey(x) === normalizeTextKey(clean))) return alert(t("Υπάρχει ήδη αυτή η επιλογή.", "This option already exists."));
   optionWarehouse[key].push(clean);
   if (key === "secondPeople") secondHelpers = normalizeSecondHelpersList(optionWarehouse[key]);
-  addChange("option_add", `Νέα επιλογή (${label}): ${clean || "κενή επιλογή"}`);
+  addChange("option_add", t(`Νέα επιλογή (${label}): ${clean || "κενή επιλογή"}`, `New option (${label}): ${clean || "empty option"}`));
   saveBackup("addOption");
   saveData();
   renderAll();
@@ -1521,15 +1521,15 @@ function editOption(key, idx) {
   ensureOptionWarehouse();
   const label = optionLabelForPrompt(key);
   const oldValue = optionWarehouse[key][idx] ?? "";
-  const value = prompt(`Αλλαγή επιλογής για ${label}:`, oldValue);
+  const value = prompt(t(`Αλλαγή επιλογής για ${label}:`, `Edit option for ${label}:`), oldValue);
   if (value === null) return;
   const clean = String(value).trim().replace(/\s+/g, " ");
-  if (!clean && key !== "pickupSecondPeople" && key !== "graveZones") return alert("Γράψε τιμή.");
-  if (optionWarehouse[key].some((x, i) => i !== idx && normalizeTextKey(x) === normalizeTextKey(clean))) return alert("Υπάρχει ήδη αυτή η επιλογή.");
+  if (!clean && key !== "pickupSecondPeople" && key !== "graveZones") return alert(t("Γράψε τιμή.", "Enter a value."));
+  if (optionWarehouse[key].some((x, i) => i !== idx && normalizeTextKey(x) === normalizeTextKey(clean))) return alert(t("Υπάρχει ήδη αυτή η επιλογή.", "This option already exists."));
   optionWarehouse[key][idx] = clean;
   updateCeremonyOptionReferences(key, oldValue, clean);
   if (key === "secondPeople") secondHelpers = normalizeSecondHelpersList(optionWarehouse[key]);
-  addChange("option_edit", `Αλλαγή επιλογής (${label}): ${oldValue || "κενή"} → ${clean || "κενή"}`);
+  addChange("option_edit", t(`Αλλαγή επιλογής (${label}): ${oldValue || "κενή"} → ${clean || "κενή"}`, `Edited option (${label}): ${oldValue || "empty"} → ${clean || "empty"}`));
   saveBackup("editOption");
   saveData();
   renderAll();
@@ -1898,8 +1898,8 @@ async function shareCeremony(c) {
     } catch {}
   }
 
-  if (copied) alert("Αντιγράφηκε στο πρόχειρο (clipboard).");
-  else window.prompt("Αντέγραψε το κείμενο:", text);
+  if (copied) alert(t("Αντιγράφηκε στο πρόχειρο (clipboard).", "Copied to clipboard."));
+  else window.prompt(t("Αντέγραψε το κείμενο:", "Copy this text:"), text);
 }
 
 // ---------------- Stock rules ----------------
@@ -1914,9 +1914,9 @@ function checkLowStockCoffin(item) {
   const qty = Number(item.qty) || 0;
   const name = item.name || "";
   if (isPriorityCoffin(name)) {
-    if (qty <= 2) alert(`Προσοχή: Το "${name}" έχει απομείνει με ${qty} τεμάχια.`);
+    if (qty <= 2) alert(t(`Προσοχή: Το "${name}" έχει απομείνει με ${qty} τεμάχια.`, `Warning: "${name}" has only ${qty} left.`));
   } else if (qty === 0) {
-    alert(`Προσοχή: Το "${name}" έχει μηδενικό απόθεμα.`);
+    alert(t(`Προσοχή: Το "${name}" έχει μηδενικό απόθεμα.`, `Warning: "${name}" is out of stock.`));
   }
 }
 
@@ -1925,7 +1925,7 @@ function checkLowStockSet(item) {
   const qty = Number(item.qty) || 0;
   const name = normalizeSetName(item.name || "");
   if ((name === "ΓΚΡΙ" || name === "ΛΕΥΚΟ") && qty < 5) {
-    alert(`Παραγγελία: Το ΣΕΤ "${name}" έχει πέσει στα ${qty} τεμ. (min 5).`);
+    alert(t(`Παραγγελία: Το ΣΕΤ "${name}" έχει πέσει στα ${qty} τεμ. (min 5).`, `Reorder: Set "${name}" is down to ${qty} pcs (min 5).`));
   }
 }
 
@@ -2662,7 +2662,7 @@ function saveWarehouseItem(event) {
   event.preventDefault();
   const name = val("warehouseName").trim();
   const qty = Number(val("warehouseQty")) || 0;
-  if (!name) return alert("Γράψε όνομα.");
+  if (!name) return alert(t("Γράψε όνομα.", "Enter a name."));
 
   if (warehouseEditingIndex === null) {
     warehouse.push({ name, qty });
@@ -2712,7 +2712,7 @@ function saveSetItem(event) {
   event.preventDefault();
   const name = normalizeSetName(val("setName"));
   const qty = Number(val("setQty")) || 0;
-  if (!name) return alert("Γράψε ΣΕΤ.");
+  if (!name) return alert(t("Γράψε ΣΕΤ.", "Enter a set name."));
 
   const existingIndex = setsWarehouse.findIndex(s => normalizeSetName(s.name) === name);
 
@@ -2772,7 +2772,7 @@ function closeSecondHelperModal() {
 function saveSecondHelperItem(event) {
   event.preventDefault();
   const name = normalizeNameLabel(val("secondHelperName"));
-  if (!name) return alert("Γράψε όνομα.");
+  if (!name) return alert(t("Γράψε όνομα.", "Enter a name."));
 
   const newKey = normalizeTextKey(name);
   const existingIndex = secondHelpers.findIndex(x => normalizeTextKey(x) === newKey);
@@ -3652,17 +3652,17 @@ async function subscribePush(reg) {
   if (!reg) throw new Error("No service worker registration");
 
   if (!VAPID_PUBLIC_KEY || VAPID_PUBLIC_KEY.includes("PASTE_")) {
-    alert("Λείπει το VAPID PUBLIC KEY.");
+    alert(t("Λείπει το VAPID PUBLIC KEY.", "VAPID public key is missing."));
     return;
   }
 
   if (!("Notification" in window)) {
-    alert("Η συσκευή/Browser δεν υποστηρίζει Notifications.");
+    alert(t("Η συσκευή/Browser δεν υποστηρίζει Notifications.", "This device/browser doesn't support notifications."));
     return;
   }
 
   if (Notification.permission === "denied") {
-    alert("Τα Notifications είναι μπλοκαρισμένα. Θέλει άδεια από τις ρυθμίσεις Safari/iOS.");
+    alert(t("Τα Notifications είναι μπλοκαρισμένα. Θέλει άδεια από τις ρυθμίσεις Safari/iOS.", "Notifications are blocked. You need to allow them in Safari/iOS settings."));
     return;
   }
 
@@ -3670,7 +3670,7 @@ async function subscribePush(reg) {
     const perm = await Notification.requestPermission();
     if (perm !== "granted") {
       setPushPref("off");
-      alert("Push: ΑΠΕΝΕΡΓΟ (δεν δόθηκε άδεια).");
+      alert(t("Push: ΑΠΕΝΕΡΓΟ (δεν δόθηκε άδεια).", "Push: OFF (permission not granted)."));
       return;
     }
   }
@@ -3694,14 +3694,14 @@ async function subscribePush(reg) {
     });
   } catch {}
 
-  alert("Push (Option B): ΕΝΕΡΓΟ ✅");
+  alert(t("Push (Option B): ΕΝΕΡΓΟ ✅", "Push (Option B): ON ✅"));
 }
 
 async function setupPushOptB() {
   try {
     const reg = await registerServiceWorker();
     if (!reg) {
-      alert("Δεν μπόρεσα να ενεργοποιήσω Service Worker.");
+      alert(t("Δεν μπόρεσα να ενεργοποιήσω Service Worker.", "Could not activate the Service Worker."));
       return;
     }
 
@@ -3712,7 +3712,7 @@ async function setupPushOptB() {
     await subscribePush(reg);
   } catch (e) {
     console.error(e);
-    alert("Δεν μπόρεσα να ενεργοποιήσω Push.");
+    alert(t("Δεν μπόρεσα να ενεργοποιήσω Push.", "Could not activate Push."));
   }
 }
 
@@ -5025,7 +5025,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   } catch (e) {
     console.error(e);
-    alert("Σφάλμα φόρτωσης app.js. Άνοιξε Console για λεπτομέρειες.");
+    alert(t("Σφάλμα φόρτωσης app.js. Άνοιξε Console για λεπτομέρειες.", "Error loading app.js. Open the Console for details."));
   }
 });
 
@@ -5159,11 +5159,11 @@ function saveCustomField(e) {
   e.preventDefault();
   ensureCustomFields();
   const label = normalizeNameLabel(val("customFieldLabel"));
-  if (!label) return alert("Γράψε όνομα πεδίου.");
+  if (!label) return alert(t("Γράψε όνομα πεδίου.", "Enter a field name."));
   const type = val("customFieldType") || "text";
   const placeholder = val("customFieldPlaceholder").trim();
   const options = val("customFieldOptions").split(/\n+/).map(x => x.trim()).filter(Boolean);
-  if (type === "select" && options.length === 0) return alert("Για λίστα επιλογών γράψε τουλάχιστον μία επιλογή.");
+  if (type === "select" && options.length === 0) return alert(t("Για λίστα επιλογών γράψε τουλάχιστον μία επιλογή.", "For a dropdown list, enter at least one option."));
 
   const existing = customFieldEditingIndex === null ? null : customFields[customFieldEditingIndex];
   const field = {
@@ -5198,7 +5198,7 @@ function deleteCustomField(index) {
   ensureCustomFields();
   const f = customFields[index];
   if (!f) return;
-  if (!confirm(`Διαγραφή πεδίου "${f.label}"; Θα αφαιρεθεί και η τιμή του από τις τελετές.`)) return;
+  if (!confirm(t(`Διαγραφή πεδίου "${f.label}"; Θα αφαιρεθεί και η τιμή του από τις τελετές.`, `Delete field "${f.label}"? Its value will also be removed from ceremonies.`))) return;
   customFields.splice(index, 1);
   ceremonies.forEach(c => { if (c.customValues) delete c.customValues[f.key]; });
   addChange("custom_field_delete", `${t("Διαγραφή πεδίου ρυθμίσεων","Delete custom field")}: ${f.label}`);
@@ -5393,7 +5393,7 @@ function renderAllSectionPanels() {
 function openCeremonyModal(id = null) {
   editingId = id;
   const modal = $("ceremonyModal");
-  if (!modal) return alert("Λείπει το ceremonyModal από το index.html");
+  if (!modal) return alert(t("Λείπει το ceremonyModal από το index.html", "ceremonyModal is missing from index.html"));
   const titleEl = $("modalTitle");
   if (titleEl) titleEl.textContent = id
     ? t("Επεξεργασία τελετής", "Edit Case")
@@ -5475,7 +5475,7 @@ function saveCeremony(e) {
   e.preventDefault();
   const name = val("deceasedName").trim();
   const place = val("ceremonyPlace").trim();
-  if (!name && !place) { alert("Θέλω τουλάχιστον ένα από: Όνομα θανόντα ή Τοποθεσία."); return; }
+  if (!name && !place) { alert(t("Θέλω τουλάχιστον ένα από: Όνομα θανόντα ή Τοποθεσία.", "I need at least one of: deceased's name or location.")); return; }
   const dateErrorEl = $("ceremonyDateError");
   if (!val("ceremonyDate")) {
     if (dateErrorEl) dateErrorEl.style.display = "";
@@ -7254,19 +7254,19 @@ window.restoreFromJSON = function() {
       const text = await file.text();
       const data = JSON.parse(text);
       if (!Array.isArray(data.ceremonies)) {
-        alert("Invalid backup file — no ceremonies array found.");
+        alert(t("Μη έγκυρο αρχείο αντιγράφου ασφαλείας — δεν βρέθηκε πίνακας τελετών.", "Invalid backup file — no ceremonies array found."));
         return;
       }
       const count  = data.ceremonies.length;
       const wCount = Array.isArray(data.warehouse) ? data.warehouse.length : 0;
       const cfCount = Array.isArray(data.customFields) ? data.customFields.length : 0;
       const confirmed = confirm(
-        "Restore from backup?\n\n" +
-        "  Ceremonies: "     + count  + "\n" +
-        "  Inventory items: " + wCount + "\n" +
-        "  Custom fields: "  + cfCount + "\n" +
-        "  Exported: "       + (data.exported_at || "unknown") + "\n\n" +
-        "This will REPLACE all current data. This cannot be undone.\nContinue?"
+        t("Επαναφορά από αντίγραφο ασφαλείας;", "Restore from backup?") + "\n\n" +
+        t("  Τελετές: ", "  Ceremonies: ")       + count  + "\n" +
+        t("  Είδη αποθήκης: ", "  Inventory items: ") + wCount + "\n" +
+        t("  Πρόσθετα πεδία: ", "  Custom fields: ")  + cfCount + "\n" +
+        t("  Εξαγωγή: ", "  Exported: ")       + (data.exported_at || t("άγνωστο", "unknown")) + "\n\n" +
+        t("Αυτό θα ΑΝΤΙΚΑΤΑΣΤΗΣΕΙ όλα τα τρέχοντα δεδομένα. Δεν αναιρείται.\nΣυνέχεια;", "This will REPLACE all current data. This cannot be undone.\nContinue?")
       );
       if (!confirmed) return;
 
@@ -7330,9 +7330,9 @@ window.restoreFromJSON = function() {
 
       await saveData();
       renderAll();
-      alert("Restore complete. " + count + " ceremonies loaded.");
+      alert(t("Η επαναφορά ολοκληρώθηκε. Φορτώθηκαν ", "Restore complete. ") + count + t(" τελετές.", " ceremonies loaded."));
     } catch (err) {
-      alert("Failed to restore: " + err.message);
+      alert(t("Αποτυχία επαναφοράς: ", "Failed to restore: ") + err.message);
     }
   };
   input.click();
