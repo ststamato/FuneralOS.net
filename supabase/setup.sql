@@ -218,11 +218,14 @@ create policy "office_events insert" on office_events
     and (office_id = auth.uid() or public.is_office_member(office_id))
   );
 
--- ai_usage
+-- ai_usage: read-only for the owning user. All writes go through
+-- claim_ai_usage_slot() (security definer, service-role only) — a client
+-- write policy here previously let any user reset their own calls_today via
+-- a direct PATCH, fully bypassing the daily AI rate limit.
 drop policy if exists "user own ai_usage"      on ai_usage;
 drop policy if exists "Users view own ai usage" on ai_usage;
 create policy "user own ai_usage" on ai_usage
-  for all using (auth.uid() = user_id);
+  for select using (auth.uid() = user_id);
 
 -- profiles: read own, insert own (fallback when trigger misses), update own
 drop policy if exists "user own profile"             on profiles;
