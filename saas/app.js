@@ -7140,7 +7140,7 @@ document.addEventListener('DOMContentLoaded',seedOfficeKnowledge);
   const isEN = window.__appLang === "en";
   const PRO_PRICE      = cfg.proPrice      || (isEN ? 99  : 79);
   const BUSINESS_PRICE = cfg.businessPrice || cfg.teamPrice || (isEN ? 199 : 129);
-  const currency       = "$";
+  const currency       = isEN ? "$" : "€";
   const monthLabel     = isEN ? "month" : "μήνα";
   const proUrl    = cfg.lemonProUrl  || cfg.stripeProUrl  || "";
   const teamUrl   = cfg.lemonBizUrl  || cfg.stripeTeamUrl || "";
