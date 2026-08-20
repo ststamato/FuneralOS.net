@@ -320,8 +320,12 @@ Deno.serve(async (req: Request) => {
     }
   }
 
+  // Non-2xx when the plan update failed so Lemon Squeezy retries with its
+  // own backoff, instead of treating a failed write as delivered — the
+  // replay-protection above (markProcessed only on success) already
+  // guarantees a subsequent successful retry can't double-reward/double-email.
   return new Response(JSON.stringify({ ok, plan: targetPlan }), {
-    status: 200,
+    status: ok ? 200 : 500,
     headers: { ...CORS, "Content-Type": "application/json" },
   });
 });
