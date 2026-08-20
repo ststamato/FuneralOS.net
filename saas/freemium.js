@@ -409,6 +409,10 @@
     const plan = window.__authPlan;
     const isPaid = plan === "pro" || plan === "business";
 
+    renderTeamPanel();
+    handlePendingInvite();
+    applyRoleRestrictions();
+
     if (isPaid) {
       const panel = document.getElementById("optionalFieldsPanel");
       if (panel) { panel.style.display = ""; renderFormLayoutPanel(); }
@@ -601,6 +605,217 @@
     }
     location.reload();
   };
+
+  // ── Team / Multi-user ─────────────────────────────────────────────────────────
+
+  async function callEdgeFunction(path, body, token) {
+    const res = await fetch(SUPABASE_URL + "/functions/v1/" + path, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + token,
+        "apikey": SUPABASE_KEY,
+      },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok, status: res.status, data };
+  }
+
+  const PRO_TEAM_LIMIT = 5;
+
+  // Send a team invite
+  window.sendTeamInvite = async function () {
+    const plan  = window.__authPlan || "free";
+    const emailEl = document.getElementById("inviteEmail");
+    const roleEl  = document.getElementById("inviteRole");
+    const msgEl   = document.getElementById("teamInviteMsg");
+    if (!emailEl || !msgEl) return;
+
+    if (plan === "free") {
+      showUpgradeModal("Μέλη ομάδας — λειτουργία Pro", "Πρόσκλησε έως " + PRO_TEAM_LIMIT + " μέλη ομάδας στο Pro, ή απεριόριστα στο Business.");
+      return;
+    }
+
+    const email = emailEl.value.trim();
+    const role  = roleEl ? roleEl.value : "editor";
+    if (!email) { msgEl.style.color = "#e07070"; msgEl.textContent = "Συμπλήρωσε πρώτα ένα email."; return; }
+
+    msgEl.style.color = "#aabb88";
+    msgEl.textContent = "Αποστολή…";
+
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { msgEl.style.color = "#e07070"; msgEl.textContent = "Δεν είσαι συνδεδεμένος."; return; }
+
+    // Pro plan: enforce 5-member limit before calling Edge Function
+    if (plan === "pro") {
+      const officeId = (session.user.user_metadata || {}).office_id || session.user.id;
+      const countRes = await fetch(
+        SUPABASE_URL + "/rest/v1/office_members?office_id=eq." + officeId + "&select=user_id",
+        { headers: { Authorization: "Bearer " + session.access_token, apikey: SUPABASE_KEY } }
+      );
+      const current = countRes.ok ? await countRes.json() : [];
+      if (current.length >= PRO_TEAM_LIMIT) {
+        msgEl.style.color = "#e07070";
+        msgEl.textContent = "Έφτασες το όριο Pro (" + PRO_TEAM_LIMIT + " μέλη). Αναβάθμισε σε Business για απεριόριστα.";
+        return;
+      }
+    }
+
+    const result = await callEdgeFunction("team-invite", { email, role, lang: "el" }, session.access_token);
+    if (result.ok) {
+      emailEl.value = "";
+      renderTeamPanel();
+      if (result.data?.emailSent) {
+        msgEl.style.color = "#66cc88";
+        msgEl.textContent = "Η πρόσκληση στάλθηκε στο " + email + ".";
+      } else {
+        msgEl.style.color = "#e0b866";
+        msgEl.innerHTML = "Δεν στάλθηκε το email πρόσκλησης — αντέγραψε αυτόν τον σύνδεσμο και στείλ' τον εσύ: "
+          + '<br><a href="#" id="teamInviteCopyLink" style="color:#c8a96e;word-break:break-all;">' + (result.data?.inviteLink || "") + "</a>";
+        const copyLink = document.getElementById("teamInviteCopyLink");
+        if (copyLink && result.data?.inviteLink) {
+          copyLink.addEventListener("click", function (e) {
+            e.preventDefault();
+            navigator.clipboard?.writeText(result.data.inviteLink);
+            msgEl.textContent = "Ο σύνδεσμος αντιγράφηκε.";
+          });
+        }
+      }
+    } else {
+      msgEl.style.color = "#e07070";
+      msgEl.textContent = result.data?.error || result.data?.message || "Η πρόσκληση απέτυχε.";
+    }
+  };
+
+  // Fetch and render team members list
+  async function renderTeamPanel() {
+    const listEl = document.getElementById("teamMembersList");
+    const formEl = document.getElementById("teamInviteForm");
+    const msgEl  = document.getElementById("teamInviteMsg");
+    if (!listEl) return;
+
+    const plan = window.__authPlan || "free";
+
+    // Free users: show upgrade prompt instead of team panel
+    if (plan === "free") {
+      if (formEl) formEl.style.display = "none";
+      listEl.innerHTML =
+        '<div style="padding:14px;background:rgba(200,169,110,.08);border:1px solid rgba(200,169,110,.2);border-radius:8px;text-align:center;">'
+        + '<p style="font-size:13px;color:#c8a96e;margin:0 0 10px;font-weight:600;">Συνεργασία ομάδας — Pro &amp; Business</p>'
+        + '<p style="font-size:12px;color:#8899aa;margin:0 0 12px;">Πρόσκλησε έως ' + PRO_TEAM_LIMIT + ' συναδέλφους στο Pro, ή απεριόριστους στο Business.</p>'
+        + '<a href="javascript:void(0)" onclick="window.__showUpgrade && window.__showUpgrade(\'Μέλη ομάδας\',\'Πρόσκλησε έως ' + PRO_TEAM_LIMIT + ' μέλη ομάδας στο Pro, ή απεριόριστα στο Business.\')" style="display:inline-block;background:#c8a96e;color:#0f1523;padding:7px 18px;border-radius:7px;font-size:12px;font-weight:700;text-decoration:none;cursor:pointer;">Δες τα πλάνα →</a>'
+        + '</div>';
+      return;
+    }
+
+    const role = window.__currentRole || "admin";
+
+    const { data: { session } } = await sb.auth.getSession().catch(() => ({ data: {} }));
+    if (!session) return;
+    const token = session.access_token;
+
+    // Fetch office members via Supabase REST (RLS: members can see each other)
+    const officeId = (session.user.user_metadata || {}).office_id || session.user.id;
+    const res = await fetch(
+      SUPABASE_URL + "/rest/v1/office_members?office_id=eq." + officeId + "&select=user_id,role,joined_at",
+      { headers: { Authorization: "Bearer " + token, apikey: SUPABASE_KEY } }
+    );
+    if (!res.ok) {
+      listEl.innerHTML = '<p style="font-size:12px;color:#8899aa;">Δεν ήταν δυνατή η φόρτωση των μελών.</p>';
+      return;
+    }
+    const members = await res.json();
+
+    const atProLimit = plan === "pro" && members.length >= PRO_TEAM_LIMIT;
+
+    // Show/hide invite form
+    if (formEl) formEl.style.display = (role === "admin" && !atProLimit) ? "" : "none";
+
+    // Pro counter below invite form
+    if (msgEl && plan === "pro" && role === "admin") {
+      msgEl.style.color = atProLimit ? "#e07070" : "#8899aa";
+      msgEl.textContent = members.length + "/" + PRO_TEAM_LIMIT + " μέλη ομάδας"
+        + (atProLimit ? " · Αναβάθμισε σε Business για απεριόριστα." : "");
+    }
+
+    if (!members.length) {
+      listEl.innerHTML = '<p style="font-size:12px;color:#8899aa;">Δεν υπάρχουν ακόμα μέλη ομάδας. Πρόσκαλε έναν συνάδελφο παραπάνω.</p>';
+      return;
+    }
+    listEl.innerHTML = members.map(function (m) {
+      const joined = m.joined_at ? new Date(m.joined_at).toLocaleDateString("el-GR") : "—";
+      const isSelf = m.user_id === session.user.id;
+      const roleLabel = m.role === "admin" ? '<span style="color:#c8a96e;font-weight:700;">Admin</span>' : '<span style="color:#8899aa;">Editor</span>';
+      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.07);">'
+        + '<div style="flex:1;min-width:0;">'
+        + '<div style="font-size:13px;color:#c8daf0;">' + m.user_id + (isSelf ? ' <span style="font-size:10px;color:#8899aa;">(εσύ)</span>' : '') + '</div>'
+        + '<div style="font-size:11px;color:#8899aa;">' + roleLabel + ' · Εγγραφή ' + joined + '</div>'
+        + '</div>'
+        + (role === "admin" && !isSelf ? '<button onclick="removeTeamMember(\'' + m.user_id + '\')" style="padding:4px 10px;border-radius:6px;border:1px solid rgba(220,80,80,.4);background:transparent;color:#e07070;font-size:11px;cursor:pointer;">Αφαίρεση</button>' : '')
+        + '</div>';
+    }).join("");
+  }
+
+  // Remove a team member (admin only, RLS-enforced)
+  window.removeTeamMember = async function (userId) {
+    if (!confirm("Αφαίρεση αυτού του μέλους; Θα χάσει την πρόσβαση στα κοινόχρηστα δεδομένα του γραφείου.")) return;
+    const { data: { session } } = await sb.auth.getSession().catch(() => ({ data: {} }));
+    if (!session) return;
+    const officeId = (session.user.user_metadata || {}).office_id || session.user.id;
+    // Admins can delete from office_members directly (RLS: office_id = auth.uid())
+    const res = await fetch(
+      SUPABASE_URL + "/rest/v1/office_members?office_id=eq." + officeId + "&user_id=eq." + userId,
+      { method: "DELETE", headers: { Authorization: "Bearer " + session.access_token, apikey: SUPABASE_KEY, Prefer: "return=minimal" } }
+    );
+    if (res.ok) renderTeamPanel();
+    else alert("Η αφαίρεση απέτυχε.");
+  };
+
+  // Handle pending invite token (set by app.js on ?invite=TOKEN load)
+  async function handlePendingInvite() {
+    const token = window.__pendingInviteToken;
+    if (!token) return;
+    delete window.__pendingInviteToken;
+
+    // Wait for auth session
+    const { data: { session } } = await sb.auth.getSession().catch(() => ({ data: {} }));
+    if (!session) {
+      // Not logged in — redirect to login with intent
+      const loginUrl = "/login.html?invite=" + encodeURIComponent(token);
+      location.replace(loginUrl);
+      return;
+    }
+
+    const result = await callEdgeFunction("accept-invite", { token }, session.access_token);
+    if (result.ok) {
+      // Refresh session so new metadata (office_id, role) is applied
+      await sb.auth.refreshSession();
+      location.replace(location.pathname); // strip ?invite= from URL
+    } else {
+      const msg = result.data?.message || result.data?.error || "Μη έγκυρη ή ληγμένη πρόσκληση.";
+      alert("Δεν ήταν δυνατή η αποδοχή της πρόσκλησης: " + msg);
+    }
+  }
+
+  // Apply role-based UI restrictions for editors
+  function applyRoleRestrictions() {
+    const role = window.__currentRole || "admin";
+    if (role === "editor") {
+      // Hide settings tab
+      var settingsTab = document.querySelector('[data-tab="settings"]');
+      if (settingsTab) settingsTab.style.display = "none";
+      // Add "Editor" badge to nav
+      var nav = document.querySelector(".tab-nav") || document.querySelector("nav");
+      if (nav && !document.getElementById("editorRoleBadge")) {
+        var badge = document.createElement("span");
+        badge.id = "editorRoleBadge";
+        badge.style.cssText = "font-size:10px;font-weight:700;background:rgba(200,169,110,.15);color:#c8a96e;border:1px solid rgba(200,169,110,.3);padding:2px 8px;border-radius:10px;margin-left:8px;align-self:center;";
+        badge.textContent = "Editor";
+        nav.appendChild(badge);
+      }
+    }
+  }
 
   // ── Kick off ─────────────────────────────────────────────────────────────────
   initAuth();
