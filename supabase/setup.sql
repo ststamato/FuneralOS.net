@@ -458,6 +458,10 @@ begin
     -- FREE_CEREMONY_LIMIT mirror — keep in sync with saas/freemium.js and
     -- saas/en/freemium.js if this ever changes.
     if coalesce(public.get_office_plan(p_office_id), 'free') = 'free' then
+      -- Serializes concurrent inserts for the same office within this
+      -- transaction so two simultaneous new-ceremony saves can't both
+      -- read the same pre-insert count and both slip past the cap.
+      perform pg_advisory_xact_lock(hashtext(p_office_id::text));
       select count(*) into v_month_count
       from ceremonies
       where office_id = p_office_id
