@@ -41,6 +41,28 @@ Deno.serve(async (req: Request) => {
   // The office_id = caller's own user_id (for solo admin) or existing office_id
   const officeId = callerMeta.office_id || callerId;
 
+  // Server-side plan/team-size enforcement — the client (freemium.js) already
+  // checks this, but a direct API call could bypass it entirely otherwise.
+  const planUserRes = await fetch(`${supabaseUrl}/auth/v1/admin/users/${officeId}`, {
+    headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey },
+  });
+  const planUser = planUserRes.ok ? await planUserRes.json() : null;
+  const plan = planUser?.app_metadata?.plan || planUser?.user_metadata?.plan || "free";
+
+  if (plan === "free") {
+    return new Response("Team members require a Pro or Business plan", { status: 403, headers: CORS });
+  }
+  if (plan === "pro") {
+    const PRO_TEAM_LIMIT = 5;
+    const countRes = await fetch(`${supabaseUrl}/rest/v1/office_members?office_id=eq.${officeId}&select=user_id`, {
+      headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey },
+    });
+    const members = countRes.ok ? await countRes.json() : [];
+    if (members.length >= PRO_TEAM_LIMIT) {
+      return new Response(`Pro plan limit reached (${PRO_TEAM_LIMIT} members). Upgrade to Business for unlimited.`, { status: 403, headers: CORS });
+    }
+  }
+
   // Parse body
   let email: string, role: string;
   try {
