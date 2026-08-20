@@ -535,6 +535,34 @@ $$;
 
 grant execute on function public.claim_ai_usage_slot(uuid, integer, date) to service_role;
 
+-- Removes expired push subscriptions from app_state.payload.pushSubs without
+-- the blind full-payload read-then-write push_sender used to do (read
+-- payload, send pushes — which can take seconds — then PATCH the whole
+-- payload back), which could silently clobber a concurrent
+-- warehouse/settings/trash save from save_app_state(). jsonb_set(payload,
+-- '{pushSubs}', ...) inside the UPDATE reads the row's current value at
+-- execution time, so it merges onto whatever the latest committed payload
+-- is rather than overwriting it with a stale copy.
+create or replace function public.remove_expired_push_subs(p_office_id uuid, p_expired_endpoints text[])
+returns void language plpgsql set search_path = public as $$
+declare
+  v_subs jsonb;
+  v_filtered jsonb;
+begin
+  select payload->'pushSubs' into v_subs from app_state where id = p_office_id;
+  if v_subs is null then return; end if;
+
+  select coalesce(jsonb_agg(elem), '[]'::jsonb) into v_filtered
+  from jsonb_array_elements(v_subs) elem
+  where not (elem->>'endpoint' = any(p_expired_endpoints));
+
+  update app_state set payload = jsonb_set(payload, '{pushSubs}', v_filtered)
+  where id = p_office_id;
+end;
+$$;
+
+grant execute on function public.remove_expired_push_subs(uuid, text[]) to service_role;
+
 -- Optimistic-lock save: no `security definer`, so the RLS policies above are
 -- what actually enforce access — this just adds compare-and-swap on updated_at.
 -- Also the ONLY server-side enforcement of the free-plan monthly ceremony
