@@ -547,6 +547,37 @@ $$;
 
 grant execute on function public.save_ceremony(text, uuid, jsonb, timestamptz) to authenticated;
 
+-- Optimistic-lock delete, same CAS discipline as save_ceremony above. Unlike
+-- a blind DELETE, this refuses to remove a row that was edited (by someone
+-- else, or via a stale local cache) since the client last saw it — the
+-- caller finds out via `reason = 'conflict'` instead of the row silently
+-- disappearing out from under a concurrent edit.
+create or replace function public.delete_ceremony(
+  p_id text, p_office_id uuid, p_expected_updated_at timestamptz
+) returns table(ok boolean, server_data jsonb, server_updated_at timestamptz, reason text)
+language plpgsql set search_path = public as $$
+declare
+  v_cur ceremonies;
+begin
+  select * into v_cur from ceremonies where id = p_id and office_id = p_office_id;
+
+  if not found then
+    return query select true, null::jsonb, null::timestamptz, null::text;
+    return;
+  end if;
+
+  if p_expected_updated_at is null or v_cur.updated_at <> p_expected_updated_at then
+    return query select false, v_cur.data, v_cur.updated_at, 'conflict'::text;
+    return;
+  end if;
+
+  delete from ceremonies where id = p_id and office_id = p_office_id;
+  return query select true, null::jsonb, null::timestamptz, null::text;
+end;
+$$;
+
+grant execute on function public.delete_ceremony(text, uuid, timestamptz) to authenticated;
+
 -- Optimistic-lock save for the rest of app_state (warehouse, settings,
 -- changeLog, deletedCeremonies/trash, etc. — everything except ceremonies,
 -- which have their own table + save_ceremony() above). Same failure mode as

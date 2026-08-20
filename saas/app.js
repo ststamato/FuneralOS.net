@@ -1288,10 +1288,27 @@ async function syncCeremonies(session) {
 
   for (const id of toDelete) {
     try {
-      const { error } = await window.__sb.from("ceremonies").delete().eq("id", id).eq("office_id", session.rowId);
+      const { data: rpcRows, error } = await window.__sb.rpc("delete_ceremony", {
+        p_id: id,
+        p_office_id: session.rowId,
+        p_expected_updated_at: ceremonyMeta[id] || null,
+      });
       if (error) { anyFailure = true; console.error("[FuneralOS] ceremony delete error:", error.message); continue; }
-      delete ceremonyMeta[id];
-      delete prevSnapshot[id];
+      const result = Array.isArray(rpcRows) ? rpcRows[0] : rpcRows;
+      if (!result) { anyFailure = true; continue; }
+      if (result.ok) {
+        delete ceremonyMeta[id];
+        delete prevSnapshot[id];
+      } else {
+        // Someone else edited this case after we last saw it — refuse the
+        // blind delete and restore their version instead of silently
+        // dropping a row that was just changed out from under us.
+        const serverRecord = { id, ...(result.server_data || {}) };
+        ceremonies.push(serverRecord);
+        ceremonyMeta[id] = result.server_updated_at;
+        prevSnapshot[id] = snapshotCeremonies([serverRecord])[id];
+        conflictNames.push(serverRecord.name || id);
+      }
     } catch (e) {
       anyFailure = true;
       console.error("[FuneralOS] ceremony delete exception:", e);
