@@ -40,6 +40,16 @@ Deno.serve(async (req: Request) => {
   const userId = authUser?.id as string | null;
   if (!userId) return json({ error: "Could not identify user" }, 401);
 
+  // AI Assistant is a Business-tier feature. The UI already hides/blocks it
+  // for Free/Pro, but that's client-side only — anyone with a valid JWT
+  // could otherwise call this endpoint directly regardless of plan.
+  const OWNER_EMAILS = ["ststamato@gmail.com", "funeralos.net@gmail.com"];
+  const isOwner = OWNER_EMAILS.includes(authUser.email);
+  const plan = isOwner ? "business" : (authUser.app_metadata?.plan || authUser.user_metadata?.plan || "free");
+  if (plan !== "business") {
+    return json({ error: "AI Assistant requires a Business plan" }, 403);
+  }
+
   let payload: Record<string, unknown>;
   try {
     payload = await req.json();
