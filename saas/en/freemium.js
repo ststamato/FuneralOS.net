@@ -194,9 +194,11 @@
 
       function _clientCeremonyCount() {
         const now = new Date();
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
         const list = (typeof ceremonies !== "undefined" ? ceremonies : []);
-        return list.filter(function(c) { return c.date && new Date(c.date) >= monthStart; }).length;
+        // id is Date.now().toString() at creation time — used as a creation-date
+        // proxy so this offline fallback matches the server's created_at check.
+        return list.filter(function(c) { const ts = Number(c.id); return ts && ts >= monthStart; }).length;
       }
 
       ceremonyForm.addEventListener("submit", async function (e) {
@@ -482,9 +484,9 @@
     const el = document.getElementById("monthCeremonyCount");
     if (!el) return;
     const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
     const list = (typeof ceremonies !== "undefined" ? ceremonies : []);
-    el.textContent = list.filter(c => c.date && new Date(c.date) >= monthStart).length;
+    el.textContent = list.filter(c => { const ts = Number(c.id); return ts && ts >= monthStart; }).length;
   }
 
   document.addEventListener("renderAll", updateMonthCount);

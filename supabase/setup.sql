@@ -461,7 +461,7 @@ begin
       select count(*) into v_month_count
       from ceremonies
       where office_id = p_office_id
-        and (data->>'date') >= to_char(date_trunc('month', now()), 'YYYY-MM-DD');
+        and created_at >= date_trunc('month', now());
       if v_month_count >= 5 then
         return query select false, null::jsonb, null::timestamptz, 'quota_exceeded'::text;
         return;
@@ -545,7 +545,7 @@ begin
   select count(*) into v_count
   from ceremonies
   where office_id = v_row_id
-    and (data->>'date') >= to_char(date_trunc('month', now()), 'YYYY-MM-DD');
+    and created_at >= date_trunc('month', now());
 
   return coalesce(v_count, 0);
 end;
