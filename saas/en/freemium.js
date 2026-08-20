@@ -521,6 +521,17 @@
     if (modal) modal.classList.remove("open");
   };
 
+  // Checkout opens in a new tab with no return redirect, so a user who just
+  // paid keeps seeing their old (cached) plan until the JWT naturally
+  // refreshes. This forces a session refresh + reload so app_metadata.plan
+  // (set by the lemon-webhook) is picked up immediately.
+  window.refreshMyPlan = async function () {
+    const btn = document.getElementById("refreshPlanBtn");
+    if (btn) { btn.disabled = true; btn.textContent = "Checking…"; }
+    try { await sb.auth.refreshSession(); } catch (_) {}
+    location.reload();
+  };
+
   document.addEventListener("click", function (e) {
     const modal = document.getElementById("upgradeModal");
     if (modal && e.target === modal) window.closeUpgradeModal();
