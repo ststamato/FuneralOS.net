@@ -656,8 +656,16 @@
 
     const cerThisMonth = ceremonyStats?.this_month ?? "—";
     const cerTotal     = ceremonyStats?.total ?? "—";
-    const mrr          = pro * 99 + biz * 199;
-    const mrrLabel     = mrr > 0 ? "~$" + mrr.toLocaleString() : "$0";
+    // profiles.plan doesn't record which edition (Greek vs USA/English) a
+    // paying user is on, and the two editions charge different prices
+    // (GR: Pro $79/Biz $129 · EN: Pro $99/Biz $199) — a single number here
+    // would silently assume every paid user is on EN pricing and overstate
+    // MRR for every Greek-edition customer. Show the true range instead.
+    const mrrLow       = pro * 79 + biz * 129;
+    const mrrHigh      = pro * 99 + biz * 199;
+    const mrrLabel     = mrrHigh === 0 ? "$0"
+      : mrrLow === mrrHigh ? "~$" + mrrHigh.toLocaleString()
+      : "~$" + mrrLow.toLocaleString() + "–$" + mrrHigh.toLocaleString();
 
     document.getElementById("statsGrid").innerHTML = `
       <div class="stat-card">
@@ -705,8 +713,8 @@
         <div class="stat-lbl">Σύνολο τελετών στη ΒΔ</div>
       </div>
       <div class="stat-card green">
-        <div class="stat-num" style="font-size:${mrr > 9999 ? '22px' : '28px'};">${mrrLabel}</div>
-        <div class="stat-lbl">MRR (εκτίμηση)</div>
+        <div class="stat-num" style="font-size:${mrrHigh > 9999 ? '18px' : '28px'};">${mrrLabel}</div>
+        <div class="stat-lbl">MRR (εκτίμηση — εύρος λόγω GR/EN τιμών)</div>
       </div>
     `;
   }
