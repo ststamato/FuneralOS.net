@@ -5650,7 +5650,8 @@ function buildWhatsAppMessage(c) {
   const lines = [];
   const btDisplay = bt => bt === "Αποτεφρωση" ? t("Αποτεφρωση","Cremation") : bt === "Μνημόσυνο" ? t("Μνημόσυνο","Memorial") : t("Ταφή","Burial");
   const gtDisplay = gt => gt === "Οικογενειακός" ? t("Οικογενειακός","Family plot") : gt === "Τριετία" ? t("Τριετία","3-year plot") : (gt || "");
-  lines.push(t("🪦 Τελετή — ΣΤΑΥΡΑΚΑΚΗ","🪦 Ceremony — STAURAKAKIS"));
+  const officeName = window.__authOfficeName || t("Γραφείο","Funeral Home");
+  lines.push(`🪦 ${t("Τελετή","Ceremony")} — ${officeName}`);
   if (c.date || c.time) { const dline = c.date ? formatDate(c.date) : "—"; lines.push(`${t("Ημερομηνία","Date")}: ${dline}${c.time ? ` • ${c.time}` : ""}`); }
   if (c.name) lines.push(`${t("Όνομα θανόντα","Deceased")}: ${c.name}`);
   if (c.place) lines.push(`${t("Τοποθεσία","Location")}: ${c.place}`);
