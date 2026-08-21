@@ -71,11 +71,18 @@ IAP/push/OTA vendors need real accounts with real credentials.
    account key JSON, one line).
 4. **Capgo** account + channels (`production`/`beta`) per app, `npx
    @capgo/cli login`, then `publish-ota.sh` works as documented.
-5. **App icon** — no source image exists anywhere in the repo yet
-   (confirmed: zero image assets in `saas/`, only CSS-styled text). Once a
-   1024×1024 source exists: `npx @capacitor/assets generate
-   --iconBackgroundColor '#0f1523' --splashBackgroundColor '#0f1523'` in
-   each project generates every required size.
+5. ~~**App icon**~~ — done (Phase 5). A simple gold flame glyph
+   (`#c8a96e`) on the ink background (`#0f1523`), no wordmark, generated as
+   a 1024×1024 master via a headless-Chromium SVG render and committed to
+   `native/{gr,en}-app/resources/icon.png`. `npx capacitor-assets generate`
+   ran in both projects — every iOS AppIcon/splash size and Android
+   adaptive-icon/splash density is already in place under each project's
+   `ios/`/`android/` folders. Same brand for both apps, per the plan. To
+   change it later: replace `resources/icon.png` (1024×1024, no
+   transparency) and re-run `npx capacitor-assets generate
+   --iconBackgroundColor '#0f1523' --iconBackgroundColorDark '#0f1523'
+   --splashBackgroundColor '#0f1523' --splashBackgroundColorDark '#0f1523'`
+   in each project.
 6. **First compiled build** — needs the user's own Mac + Xcode, or a cloud
    CI service (Codemagic / EAS Build) configured with the Apple/Google
    credentials from step 1.
