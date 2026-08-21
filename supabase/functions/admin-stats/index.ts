@@ -2,19 +2,22 @@
 // Supabase Edge Function (Deno)
 // Env vars needed: SUPABASE_SERVICE_ROLE_KEY  (SUPABASE_URL is auto-injected)
 
-const CORS = {
-  "Access-Control-Allow-Origin": "https://funeralos.net",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// Capacitor's default WebView origins (iOS: capacitor://localhost, Android:
+// https://localhost) — echoed back only when they match, so responses to the
+// web app keep getting the plain funeralos.net origin. Computed per-request
+// (never a shared module-level object) since concurrent requests in the same
+// warm isolate would otherwise race on a mutable CORS value.
+const ALLOWED_ORIGINS = ["https://funeralos.net", "capacitor://localhost", "https://localhost"];
+function corsHeaders(origin: string | null): Record<string, string> {
+  const allowOrigin = origin && ALLOWED_ORIGINS.includes(origin) ? origin : "https://funeralos.net";
+  return {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Vary": "Origin",
+  };
+}
 
 const OWNER_EMAILS = ["ststamato@gmail.com", "funeralos.net@gmail.com"];
-
-function json(data: unknown, status = 200): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { ...CORS, "Content-Type": "application/json" },
-  });
-}
 
 async function verifyOwner(
   authHeader: string,
@@ -32,6 +35,14 @@ async function verifyOwner(
 }
 
 Deno.serve(async (req: Request) => {
+  const CORS = corsHeaders(req.headers.get("Origin"));
+  function json(data: unknown, status = 200): Response {
+    return new Response(JSON.stringify(data), {
+      status,
+      headers: { ...CORS, "Content-Type": "application/json" },
+    });
+  }
+
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -219,6 +230,61 @@ ${message}
       // Run background work after response (avoids EarlyDrop timeout)
       (globalThis as Record<string, unknown> & { EdgeRuntime?: { waitUntil: (p: Promise<unknown>) => void } })
         .EdgeRuntime?.waitUntil(background().catch(e => console.error('[background]', e)));
+
+      return json({ ok: true });
+    }
+
+    // ── DELETE OWN ACCOUNT (any authenticated user — App Store / Play Store
+    // requirement: self-service account deletion). Removes their Storage
+    // objects first (not SQL-transactional), then their data via the
+    // delete_own_account() RPC, then their Supabase Auth user itself.
+    if (action === "delete_own_account") {
+      const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+      if (!token) return json({ error: "Unauthorized" }, 401);
+
+      const userRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
+        headers: { Authorization: `Bearer ${token}`, apikey: serviceKey },
+      });
+      if (!userRes.ok) return json({ error: "Invalid token" }, 401);
+      const user = await userRes.json();
+      const userId = user?.id as string | null;
+      if (!userId) return json({ error: "Could not identify user" }, 401);
+
+      const docsRes = await fetch(
+        `${supabaseUrl}/rest/v1/case_documents?office_id=eq.${userId}&select=storage_path`,
+        { headers: h }
+      );
+      const docs: Array<{ storage_path: string }> = docsRes.ok ? await docsRes.json() : [];
+      if (docs.length) {
+        await fetch(`${supabaseUrl}/storage/v1/object/case-documents/${docs.map(d => encodeURIComponent(d.storage_path)).join(",")}`, {
+          method: "DELETE",
+          headers: h,
+        }).catch(e => console.error("[delete_own_account] storage cleanup failed", e));
+      }
+
+      const rpcRes = await fetch(`${supabaseUrl}/rest/v1/rpc/delete_own_account`, {
+        method: "POST",
+        headers: h,
+        body: JSON.stringify({ p_user_id: userId }),
+      });
+      if (!rpcRes.ok) {
+        console.error("[delete_own_account] rpc failed:", await rpcRes.text());
+        return json({ error: "Failed to delete account data" }, 500);
+      }
+      const rpcRows: Array<{ ok: boolean; reason: string | null }> = await rpcRes.json();
+      const result = Array.isArray(rpcRows) ? rpcRows[0] : rpcRows;
+      if (!result?.ok) {
+        return json({ error: result?.reason || "delete_failed" }, 409);
+      }
+
+      const authDel = await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}`, {
+        method: "DELETE",
+        headers: h,
+      });
+      if (!authDel.ok) {
+        console.error("[delete_own_account] auth user delete failed:", await authDel.text());
+        return json({ error: "Data deleted but could not remove your login — contact support" }, 500);
+      }
 
       return json({ ok: true });
     }

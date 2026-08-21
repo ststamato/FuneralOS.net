@@ -735,8 +735,10 @@ function queueEdgePush(changeEntry) {
 
 async function sendEdgePushBatch(batch) {
   if (!Array.isArray(batch) || batch.length === 0) return;
-  // Only send push notifications in production to avoid alerting the real office during dev
-  if (window.location.hostname !== "funeralos.net") return;
+  // Only send push notifications in production to avoid alerting the real office during dev.
+  // Native (Capacitor) apps don't run on the funeralos.net hostname at all, so
+  // they're allowed through separately rather than being silently blocked forever.
+  if (window.location.hostname !== "funeralos.net" && !window.Capacitor?.isNativePlatform?.()) return;
 
   const me = getDeviceLabel() || t("Άγνωστη συσκευή", "Unknown device");
   const title = `${window.__authOfficeName || "FuneralOS"} — ${t("Νέα αλλαγή", "New update")}`;
