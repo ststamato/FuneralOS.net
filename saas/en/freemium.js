@@ -282,6 +282,16 @@
           }
         });
       }
+    } else if (window.Capacitor?.isNativePlatform?.()) {
+      // Native purchases go through Apple/Google IAP, not LemonSqueezy — send
+      // the user to the platform's own subscription management instead.
+      const manageUrl = window.__nativeManageSubscriptionUrl ? window.__nativeManageSubscriptionUrl() : "#";
+      body.innerHTML =
+        '<p style="font-size:13px;color:#6b7a99;margin-bottom:16px;">You are on the <strong style="color:' + planColor + ';">' + planLabel + '</strong> plan.</p>' +
+        '<a href="' + manageUrl + '" target="_blank" rel="noopener" style="display:inline-block;padding:10px 20px;background:rgba(200,169,110,.1);color:#c8a96e;border:1px solid rgba(200,169,110,.3);border-radius:9px;font-weight:700;font-size:13px;text-decoration:none;">Manage subscription →</a>' +
+        '<p style="font-size:11px;color:#556677;margin-top:10px;">' +
+          '<a href="javascript:void(0)" onclick="window.__nativeRestorePurchases && window.__nativeRestorePurchases()" style="color:#8899aa;">Restore purchases</a>' +
+        '</p>';
     } else {
       body.innerHTML =
         '<p style="font-size:13px;color:#6b7a99;margin-bottom:16px;">You are on the <strong style="color:' + planColor + ';">' + planLabel + '</strong> plan.</p>' +

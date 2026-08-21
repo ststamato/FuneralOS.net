@@ -3,12 +3,23 @@
 // Auth: Bearer <user_access_token> (invitee must be logged in first)
 // Secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY
 
-const CORS = {
-  "Access-Control-Allow-Origin": "https://funeralos.net",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// Capacitor's default WebView origins (iOS: capacitor://localhost, Android:
+// https://localhost) — echoed back only when they match, so responses to the
+// web app keep getting the plain funeralos.net origin. Computed per-request
+// (never a shared module-level object) since concurrent requests in the same
+// warm isolate would otherwise race on a mutable CORS value.
+const ALLOWED_ORIGINS = ["https://funeralos.net", "capacitor://localhost", "https://localhost"];
+function corsHeaders(origin: string | null): Record<string, string> {
+  const allowOrigin = origin && ALLOWED_ORIGINS.includes(origin) ? origin : "https://funeralos.net";
+  return {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Vary": "Origin",
+  };
+}
 
 Deno.serve(async (req: Request) => {
+  const CORS = corsHeaders(req.headers.get("Origin"));
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;

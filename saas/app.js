@@ -735,8 +735,10 @@ function queueEdgePush(changeEntry) {
 
 async function sendEdgePushBatch(batch) {
   if (!Array.isArray(batch) || batch.length === 0) return;
-  // Only send push notifications in production to avoid alerting the real office during dev
-  if (window.location.hostname !== "funeralos.net") return;
+  // Only send push notifications in production to avoid alerting the real office during dev.
+  // Native (Capacitor) apps don't run on the funeralos.net hostname at all, so
+  // they're allowed through separately rather than being silently blocked forever.
+  if (window.location.hostname !== "funeralos.net" && !window.Capacitor?.isNativePlatform?.()) return;
 
   const me = getDeviceLabel() || t("Άγνωστη συσκευή", "Unknown device");
   const title = `${window.__authOfficeName || "FuneralOS"} — ${t("Νέα αλλαγή", "New update")}`;
@@ -7423,6 +7425,63 @@ window.submitSupport = async function (lang) {
     }
   } catch (err) {
     if (fb) { fb.textContent = lang === "en" ? "Connection failed. Please try again." : "Αποτυχία σύνδεσης. Δοκίμασε ξανά."; fb.style.color = "#f87171"; }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+};
+
+// Self-service account deletion (App Store / Play Store requirement).
+// Shared between GR and EN — the "DELETE" confirmation word and messages are
+// deliberately kept in English in both editions (matches the modal's own
+// English "type DELETE" instruction) to avoid a translation mismatch bug.
+window.openDeleteAccountModal = function () {
+  const modal = document.getElementById("deleteAccountModal");
+  const input = document.getElementById("deleteAccountConfirmInput");
+  const msg = document.getElementById("deleteAccountMsg");
+  if (input) input.value = "";
+  if (msg) msg.textContent = "";
+  if (modal) modal.style.display = "flex";
+};
+
+window.closeDeleteAccountModal = function () {
+  const modal = document.getElementById("deleteAccountModal");
+  if (modal) modal.style.display = "none";
+};
+
+window.confirmDeleteAccount = async function () {
+  const isEN = window.__appLang === "en";
+  const input = document.getElementById("deleteAccountConfirmInput");
+  const msg = document.getElementById("deleteAccountMsg");
+  const btn = document.getElementById("deleteAccountConfirmBtn");
+  if ((input?.value || "").trim() !== "DELETE") {
+    if (msg) { msg.textContent = isEN ? 'Type "DELETE" to confirm.' : 'Πληκτρολόγησε "DELETE" για επιβεβαίωση.'; msg.style.color = "#f87171"; }
+    return;
+  }
+  const session = await getCloudSession();
+  if (!session?.token) {
+    if (msg) { msg.textContent = isEN ? "Not signed in." : "Δεν είσαι συνδεδεμένος."; msg.style.color = "#f87171"; }
+    return;
+  }
+  if (btn) btn.disabled = true;
+  if (msg) { msg.textContent = isEN ? "Deleting…" : "Διαγραφή…"; msg.style.color = "rgba(200,169,110,.7)"; }
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/admin-stats`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.token}` },
+      body: JSON.stringify({ action: "delete_own_account" }),
+    });
+    const data = await res.json();
+    if (data?.ok) {
+      if (window.__sb) await window.__sb.auth.signOut();
+      try { localStorage.clear(); } catch {}
+      location.href = isEN ? "/en/login?deleted=1" : "/login.html?deleted=1";
+    } else if (data?.error === "has_team_members") {
+      if (msg) { msg.textContent = isEN ? "Remove your team members first (Settings → Team)." : "Αφαίρεσε πρώτα τα μέλη της ομάδας σου (Ρυθμίσεις → Ομάδα)."; msg.style.color = "#f87171"; }
+    } else {
+      if (msg) { msg.textContent = data?.error || (isEN ? "Deletion failed. Please try again." : "Η διαγραφή απέτυχε. Δοκίμασε ξανά."); msg.style.color = "#f87171"; }
+    }
+  } catch (err) {
+    if (msg) { msg.textContent = isEN ? "Connection failed. Please try again." : "Αποτυχία σύνδεσης. Δοκίμασε ξανά."; msg.style.color = "#f87171"; }
   } finally {
     if (btn) btn.disabled = false;
   }
