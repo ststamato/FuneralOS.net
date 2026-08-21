@@ -786,3 +786,81 @@ create policy "case-documents storage delete" on storage.objects
       or public.is_office_member((storage.foldername(name))[1]::uuid)
     )
   );
+
+-- ── Native push tokens (Capacitor iOS/Android apps) ───────────────────────────
+-- Separate from app_state.payload.pushSubs (Web Push subscriptions, browser/PWA
+-- only) — native apps register an APNs/FCM device token instead, sent via the
+-- push_sender edge function's FCM branch.
+create table if not exists native_push_tokens (
+  id           uuid primary key default gen_random_uuid(),
+  office_id    uuid not null references auth.users(id) on delete cascade,
+  platform     text not null check (platform in ('ios','android')),
+  token        text not null,
+  device_label text,
+  updated_at   timestamptz not null default now(),
+  unique (office_id, token)
+);
+
+alter table native_push_tokens enable row level security;
+
+drop policy if exists "native_push_tokens select" on native_push_tokens;
+drop policy if exists "native_push_tokens insert" on native_push_tokens;
+drop policy if exists "native_push_tokens update" on native_push_tokens;
+drop policy if exists "native_push_tokens delete" on native_push_tokens;
+create policy "native_push_tokens select" on native_push_tokens
+  for select using (office_id = auth.uid() or public.is_office_member(office_id));
+create policy "native_push_tokens insert" on native_push_tokens
+  for insert with check (office_id = auth.uid() or public.is_office_member(office_id));
+create policy "native_push_tokens update" on native_push_tokens
+  for update using (office_id = auth.uid() or public.is_office_member(office_id))
+  with check (office_id = auth.uid() or public.is_office_member(office_id));
+create policy "native_push_tokens delete" on native_push_tokens
+  for delete using (office_id = auth.uid() or public.is_office_member(office_id));
+
+-- ── Self-service account deletion (App Store / Play Store requirement) ───────
+-- Called only from admin-stats' delete_own_account action, which authenticates
+-- the caller via their own JWT first and passes their real id explicitly — this
+-- function trusts p_user_id completely, so it must NEVER be callable by a
+-- client directly (see the explicit revoke below; Supabase grants EXECUTE to
+-- anon/authenticated on every new function by default, same gap this session
+-- already found and fixed on claim_ai_usage_slot()).
+--
+-- Blocks deletion when the caller is an office owner with other team members
+-- still present (office_members has other rows for their office_id) — the
+-- caller must remove/transfer their team first, otherwise their teammates
+-- would silently lose access to a still-referenced office. Storage objects in
+-- the 'case-documents' bucket are NOT deleted here (not SQL-transactional) —
+-- the calling edge function must remove those first via the service role.
+create or replace function public.delete_own_account(p_user_id uuid)
+returns table(ok boolean, reason text)
+language plpgsql security definer set search_path = public as $$
+declare
+  v_other_members integer;
+begin
+  select count(*) into v_other_members
+  from office_members
+  where office_id = p_user_id and user_id <> p_user_id;
+
+  if v_other_members > 0 then
+    return query select false, 'has_team_members'::text;
+    return;
+  end if;
+
+  delete from ceremonies            where office_id = p_user_id;
+  delete from case_documents        where office_id = p_user_id;
+  delete from native_push_tokens    where office_id = p_user_id;
+  delete from office_events         where office_id = p_user_id or user_id = p_user_id;
+  delete from office_invites        where office_id = p_user_id;
+  delete from office_members        where office_id = p_user_id or user_id = p_user_id;
+  delete from ai_usage              where user_id = p_user_id;
+  delete from support_requests      where user_id = p_user_id;
+  delete from referrals             where referrer_id = p_user_id or referred_id = p_user_id;
+  delete from profiles              where id = p_user_id;
+  delete from app_state             where id = p_user_id;
+
+  return query select true, null::text;
+end;
+$$;
+
+grant execute on function public.delete_own_account(uuid) to service_role;
+revoke execute on function public.delete_own_account(uuid) from public, anon, authenticated;
