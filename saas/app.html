@@ -411,7 +411,31 @@
           </div>
         </div>
       </div>
+      <!-- Account deletion -->
+      <div class="settings-panel">
+        <div class="settings-head">
+          <div>
+            <h3>⚠️ Διαγραφή λογαριασμού</h3>
+            <p class="warehouse-hint">Διαγράφει μόνιμα τον λογαριασμό σου και όλα τα δεδομένα του γραφείου (τελετές, έγγραφα, ρυθμίσεις). Δεν αναιρείται.</p>
+          </div>
+        </div>
+        <button type="button" onclick="openDeleteAccountModal()" style="margin-top:10px;padding:10px 20px;background:transparent;border:1px solid rgba(220,80,80,.4);color:#e07070;border-radius:9px;font-weight:700;font-size:13px;cursor:pointer;">Διαγραφή λογαριασμού</button>
+      </div>
     </section>
+
+    <!-- Delete account confirmation modal -->
+    <div id="deleteAccountModal" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:20px;">
+      <div style="background:#1e2a42;border:1px solid rgba(220,80,80,.35);border-radius:16px;padding:28px;max-width:420px;width:100%;">
+        <h3 style="margin:0 0 10px;color:#fff;font-size:18px;">⚠️ Οριστική διαγραφή λογαριασμού</h3>
+        <p style="font-size:13px;color:#8899aa;line-height:1.6;margin:0 0 16px;">Θα διαγραφούν μόνιμα όλες οι τελετές, τα έγγραφα και οι ρυθμίσεις του γραφείου σου. Αν έχεις μέλη ομάδας, πρέπει πρώτα να τα αφαιρέσεις. Πληκτρολόγησε <b>DELETE</b> για επιβεβαίωση.</p>
+        <input id="deleteAccountConfirmInput" type="text" placeholder="DELETE" style="width:100%;padding:10px 12px;background:#0f1a2e;border:1px solid rgba(220,80,80,.35);border-radius:8px;color:#e0e8f0;font-size:14px;box-sizing:border-box;margin-bottom:12px;" />
+        <div id="deleteAccountMsg" style="font-size:12px;margin-bottom:12px;"></div>
+        <div style="display:flex;gap:10px;">
+          <button type="button" onclick="closeDeleteAccountModal()" style="flex:1;padding:10px;background:rgba(255,255,255,.06);border:none;color:#c8daf0;border-radius:8px;font-weight:700;cursor:pointer;">Άκυρο</button>
+          <button type="button" id="deleteAccountConfirmBtn" onclick="confirmDeleteAccount()" style="flex:1;padding:10px;background:#c0392b;border:none;color:#fff;border-radius:8px;font-weight:700;cursor:pointer;">Διαγραφή</button>
+        </div>
+      </div>
+    </div>
 
     <section id="hermesTab" class="tab">
       <div class="hermes-panel">
@@ -678,7 +702,7 @@
 
 <!-- APP -->
 <script>window.__appLang = "gr";</script>
-<script src="app.js?v=14"></script>
+<script src="app.js?v=15"></script>
 <script src="suppliers.js"></script>
 <script src="gr-documents.js?v=1"></script>
 

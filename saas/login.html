@@ -224,9 +224,15 @@
 
     try {
       const referralCode = (document.getElementById('regReferral').value || '').trim().toUpperCase() || undefined;
+      // Native (Capacitor) apps aren't reachable at a normal https:// URL —
+      // the confirmation email must instead deep-link back in via the app's
+      // custom URL scheme, caught by native-bridge.js's appUrlOpen listener.
+      const emailRedirectTo = window.Capacitor?.isNativePlatform?.()
+        ? 'net.funeralos.gr://auth-callback'
+        : 'https://funeralos.net/login.html';
       const { error } = await sb.auth.signUp({
         email, password,
-        options: { emailRedirectTo: 'https://funeralos.net/login.html', data: { office_name: office, plan: 'free', referred_by: referralCode } }
+        options: { emailRedirectTo, data: { office_name: office, plan: 'free', referred_by: referralCode } }
       });
       if (!error && referralCode) localStorage.removeItem('funeralos_ref');
 
@@ -247,7 +253,12 @@
     const email = document.getElementById('loginEmail').value.trim();
     if (!email) { showMsg('loginMsg', 'Γράψε πρώτα το email σου παραπάνω.', 'error'); return; }
     try {
-      const redirectTo = location.origin + location.pathname.replace(/login\.html$/, 'reset.html');
+      // On native, location.origin is a Capacitor internal scheme (not
+      // navigable from an email client) — use the app's custom URL scheme
+      // instead, same as the signup confirmation redirect above.
+      const redirectTo = window.Capacitor?.isNativePlatform?.()
+        ? 'net.funeralos.gr://auth-callback?type=recovery'
+        : location.origin + location.pathname.replace(/login\.html$/, 'reset.html');
       const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
       if (error) showMsg('loginMsg', translateError(error.message), 'error');
       else showMsg('loginMsg', 'Στάλθηκε email επαναφοράς. Έλεγξε τα εισερχόμενά σου.', 'success');
