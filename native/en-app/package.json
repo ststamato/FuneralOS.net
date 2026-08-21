@@ -1,0 +1,26 @@
+{
+  "name": "funeralos-en-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FuneralOS — English/USA edition native app wrapper (Capacitor)",
+  "scripts": {
+    "sync": "cap sync"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/browser": "^8.0.4",
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/clipboard": "^8.0.1",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/ios": "^8.5.0",
+    "@capacitor/push-notifications": "^8.1.2",
+    "@capacitor/share": "^8.0.1",
+    "@capgo/capacitor-updater": "^8.51.14",
+    "@revenuecat/purchases-capacitor": "^13.4.1"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}
