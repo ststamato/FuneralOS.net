@@ -71,11 +71,23 @@ IAP/push/OTA vendors need real accounts with real credentials.
    account key JSON, one line).
 4. **Capgo** account + channels (`production`/`beta`) per app, `npx
    @capgo/cli login`, then `publish-ota.sh` works as documented.
-5. **App icon** — no source image exists anywhere in the repo yet
-   (confirmed: zero image assets in `saas/`, only CSS-styled text). Once a
-   1024×1024 source exists: `npx @capacitor/assets generate
-   --iconBackgroundColor '#0f1523' --splashBackgroundColor '#0f1523'` in
-   each project generates every required size.
+5. ~~**App icon**~~ — done (Phase 5). A tricolor "FoS" lettermark on the
+   ink background (`#0f1523`) with a soft warm glow behind it: F in green
+   (`#3f8f5f`), o in gold (`#c8a96e`), S in oxblood red (`#a8433f`) — bold
+   Liberation Serif, dialed-back radial glow so it stays behind the
+   letters instead of washing into them (the gold "o" is the one that
+   loses contrast fastest against a bright glow). Iterated through several
+   concepts (flame, laurel branch, teardrop, plain "FOS" monogram) before
+   landing here; picked by the user after comparing all of them side by
+   side at real icon sizes down to 40px. 1024×1024 master committed to
+   `native/{gr,en}-app/resources/icon.png`; `npx capacitor-assets generate`
+   ran in both projects — every iOS AppIcon/splash size and Android
+   adaptive-icon/splash density is already in place under each project's
+   `ios/`/`android/` folders. Same brand for both apps. To change it
+   later: replace `resources/icon.png` (1024×1024, no transparency) and
+   re-run `npx capacitor-assets generate --iconBackgroundColor '#0f1523'
+   --iconBackgroundColorDark '#0f1523' --splashBackgroundColor '#0f1523'
+   --splashBackgroundColorDark '#0f1523'` in each project.
 6. **First compiled build** — needs the user's own Mac + Xcode, or a cloud
    CI service (Codemagic / EAS Build) configured with the Apple/Google
    credentials from step 1.
