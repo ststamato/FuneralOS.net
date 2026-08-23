@@ -49,7 +49,7 @@
 
 <div class="page-wrap">
   <h1 class="page-title">Privacy <span>Policy</span></h1>
-  <p class="updated">Last updated: July 2026</p>
+  <p class="updated">Last updated: August 2026</p>
 
   <h2>1. Who We Are</h2>
   <p>FuneralOS (funeralos.net) is an independent software product. For any privacy-related matter, contact us at <a href="mailto:funeralos.net@gmail.com">funeralos.net@gmail.com</a>.</p>
@@ -57,8 +57,11 @@
   <h2>2. Information We Collect</h2>
   <ul>
     <li><strong>Email &amp; password:</strong> Used to create and manage your account, stored securely via Supabase Auth.</li>
-    <li><strong>Application data:</strong> Cases, inventory, staff, and other funeral home records you enter are stored locally in your browser (localStorage). We do not have access to this data.</li>
-    <li><strong>Payment data:</strong> Transactions are processed by Lemon Squeezy. We do not store card details.</li>
+    <li><strong>Application data:</strong> Cases, staff, fleet, finance and other funeral home records you enter are stored securely on our servers (Supabase / AWS), accessible only to you and your office's team members. The app also keeps a local copy on your device so it keeps working offline, which syncs automatically once you're back online.</li>
+    <li><strong>Case documents:</strong> Files you upload per case (e.g. death certificates, permits) are stored in a private storage bucket (Supabase Storage), accessible only to your office.</li>
+    <li><strong>Device notification data:</strong> If you install the iOS or Android app, we store a device identifier so we can deliver push notifications to you.</li>
+    <li><strong>Payment data:</strong> On the web app, transactions are processed by Lemon Squeezy. On the iOS/Android apps, subscriptions are processed through Apple's/Google's in-app purchase systems, with subscription management handled via RevenueCat. We never store your card details ourselves.</li>
+    <li><strong>Support requests:</strong> If you submit a support request, your message may be automatically analyzed by AI (Anthropic Claude) to help us process it faster.</li>
     <li><strong>Technical logs:</strong> Error logs may include IP address and browser agent for debugging purposes.</li>
   </ul>
 
@@ -71,12 +74,12 @@
   <p>We do not sell, rent, or share your data with third parties for commercial purposes.</p>
 
   <h2>4. Data Storage</h2>
-  <p>Authentication data is stored on Supabase infrastructure (AWS). Operational data (cases, inventory, etc.) is stored exclusively in your browser. If you clear your browser data, this information will be lost. We recommend using the app's export/backup feature regularly.</p>
+  <p>All of your office's data (cases, staff, fleet, finance, settings, documents) is stored securely on our servers, via Supabase (AWS infrastructure). Database-level access policies (Row Level Security) restrict access to you and your office's team members only — never to other users of the service. The app also keeps a local copy on your device for offline use, which syncs automatically with the server once you're back online.</p>
 
   <h2>5. Your Rights</h2>
   <ul>
     <li><strong>Access:</strong> Request a copy of your personal data.</li>
-    <li><strong>Deletion:</strong> Request deletion of your account and associated data.</li>
+    <li><strong>Deletion:</strong> Delete your account and all associated data directly from within the app (Settings → Delete Account), or request deletion from us.</li>
     <li><strong>Correction:</strong> Request correction of inaccurate data.</li>
     <li><strong>Portability:</strong> Export your data at any time using the built-in export feature.</li>
   </ul>
@@ -88,7 +91,11 @@
   <h2>7. Third-Party Services</h2>
   <ul>
     <li><strong>Supabase</strong> (supabase.com) — Authentication and database infrastructure.</li>
-    <li><strong>Lemon Squeezy</strong> (lemonsqueezy.com) — Payment processor.</li>
+    <li><strong>Lemon Squeezy</strong> (lemonsqueezy.com) — Payment processor for the web app.</li>
+    <li><strong>Apple / Google &amp; RevenueCat</strong> — Process subscriptions on the iOS/Android apps through Apple's/Google's in-app purchase systems, with RevenueCat handling subscription management.</li>
+    <li><strong>Firebase Cloud Messaging</strong> (firebase.google.com) — Delivers push notifications on the iOS/Android apps.</li>
+    <li><strong>Resend</strong> (resend.com) — Sends account-related email (verification, password reset, team invites).</li>
+    <li><strong>Anthropic</strong> (anthropic.com) — Automatically analyzes support requests you submit, to help us process them faster.</li>
     <li><strong>xAI</strong> (x.ai) — Powers the AI assistant. When you use the AI assistant, the relevant case details (e.g. names, location, notes) are sent to xAI to generate the response, subject to xAI's own privacy policy.</li>
   </ul>
 
