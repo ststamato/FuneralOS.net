@@ -9,7 +9,7 @@ import webpush from "npm:web-push@3.6.7";
 // web app keep getting the plain funeralos.net origin. Computed per-request
 // (never a shared module-level object) since concurrent requests in the same
 // warm isolate would otherwise race on a mutable CORS value.
-const ALLOWED_ORIGINS = ["https://funeralos.net", "capacitor://localhost", "https://localhost"];
+const ALLOWED_ORIGINS = ["https://funeralos.net", "https://www.funeralos.net", "capacitor://localhost", "https://localhost"];
 function corsHeaders(origin: string | null): Record<string, string> {
   const allowOrigin = origin && ALLOWED_ORIGINS.includes(origin) ? origin : "https://funeralos.net";
   return {
