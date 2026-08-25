@@ -200,13 +200,21 @@ Timeline | Ρυθμίσεις | Backup | Premium
   ακαριαία, χωρίς reload.
 - **Backup**: πραγματική λήψη/εισαγωγή αντιγράφου σε αρχείο `.json`
   (τοπικό export/import).
-- **Συγχρονισμός συσκευών (cloud sync)**: προαιρετικό, μέσω Supabase.
-  Σύνδεση με magic-link email (χωρίς κωδικό), αυτόματο push μετά από κάθε
-  αλλαγή, pull + merge (last-write-wins με βάση timestamp) όταν συνδέεσαι
-  από νέα συσκευή. Χωρίς ρυθμισμένο Supabase project, η εφαρμογή λειτουργεί
-  κανονικά τοπικά — το sync απλά δείχνει «δεν έχει ρυθμιστεί ακόμα». Δες
-  [`mera-mou/supabase/setup.sql`](../supabase/setup.sql) και
-  `mera-mou/app/config.js` για το setup.
+- **Συγχρονισμός συσκευών (cloud sync)**: ενεργό, μέσω Supabase. Σύνδεση
+  με magic-link email (χωρίς κωδικό), αυτόματο push μετά από κάθε αλλαγή,
+  pull + merge (last-write-wins με βάση timestamp) όταν συνδέεσαι από νέα
+  συσκευή. Ξεχωριστό Supabase project (`mera-mou`, eu-west-1, ref
+  `csbbnngpiogbvhnaenjo`) — καμία κοινή βάση/πίνακας/χρήστης με το
+  FuneralOS. Δες [`mera-mou/supabase/setup.sql`](../supabase/setup.sql)
+  και `mera-mou/app/config.js` για το setup.
+
+  **Εκκρεμεί πριν το launch**: το project είναι ακόμα κάτω από τον ίδιο
+  Supabase **οργανισμό/λογαριασμό** με το FuneralOS (χωριστή βάση, κοινή
+  «ομπρέλα» ιδιοκτησίας). Λίγο πριν είμαστε έτοιμοι να δημοσιεύσουμε,
+  πρέπει να φτιαχτεί νέος, ανεξάρτητος Supabase οργανισμός (dashboard →
+  New organization — δεν γίνεται μέσω API) και να μεταφερθεί/ξαναφτιαχτεί
+  εκεί το project, ώστε η εφαρμογή να έχει πλήρως ανεξάρτητη ταυτότητα
+  πριν πάει σε App Store / Play Store.
 
 Επιβεβαιωμένο με αυτοματοποιημένα end-to-end τεστ (Playwright, 4 σουίτες,
 79+ έλεγχοι): προσθήκη/επεξεργασία/διαγραφή σε κάθε ενότητα, persistence
@@ -218,6 +226,12 @@ Timeline | Ρυθμίσεις | Backup | Premium
 Δεν έχει γίνει ακόμα: Premium εμφάνιση/branding (Φάση Γ), store assets
 (Φάση Δ), δημοσίευση (Φάση Ε), και φυσικά καμία λειτουργία του v2
 οράματος (AI engines, Observe First κ.λπ.) παρακάτω.
+
+**Στόχος launch**: App Store (iOS) και Play Store (Android) — όχι μόνο
+web/PWA. Αυτό σημαίνει επιπλέον βήματα πριν τη δημοσίευση: wrapping
+(π.χ. Capacitor) ή native shell, λογαριασμοί developer (Apple $99/έτος,
+Google $25 εφάπαξ), εικονίδια/screenshots για κάθε store, privacy policy
+URL, και τον ανεξάρτητο Supabase οργανισμό που αναφέρεται παραπάνω.
 
 ---
 
