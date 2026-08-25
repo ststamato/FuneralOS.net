@@ -348,7 +348,6 @@
             <option>Urgent</option>
             <option>High</option>
             <option>After Hours</option>
-            <option>Coroner Case</option>
           </select>
         </div>
         <div style="margin-bottom:18px;">
@@ -358,6 +357,15 @@
           <div style="display:flex;gap:8px;">
             <input id="usaCustomDocInput" type="text" placeholder="e.g. Pre-Need Contract" style="flex:1;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:#0f1a2e;color:#c8daf0;font-size:14px;" />
             <button onclick="window.usaAddCustomDoc()" style="background:#c8a96e;color:#0f1523;border:none;padding:10px 18px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;white-space:nowrap;">+ Add</button>
+          </div>
+        </div>
+        <div style="margin-bottom:18px;">
+          <p style="font-size:13px;font-weight:600;color:#c8daf0;margin-bottom:4px;">General Price List — custom items</p>
+          <p class="warehouse-hint" style="margin-bottom:10px;">Default: Basic Services Fee · Transfer of Remains · Embalming · Other Preparation · Viewing/Visitation · Funeral Ceremony · Memorial Service · Graveside Service · Hearse · Limousine · Direct Cremation · Immediate Burial · Casket · Outer Burial Container/Vault. Itemized per FTC Funeral Rule — add anything specific to your price list beyond these.</p>
+          <div id="usaGplItemsList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;"></div>
+          <div style="display:flex;gap:8px;">
+            <input id="usaGplItemInput" type="text" placeholder="e.g. Live Streaming" style="flex:1;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:#0f1a2e;color:#c8daf0;font-size:14px;" />
+            <button onclick="window.usaAddGplItem()" style="background:#c8a96e;color:#0f1523;border:none;padding:10px 18px;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;white-space:nowrap;">+ Add</button>
           </div>
         </div>
         <div>
@@ -602,12 +610,16 @@
           <label>Caller Name<input id="usaFcCaller" placeholder="Mary Smith" /></label>
           <label>Relationship<input id="usaFcRelationship" placeholder="Daughter / Spouse" /></label>
           <label>Phone<input id="usaFcPhone" placeholder="(555) 000-0000" /></label>
-          <label>Place of Death<select id="usaFcPlace"><option>Hospital</option><option>Nursing Home</option><option>Hospice</option><option>Residence</option><option>Coroner / Medical Examiner</option><option>Other</option></select></label>
+          <label>Place of Death<select id="usaFcPlace" onchange="document.getElementById('usaFcCircumstanceBox').style.display = this.value === 'Home' ? '' : 'none'; if (this.value !== 'Home') document.getElementById('usaFcDeathCircumstance').value = '';"><option>Hospital</option><option>Nursing or Care Facility</option><option>Hospice Facility</option><option>Home</option><option>Other</option></select></label>
           <label>Facility / Address<input id="usaFcFacility" placeholder="Hospital, facility or home address" /></label>
-          <label>Priority<select id="usaFcPriority"><option>Normal</option><option>Urgent</option><option>Coroner Case</option><option>After Hours</option></select></label>
+          <label>Priority<select id="usaFcPriority"><option>Normal</option><option>Urgent</option><option>After Hours</option></select></label>
           <label>Removal Driver<input id="usaFcDriver" placeholder="Driver" /></label>
           <label>Vehicle<input id="usaFcVehicle" placeholder="Removal Van / Hearse" /></label>
         </div>
+        <div id="usaFcCircumstanceBox" style="display:none;">
+          <label>Death Circumstance — <b>required for a home death</b><select id="usaFcDeathCircumstance" onchange="document.getElementById('usaFcMECase').checked = this.value === 'Unexpected';"><option value="">Select…</option><option value="Expected">Expected (hospice / known terminal illness)</option><option value="Unexpected">Unexpected / sudden</option></select></label>
+        </div>
+        <label class="usa-checkbox-label"><input type="checkbox" id="usaFcMECase" /> Medical Examiner / Coroner case (blocks removal until release is recorded)</label>
         <label>Notes<textarea id="usaFcNotes" rows="3" placeholder="Important instructions, personal effects, family requests..."></textarea></label>
         <div class="modal-actions"><button type="reset">Clear</button><button type="submit" class="usa-primary">Create Case + Assign Team</button></div>
       </form>
@@ -898,7 +910,7 @@
 <script>window.__appLang = "en";</script>
 <script src="../app.js?v=15"></script>
 <script src="suppliers.js"></script>
-<script src="../usa.js?v=1"></script>
+<script src="../usa.js?v=2"></script>
 
 </body>
 </html>

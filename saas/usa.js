@@ -9,6 +9,14 @@
   const USA_TZ_KEY        = "funeralos_en_timezone_v1";
   const USA_DOCS  = ["Death Certificate","Burial Permit","Cremation Authorization","Contract","Invoice"];
   const USA_STEPS = ["First Call","Removal Scheduled","Family Meeting","Documents Pending","Preparation","Viewing","Service Scheduled","Burial/Cremation","Closed"];
+  // FTC Funeral Rule General Price List — itemized, unbundled categories.
+  // Offices can add their own beyond these via Settings, same as USA_DOCS/customDocs.
+  const GPL_DEFAULT_ITEMS = [
+    "Basic Services Fee","Transfer of Remains","Embalming","Other Preparation",
+    "Viewing/Visitation","Funeral Ceremony","Memorial Service","Graveside Service",
+    "Hearse","Limousine","Direct Cremation","Immediate Burial",
+    "Casket","Outer Burial Container/Vault",
+  ];
   const USA_TZ_OPTIONS = [
     {label:"Eastern (ET)",  iana:"America/New_York"},
     {label:"Central (CT)",  iana:"America/Chicago"},
@@ -126,7 +134,7 @@
   }
 
   function getSettings(){
-    const defaults = {modules: Object.assign({}, DEFAULT_MODULES), customDocs: [], defaultPriority: "Normal"};
+    const defaults = {modules: Object.assign({}, DEFAULT_MODULES), customDocs: [], gplItems: [], defaultPriority: "Normal"};
     if (window.__DEMO_MODE) return Object.assign({}, defaults, window.__usaSettings || {});
     try { return Object.assign({}, defaults, JSON.parse(localStorage.getItem(USA_SETTINGS_KEY) || "{}")); } catch { return defaults; }
   }
@@ -139,6 +147,11 @@
   function allDocs(){
     const s = getSettings();
     return [...USA_DOCS, ...(s.customDocs || [])];
+  }
+
+  function allGplItems(){
+    const s = getSettings();
+    return [...GPL_DEFAULT_ITEMS, ...(s.gplItems || [])];
   }
 
   function blankDocs(){ return Object.fromEntries(allDocs().map(d => [d, "Missing"])); }
@@ -166,6 +179,13 @@
         : `<p style="font-size:12px;color:#556677;margin:0;">No custom documents added.</p>`;
     }
 
+    const gplEl = document.getElementById("usaGplItemsList");
+    if (gplEl) {
+      gplEl.innerHTML = (s.gplItems || []).length
+        ? s.gplItems.map(d=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(255,255,255,.04);border-radius:8px;"><span style="font-size:14px;color:#c8daf0;">💲 ${safe(d)}</span><button onclick="window.usaRemoveGplItem('${safe(d).replace(/'/g,"&#39;")}')" style="background:none;border:none;color:#667788;cursor:pointer;font-size:16px;padding:0 4px;">✕</button></div>`).join("")
+        : `<p style="font-size:12px;color:#556677;margin:0;">No custom price-list items added.</p>`;
+    }
+
     const prioEl = document.getElementById("usaDefaultPriority");
     if (prioEl) prioEl.value = s.defaultPriority || "Normal";
 
@@ -188,6 +208,16 @@
   };
   window.usaRemoveCustomDoc = function(name){
     const s = getSettings(); s.customDocs = s.customDocs.filter(d=>d!==name); saveSettings(s); renderUsaSettings();
+  };
+  window.usaAddGplItem = function(){
+    const input = document.getElementById("usaGplItemInput");
+    const name = (input?.value || "").trim(); if(!name) return;
+    const s = getSettings();
+    if(!s.gplItems.includes(name)){ s.gplItems.push(name); saveSettings(s); }
+    if(input) input.value = ""; renderUsaSettings();
+  };
+  window.usaRemoveGplItem = function(name){
+    const s = getSettings(); s.gplItems = s.gplItems.filter(d=>d!==name); saveSettings(s); renderUsaSettings();
   };
   window.usaExportMeta = function(){
     const data = {meta: getMeta(), settings: getSettings(), exportDate: new Date().toISOString()};
@@ -234,6 +264,28 @@
       crematory: meta.crematory || "",
       urn: meta.urn || "",
       assignedStaff: meta.assignedStaff || "",
+      // Death circumstance / Medical Examiner-Coroner gating. A home death
+      // with no hospice/known terminal illness is a medical-legal matter —
+      // the funeral home may not remove the body until the ME/Coroner (or
+      // whoever has jurisdiction) releases it. See usaMarkReleaseAuthorized().
+      deathCircumstance: meta.deathCircumstance || "",
+      medicalExaminerCase: !!meta.medicalExaminerCase,
+      releaseAuthorized: meta.medicalExaminerCase ? !!meta.releaseAuthorized : true,
+      releaseAuthorizedBy: meta.releaseAuthorizedBy || "",
+      releaseAuthorizedAt: meta.releaseAuthorizedAt || "",
+      // Death certificate / EDRS status — who certifies, and where the
+      // certificate stands with the state registrar. Separate from the
+      // "Death Certificate" row in the Documents checklist (that's the
+      // physical/filed-copy tracking; this is the certification pipeline).
+      medicalCertifier: meta.medicalCertifier || "",
+      edrsStatus: meta.edrsStatus || "Not Started",
+      // Itemized General Price List selections for this case — FTC Funeral
+      // Rule requires itemized, unbundled pricing. Map of GPL label -> price;
+      // caseValue is derived as the sum, not typed in free-form. See
+      // setCasePriceItem() and getSettings().gplItems (the office's menu).
+      priceItems: meta.priceItems || {},
+      // Aftercare checklist, shown once a case is Closed.
+      aftercare: meta.aftercare || {},
     };
   }
 
@@ -402,7 +454,7 @@
     if (settingsBtn) settingsBtn.addEventListener("click", ()=>setTimeout(renderUsaSettings, 50));
   });
 
-  window.__usaLib = { cases, updateMeta, getMeta, saveMeta, blankDocs, allDocs, getSettings, saveSettings, renderUsaSettings, USA_DOCS, USA_STEPS, USA_MODULES_LIST, readCeremonies };
+  window.__usaLib = { cases, updateMeta, getMeta, saveMeta, blankDocs, allDocs, allGplItems, getSettings, saveSettings, renderUsaSettings, USA_DOCS, USA_STEPS, USA_MODULES_LIST, readCeremonies };
 })();
 
 
@@ -433,6 +485,46 @@
 
   function cases(){ return window.__usaLib.cases(); }
   function updateMeta(id, updates){ window.__usaLib.updateMeta(id, updates); }
+
+  // Case data can affect the Finance tab (v2 module) and AI Operations
+  // Director (v3 module) too, e.g. a release-authorization or a price-item
+  // change — those modules render on their own tab-switch cycle, so refresh
+  // them directly here rather than waiting for the user to leave and return.
+  function renderEverything(){
+    renderUSA();
+    if (typeof window.__usaRenderAllV2 === "function") window.__usaRenderAllV2();
+    if (typeof window.__usaRenderV3 === "function") window.__usaRenderV3();
+  }
+
+  function setCaseFieldV1(id, field, value){ updateMeta(id, { [field]: value }); renderEverything(); }
+
+  function markReleaseAuthorized(id, by){
+    const c = cases().find(x=>x.id===id); if(!c) return;
+    updateMeta(id, {
+      releaseAuthorized: true,
+      releaseAuthorizedBy: by || "",
+      releaseAuthorizedAt: todayIso(),
+    });
+    renderEverything();
+  }
+  window.usaMarkReleaseAuthorized = markReleaseAuthorized;
+
+  function setPriceItem(id, label, price){
+    const c = cases().find(x=>x.id===id); if(!c) return;
+    const priceItems = Object.assign({}, c.priceItems || {}, { [label]: Number(price) || 0 });
+    const caseValue = Object.values(priceItems).reduce((sum, v) => sum + (Number(v) || 0), 0);
+    updateMeta(id, { priceItems, caseValue });
+    renderEverything();
+  }
+  window.usaSetPriceItem = setPriceItem;
+
+  function toggleAftercare(id, label, done){
+    const c = cases().find(x=>x.id===id); if(!c) return;
+    const aftercare = Object.assign({}, c.aftercare || {}, { [label]: !!done });
+    updateMeta(id, { aftercare });
+    renderEverything();
+  }
+  window.usaToggleAftercare = toggleAftercare;
 
   function docStats(c){
     const docs = c.documents || {};
@@ -467,6 +559,14 @@
     if (typeof window.__fosPushCeremony === "function") {
       window.__fosPushCeremony(ceremony);
     }
+    // A home death is a medical-legal (ME/Coroner) case if it's Unexpected —
+    // unless the form's ME checkbox was explicitly touched, in which case
+    // that wins (a hospital/facility death can still turn into an ME case
+    // under suspicious circumstances, and conversely staff can uncheck it).
+    const medicalExaminerCase = data.medicalExaminerCase != null
+      ? !!data.medicalExaminerCase
+      : data.deathCircumstance === "Unexpected";
+
     const metaDefaults = {
       caseNumber: data.caseNumber || ("EN-" + new Date().getFullYear() + "-" + newId.slice(-4).toUpperCase()),
       caller: data.caller || "", relationship: data.relationship || "",
@@ -477,7 +577,13 @@
       notes: data.notes || "",
       documents: Object.fromEntries(USA_DOCS().map(d=>[d,"Missing"])),
       timeline: ["First Call"].concat(data.driver || data.vehicle ? ["Removal Scheduled"] : []),
-      cremation: {}, crematory: "", urn: ""
+      cremation: {}, crematory: "", urn: "",
+      deathCircumstance: data.deathCircumstance || "",
+      medicalExaminerCase,
+      releaseAuthorized: !medicalExaminerCase,
+      releaseAuthorizedBy: "", releaseAuthorizedAt: "",
+      medicalCertifier: "", edrsStatus: "Not Started",
+      priceItems: {}, aftercare: {},
     };
     updateMeta(newId, metaDefaults);
     renderUSA();
@@ -606,17 +712,41 @@
     const filtered = allCases.filter(c=>classify(c)===usaFilter).filter(c=>[c.decedent,c.caller,c.director,c.caseNumber,c.facility].join(" ").toLowerCase().includes(q));
     list.innerHTML = filtered.length ? filtered.map(c=>{
       const ds = docStats(c); const cls = classify(c);
-      return `<article class="usa-case-card">
+      const gated = c.medicalExaminerCase && !c.releaseAuthorized;
+      const banner = gated
+        ? `<div class="usa-me-banner">🚨 DO NOT REMOVE — MEDICAL EXAMINER / CORONER CASE
+            <div class="usa-me-release-form">
+              <input type="text" id="usaRelBy_${c.id}" placeholder="Released by (name / office)" />
+              <button type="button" onclick="window.usaMarkReleaseAuthorized('${c.id}', document.getElementById('usaRelBy_${c.id}').value)">Mark Released</button>
+            </div>
+          </div>`
+        : (c.medicalExaminerCase
+            ? `<div class="usa-me-released">✓ ME/Coroner release recorded — ${safe(c.releaseAuthorizedBy || "—")}${c.releaseAuthorizedAt ? " · " + safe(c.releaseAuthorizedAt) : ""}</div>`
+            : "");
+      const aftercareBox = c.status === "Closed" ? (() => {
+        const items = Object.assign({
+          "Certified copies of death certificate ordered": false,
+          "Social Security notified": false,
+          "Veterans benefits assistance offered": false,
+          "Thank-you cards / memorial items delivered": false,
+        }, c.aftercare || {});
+        return `<div class="usa-aftercare"><b>Aftercare</b>${Object.entries(items).map(([label, done]) =>
+          `<label class="usa-checkbox-label"><input type="checkbox" ${done ? "checked" : ""} onchange="window.usaToggleAftercare('${c.id}', ${JSON.stringify(label)}, this.checked)" /> ${safe(label)}</label>`
+        ).join("")}</div>`;
+      })() : "";
+      return `<article class="usa-case-card${gated ? " usa-case-gated" : ""}">
+        ${banner}
         <div class="usa-case-top"><div><h3>${safe(c.decedent)}</h3><small>${safe(c.caseNumber)} · ${safe(c.priority)}</small></div><span class="usa-badge ${cls}">${safe(c.status)}</span></div>
         <div class="usa-meta"><div><span>Family</span><b>${safe(c.caller||"—")}</b></div><div><span>Phone</span><b>${safe(c.phone||"—")}</b></div><div><span>Facility</span><b>${safe(c.facility||c.placeOfDeath||"—")}</b></div><div><span>Balance</span><b>${money(c.balance)}</b></div></div>
         <div><b>Documents:</b> ${ds.complete} complete · ${ds.pending} pending · ${ds.missing} missing</div>
         <div class="usa-timeline">${USA_STEPS().map(s=>`<span class="usa-step ${(c.timeline||[]).includes(s)||c.status===s?'done':''}">${safe(s)}</span>`).join("")}</div>
-        <div class="usa-card-actions">
+        ${gated ? "" : `<div class="usa-card-actions">
           <button data-usa-status="Family Meeting" data-id="${c.id}">Family Meeting</button>
           <button data-usa-status="Documents Pending" data-id="${c.id}">Docs Pending</button>
           <button data-usa-status="Service Scheduled" data-id="${c.id}">Service Scheduled</button>
           <button data-usa-status="Closed" data-id="${c.id}">Close Case</button>
-        </div>
+        </div>`}
+        ${aftercareBox}
       </article>`;
     }).join("") : `<div class="usa-panel">No cases in this view.</div>`;
   }
@@ -632,7 +762,17 @@
         ? `<button type="button" class="usa-doc-view" data-id="${c.id}" data-doc="${safe(d)}" title="${safe(file.filename)}">📎 ${safe(file.filename.length>18?file.filename.slice(0,15)+"…":file.filename)}</button><button type="button" class="usa-doc-remove" data-id="${c.id}" data-doc="${safe(d)}" title="Remove file">✕</button>`
         : `<label class="usa-doc-upload">Attach<input type="file" class="usa-doc-file" data-id="${c.id}" data-doc="${safe(d)}" hidden></label>`;
       return `<div class="usa-doc-row"><b>${safe(d)}</b><div class="usa-doc-controls"><select class="usa-doc-status ${st.toLowerCase()}" data-id="${c.id}" data-doc="${safe(d)}"><option ${st==='Missing'?'selected':''}>Missing</option><option ${st==='Pending'?'selected':''}>Pending</option><option ${st==='Complete'?'selected':''}>Complete</option></select>${fileControls}</div></div>`;
-    }).join("")}</article>`).join("") : `<div class="usa-panel">No cases yet. Create one from First Call Center.</div>`;
+    }).join("")}
+        <div class="usa-cert-box">
+          <b>Death Certificate — Certification &amp; EDRS</b>
+          <label>Medical Certifier<input class="usa-cert-field" data-id="${c.id}" data-field="medicalCertifier" value="${safe(c.medicalCertifier||"")}" placeholder="Attending physician / ME / Coroner" /></label>
+          <label>EDRS Status<select class="usa-cert-field" data-id="${c.id}" data-field="edrsStatus">
+            <option ${c.edrsStatus==='Not Started'?'selected':''}>Not Started</option>
+            <option ${c.edrsStatus==='Submitted to Registrar'?'selected':''}>Submitted to Registrar</option>
+            <option ${c.edrsStatus==='Certificate Issued'?'selected':''}>Certificate Issued</option>
+          </select></label>
+        </div>
+      </article>`).join("") : `<div class="usa-panel">No cases yet. Create one from First Call Center.</div>`;
   }
 
   function renderUSA(){ renderDirector(); renderCases(); renderDocuments(); }
@@ -663,9 +803,13 @@
         driver: el("usaFcDriver")?.value,
         vehicle: el("usaFcVehicle")?.value,
         notes: el("usaFcNotes")?.value,
+        deathCircumstance: el("usaFcDeathCircumstance")?.value || "",
+        medicalExaminerCase: el("usaFcMECase")?.checked || false,
         status: "First Call"
       });
       e.target.reset();
+      const circBox = el("usaFcCircumstanceBox");
+      if (circBox) circBox.style.display = "none";
       if(typeof window.v38SwitchTab === "function") window.v38SwitchTab("usaCases");
     });
     document.addEventListener("click", (e)=>{
@@ -677,7 +821,9 @@
       const s=e.target.closest(".usa-doc-status[data-id]"); if(s) setDoc(s.dataset.id, s.dataset.doc, s.value);
       const f=e.target.closest(".usa-doc-file[data-id]");
       if(f && f.files && f.files[0]){ uploadCaseDocument(f.dataset.id, f.dataset.doc, f.files[0]); f.value = ""; }
+      const cert=e.target.closest(".usa-cert-field[data-id]"); if(cert) setCaseFieldV1(cert.dataset.id, cert.dataset.field, cert.value);
     });
+    document.addEventListener("blur", (e)=>{ const f=e.target.closest?.(".usa-cert-field[data-id]"); if(f) setCaseFieldV1(f.dataset.id, f.dataset.field, f.value); }, true);
   }
 
   function showUsaTab(tabName){
@@ -789,7 +935,12 @@
     if(el('usaAvgCaseValue')) el('usaAvgCaseValue').textContent = money(avg);
     if(el('usaUnpaidCases')) el('usaUnpaidCases').textContent = unpaid;
     const box = el('usaFinanceList'); if(!box) return;
-    box.innerHTML = list.length ? list.map(c=>`<article class="usa-case-card"><div class="usa-case-top"><div><h3>${safe(c.decedent)}</h3><small>${safe(c.caseNumber)} · ${safe(c.status)}</small></div><span class="usa-badge ${Number(c.balance||0)>0?'pending':'closed'}">${Number(c.balance||0)>0?'Unpaid':'Clean'}</span></div><div class="usa-form-grid usa-inline-editor"><label>Case Value<input class="usa-v2-number" data-case="${c.id}" data-field="caseValue" type="number" value="${Number(c.caseValue||0)}" /></label><label>Pending Balance<input class="usa-v2-number" data-case="${c.id}" data-field="balance" type="number" value="${Number(c.balance||0)}" /></label><label>Payment Status<select class="usa-v2-field" data-case="${c.id}" data-field="paymentStatus"><option ${c.paymentStatus==='Pending'?'selected':''}>Pending</option><option ${c.paymentStatus==='Partial'?'selected':''}>Partial</option><option ${c.paymentStatus==='Paid'?'selected':''}>Paid</option><option ${c.paymentStatus==='Insurance Assignment'?'selected':''}>Insurance Assignment</option></select></label></div></article>`).join('') : `<div class="usa-panel">No cases yet.</div>`;
+    const gplItems = window.__usaLib.allGplItems();
+    box.innerHTML = list.length ? list.map(c=>{
+      const priceItems = c.priceItems || {};
+      const gplRows = gplItems.map(label => `<label class="usa-gpl-row">${safe(label)}<input class="usa-gpl-price" data-case="${c.id}" data-label="${safe(label).replace(/"/g,'&quot;')}" type="number" min="0" placeholder="0" value="${priceItems[label] ? Number(priceItems[label]) : ''}" /></label>`).join('');
+      return `<article class="usa-case-card"><div class="usa-case-top"><div><h3>${safe(c.decedent)}</h3><small>${safe(c.caseNumber)} · ${safe(c.status)}</small></div><span class="usa-badge ${Number(c.balance||0)>0?'pending':'closed'}">${Number(c.balance||0)>0?'Unpaid':'Clean'}</span></div><div class="usa-form-grid usa-inline-editor"><label>Case Value (itemized total — see General Price List below)<input class="usa-v2-number" data-case="${c.id}" data-field="caseValue" type="number" value="${Number(c.caseValue||0)}" readonly /></label><label>Pending Balance<input class="usa-v2-number" data-case="${c.id}" data-field="balance" type="number" value="${Number(c.balance||0)}" /></label><label>Payment Status<select class="usa-v2-field" data-case="${c.id}" data-field="paymentStatus"><option ${c.paymentStatus==='Pending'?'selected':''}>Pending</option><option ${c.paymentStatus==='Partial'?'selected':''}>Partial</option><option ${c.paymentStatus==='Paid'?'selected':''}>Paid</option><option ${c.paymentStatus==='Insurance Assignment'?'selected':''}>Insurance Assignment</option></select></label></div><div class="usa-gpl-list"><b>General Price List — itemized (FTC Funeral Rule)</b>${gplRows}</div></article>`;
+    }).join('') : `<div class="usa-panel">No cases yet.</div>`;
   }
 
   // Flags cases that share the same Service Date + the same Vehicle or the
@@ -852,6 +1003,10 @@
   }
 
   function renderAllV2(){ renderStaff(); renderFleet(); renderCremation(); renderFinance(); renderSchedule(); setTimeout(renderDirectorV2Extras, 20); }
+  // Exposed so v1's case-field setters (release authorization, GPL price
+  // items) can refresh this tab's own view immediately instead of waiting
+  // for the next tab switch to pick up the change.
+  window.__usaRenderAllV2 = renderAllV2;
 
   function bind(){
     document.querySelectorAll('.tab-button[data-tab^="usa"]').forEach(btn=>btn.addEventListener('click', ()=>setTimeout(renderAllV2, 50)));
@@ -878,10 +1033,14 @@
       if(cr) setCaseNested(cr.dataset.case, 'cremation', cr.dataset.step, cr.value);
       const fld = e.target.closest('.usa-v2-field,.usa-v2-number');
       if(fld) setCaseField(fld.dataset.case, fld.dataset.field, fld.value);
+      const gpl = e.target.closest('.usa-gpl-price');
+      if(gpl) window.usaSetPriceItem(gpl.dataset.case, gpl.dataset.label, gpl.value);
     });
     document.addEventListener('blur', (e)=>{
       const fld = e.target.closest?.('.usa-v2-field,.usa-v2-number');
       if(fld) setCaseField(fld.dataset.case, fld.dataset.field, fld.value);
+      const gpl = e.target.closest?.('.usa-gpl-price');
+      if(gpl) window.usaSetPriceItem(gpl.dataset.case, gpl.dataset.label, gpl.value);
     }, true);
   }
 
@@ -921,6 +1080,7 @@
   function caseHealth(c){
     let score=100; const issues=[];
     const miss=missingDocs(c); const pend=pendingDocs(c);
+    if(c.medicalExaminerCase && !c.releaseAuthorized){ score-=40; issues.push("Medical Examiner/Coroner release not yet authorized — do not remove"); }
     if(miss.length){ score-=Math.min(35, miss.length*7); issues.push(`${miss.length} document(s) not complete`); }
     if(pend.length){ score-=Math.min(10, pend.length*2); }
     if(Number(c.balance||0)>0){ score-=18; issues.push(`Outstanding balance ${money(c.balance)}`); }
@@ -937,6 +1097,7 @@
     const out=[]; const active=cases().filter(isActive);
     active.forEach(c=>{
       const h=caseHealth(c); const miss=missingDocs(c);
+      if(c.medicalExaminerCase && !c.releaseAuthorized) out.push({level:"urgent",title:`Medical Examiner/Coroner case — release not yet authorized`,meta:`${c.decedent||"Unnamed"} · ${c.caseNumber||""} · do not remove until released`});
       if(h.score<70) out.push({level:"urgent",title:`${c.caseNumber||"Case"} at risk`,meta:`${c.decedent||"Unnamed"} · ${h.issues.slice(0,2).join(" · ")}`});
       if(isUpcoming(c) && miss.length) out.push({level:"urgent",title:`Service approaching with missing documents`,meta:`${c.decedent||"Unnamed"} · ${miss.slice(0,3).join(", ")}`});
       if(Number(c.balance||0)>0) out.push({level:"warning",title:`Outstanding balance`,meta:`${c.decedent||"Unnamed"} · ${money(c.balance)}`});
@@ -1006,6 +1167,8 @@
       alertBox.innerHTML = alerts.length ? alerts.slice(0,12).map(a=>`<div class="usa-alert usa-v3-alert-${a.level}"><strong>${safe(a.title)}</strong><small>${safe(a.meta)}</small></div>`).join("") : `<div class="usa-alert usa-v3-alert-ok"><strong>No important alerts.</strong><small>Everything is clean enough to make coffee taste better.</small></div>`;
     }
   }
+  // Exposed for the same reason as window.__usaRenderAllV2 above.
+  window.__usaRenderV3 = renderV3;
 
   function copyText(text){
     if(navigator.clipboard) navigator.clipboard.writeText(text).catch(()=>{});
