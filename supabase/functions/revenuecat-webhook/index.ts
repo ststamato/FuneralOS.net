@@ -64,10 +64,24 @@ Deno.serve(async (req: Request) => {
   const eventType = (event.type as string) || "";
   const appUserId = (event.app_user_id as string || "").trim();
   const entitlementIds = Array.isArray(event.entitlement_ids) ? (event.entitlement_ids as string[]) : [];
+  const environment = (event.environment as string) || "";
 
-  console.log(`RevenueCat webhook: ${eventType} | app_user_id: ${appUserId || "none"} | entitlements: ${entitlementIds.join(",") || "none"}`);
+  console.log(`RevenueCat webhook: ${eventType} | app_user_id: ${appUserId || "none"} | entitlements: ${entitlementIds.join(",") || "none"} | env: ${environment || "none"}`);
 
   if (!appUserId) return new Response("OK", { status: 200 });
+
+  // RevenueCat signs sandbox (unpurchased, StoreKit/Play-testing) events with
+  // the same webhook secret as real production events — the Authorization
+  // check above only proves the request came from RevenueCat, not that money
+  // changed hands. Without this gate, anyone who builds the app with their
+  // own free Apple/Google developer account, logs in with their real
+  // FuneralOS account, and makes a free sandbox "purchase" would get their
+  // real account upgraded to a paid plan server-side. Allow sandbox through
+  // only when explicitly opted into for internal QA.
+  if (environment !== "PRODUCTION" && Deno.env.get("RC_ALLOW_SANDBOX") !== "true") {
+    console.log(`Ignoring non-production RevenueCat event (environment: ${environment || "unknown"})`);
+    return new Response("OK", { status: 200 });
+  }
 
   // EXPIRATION = subscription actually lapsed → downgrade. CANCELLATION only
   // means auto-renew was turned off — access continues until period end, so

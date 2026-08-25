@@ -254,7 +254,16 @@ ${message}
         `${supabaseUrl}/rest/v1/case_documents?office_id=eq.${userId}&select=storage_path`,
         { headers: h }
       );
-      const docs: Array<{ storage_path: string }> = docsRes.ok ? await docsRes.json() : [];
+      if (!docsRes.ok) {
+        // Don't treat "couldn't list documents" the same as "no documents" —
+        // the RPC below deletes the case_documents rows unconditionally, and
+        // once those pointer rows are gone the underlying Storage objects
+        // become permanently unreachable orphans. Fail closed so the client
+        // can retry instead of silently leaking storage.
+        console.error("[delete_own_account] failed to list case_documents:", await docsRes.text());
+        return json({ error: "Failed to list account documents — try again" }, 500);
+      }
+      const docs: Array<{ storage_path: string }> = await docsRes.json();
       if (docs.length) {
         await fetch(`${supabaseUrl}/storage/v1/object/case-documents/${docs.map(d => encodeURIComponent(d.storage_path)).join(",")}`, {
           method: "DELETE",
