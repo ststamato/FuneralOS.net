@@ -5482,7 +5482,13 @@ function openCeremonyModal(id = null) {
   setVal("ceremonyCoffeePlace", c.coffeePlace || "");
   setVal("ceremonyPickup", c.pickup || "");
   setVal("pickupDate", c.pickupDate || "");
-  setVal("ceremonyColdRoom", c.coldRoom || "");
+  const usaMeta = c.usaMeta || {};
+  setVal("ceremonyColdRoom", usaMeta.placeOfDeath || c.coldRoom || "");
+  setVal("ceremonyDeathCircumstance", usaMeta.deathCircumstance || "");
+  const meCaseEl0 = $("ceremonyMECase");
+  if (meCaseEl0) meCaseEl0.checked = !!usaMeta.medicalExaminerCase;
+  const circBox0 = $("ceremonyCircumstanceBox");
+  if (circBox0) circBox0.style.display = (usaMeta.placeOfDeath || c.coldRoom) === "Home" ? "" : "none";
   setVal("ceremonyGraveNumber", c.graveNumber || "");
   setVal("ceremonyNotes", c.notes || "");
 
@@ -5546,11 +5552,31 @@ function saveCeremony(e) {
   if (payload.burialType === "Αποτεφρωση") { payload.graveType = ""; payload.graveNumber = ""; payload.graveZone = ""; }
   else { payload.cremationEscortCount = 0; payload.cremationParishNote = ""; if (payload.graveType === "Οικογενειακός") payload.graveZone = ""; else { payload.graveType = "Τριετία"; payload.graveNumber = ""; } }
 
+  // USA Edition only: this modal doubles as the primary "New Case" flow, so the
+  // Medical Examiner/Coroner gating (see usa.js mergeCase()) has to be captured
+  // here too, not just in the separate First Call form — otherwise a case created
+  // from the main "+ New Case" button never gets the DO NOT REMOVE gate.
+  const meCaseEl = $("ceremonyMECase");
+  const usaMetaPatch = meCaseEl ? {
+    placeOfDeath: val("ceremonyColdRoom").trim(),
+    deathCircumstance: val("ceremonyDeathCircumstance") || "",
+    medicalExaminerCase: meCaseEl.checked,
+  } : null;
+
   if (editingId) {
     const idx = ceremonies.findIndex(c => c.id === editingId);
     if (idx !== -1) {
       const old = ceremonies[idx];
       const updatedCeremony = { ...old, ...payload, case_id: old.case_id || ensureCeremonyCaseId(old) };
+      if (usaMetaPatch) {
+        const prevMeta = old.usaMeta || {};
+        const wasMe = !!prevMeta.medicalExaminerCase;
+        const nowMe = usaMetaPatch.medicalExaminerCase;
+        const meta = Object.assign({}, prevMeta, usaMetaPatch);
+        if (!wasMe && nowMe) { meta.releaseAuthorized = false; meta.releaseAuthorizedBy = ""; meta.releaseAuthorizedAt = ""; }
+        else if (wasMe && !nowMe) { meta.releaseAuthorized = true; }
+        updatedCeremony.usaMeta = meta;
+      }
       ceremonies[idx] = updatedCeremony;
       emitOfficeEvent("ceremony_updated", updatedCeremony, { payload: { previous_date: old.date || "", previous_place: old.place || "" } });
       adjustCoffinStock(old.coffin || "", payload.coffin);
@@ -5560,6 +5586,12 @@ function saveCeremony(e) {
   } else {
     const id = nowTs().toString();
     const newCeremony = { id, case_id: createUniversalCaseId(payload.date, id), ...payload };
+    if (usaMetaPatch) {
+      newCeremony.usaMeta = Object.assign({}, usaMetaPatch, {
+        releaseAuthorized: !usaMetaPatch.medicalExaminerCase,
+        releaseAuthorizedBy: "", releaseAuthorizedAt: "",
+      });
+    }
     ceremonies.push(newCeremony);
     emitOfficeEvent("ceremony_created", newCeremony);
     adjustCoffinStock("", payload.coffin);
@@ -5598,6 +5630,23 @@ function renderCeremonyCard(c, now) {
   const rows = document.createElement("div");
   const makeRow = (label, value) => { if (!value) return; const r = document.createElement("div"); r.className = "ceremony-row"; r.innerHTML = `<span class="ceremony-label">${esc(label)}:</span> ${esc(value)}`; rows.appendChild(r); };
   const btDisplay = bt => bt === "Αποτεφρωση" ? t("Αποτεφρωση","Cremation") : bt === "Μνημόσυνο" ? t("Μνημόσυνο","Memorial") : t("Ταφή","Burial");
+
+  // Medical Examiner/Coroner gate — this is the main case list most USA staff
+  // actually look at day to day, so the DO NOT REMOVE warning has to show up
+  // here too, not just in the separate USA Cases tab. See usa.js mergeCase().
+  let meBanner = null;
+  if (window.__appLang === "en") {
+    const meta = c.usaMeta || {};
+    if (meta.medicalExaminerCase && !meta.releaseAuthorized) {
+      meBanner = document.createElement("div");
+      meBanner.className = "usa-me-banner";
+      meBanner.textContent = "🚨 DO NOT REMOVE — Medical Examiner/Coroner release not yet authorized. Record the release in the Cases tab.";
+    } else if (meta.medicalExaminerCase) {
+      meBanner = document.createElement("div");
+      meBanner.className = "usa-me-released";
+      meBanner.textContent = `✓ ME/Coroner release recorded${meta.releaseAuthorizedBy ? " — " + meta.releaseAuthorizedBy : ""}${meta.releaseAuthorizedAt ? " · " + meta.releaseAuthorizedAt : ""}`;
+    }
+  }
 
   ensureCustomFields();
 
@@ -5643,7 +5692,11 @@ function renderCeremonyCard(c, now) {
   const shareBtn = document.createElement("button"); shareBtn.type = "button"; shareBtn.textContent = "Share"; shareBtn.dataset.action = "share"; shareBtn.style.cssText = "border-radius:999px;border:none;padding:6px 14px;font-size:13px;cursor:pointer;background:#e5e7eb;";
   const delBtn = document.createElement("button"); delBtn.className = "delete"; delBtn.textContent = t("Διαγραφή", "Delete"); delBtn.dataset.action = "delete";
   buttons.append(editBtn, waBtn, shareBtn, delBtn);
-  if (cardAiWarning.className) card.append(header, place, caseBadge, cardAiWarning, rows, buttons); else card.append(header, place, caseBadge, rows, buttons);
+  const cardChildren = [header, place, caseBadge];
+  if (meBanner) cardChildren.push(meBanner);
+  if (cardAiWarning.className) cardChildren.push(cardAiWarning);
+  cardChildren.push(rows, buttons);
+  card.append(...cardChildren);
   return card;
 }
 

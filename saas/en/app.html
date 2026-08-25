@@ -711,18 +711,21 @@
         <!-- Place of death -->
         <div class="form-grid-2">
           <label>Place of death
-            <select id="ceremonyColdRoom">
+            <select id="ceremonyColdRoom" onchange="document.getElementById('ceremonyCircumstanceBox').style.display = this.value === 'Home' ? '' : 'none'; if (this.value !== 'Home') document.getElementById('ceremonyDeathCircumstance').value = '';">
               <option value="">— select —</option>
               <option value="Hospital">Hospital</option>
-              <option value="Hospice">Hospice</option>
-              <option value="Nursing Facility">Nursing Facility</option>
-              <option value="Residence">Residence</option>
-              <option value="Coroner's Office">Coroner's Office</option>
+              <option value="Nursing or Care Facility">Nursing or Care Facility</option>
+              <option value="Hospice Facility">Hospice Facility</option>
+              <option value="Home">Home</option>
               <option value="Other">Other</option>
             </select>
           </label>
           <label>Facility name<input type="text" id="ceremonyFlowers" placeholder="e.g. St. Mary Medical Center" /></label>
         </div>
+        <div id="ceremonyCircumstanceBox" style="display:none;">
+          <label>Death Circumstance — <b>required for a home death</b><select id="ceremonyDeathCircumstance" onchange="document.getElementById('ceremonyMECase').checked = this.value === 'Unexpected';"><option value="">Select…</option><option value="Expected">Expected (hospice / known terminal illness)</option><option value="Unexpected">Unexpected / sudden</option></select></label>
+        </div>
+        <label class="usa-checkbox-label"><input type="checkbox" id="ceremonyMECase" /> Medical Examiner / Coroner case (blocks removal until release is recorded)</label>
 
         <!-- Caller -->
         <div class="form-grid-2">
@@ -908,7 +911,7 @@
 </script>
 <script src="freemium.js"></script>
 <script>window.__appLang = "en";</script>
-<script src="../app.js?v=15"></script>
+<script src="../app.js?v=16"></script>
 <script src="suppliers.js"></script>
 <script src="../usa.js?v=2"></script>
 
