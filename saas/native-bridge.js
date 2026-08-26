@@ -6,14 +6,15 @@
 // never accidentally affect the web app even if something goes wrong with
 // bundle assembly.
 //
-// Plugin globals referenced here (window.Purchases, window.Capacitor.Plugins.*)
-// come from @revenuecat/purchases-capacitor, @capacitor/push-notifications,
-// and @capacitor/app — installed in the native/*-app/ Capacitor projects
-// (mobile-plan Phase 4), not present at all in the web deploy. Exact call
-// shapes should be re-verified against each plugin's current docs when the
-// native projects are actually wired up (mobile-plan Phase 6/7) — this is
-// written to the well-established public API each plugin has documented for
-// a long time, not yet exercised against a real build.
+// Plugin globals referenced here all come from window.Capacitor.Plugins.* —
+// Purchases (@revenuecat/purchases-capacitor), PushNotifications
+// (@capacitor/push-notifications), App (@capacitor/app) — installed in the
+// native/*-app/ Capacitor projects (mobile-plan Phase 4), not present at all
+// in the web deploy. Exact call shapes should be re-verified against each
+// plugin's current docs when the native projects are actually wired up
+// (mobile-plan Phase 6/7) — this is written to the well-established public
+// API each plugin has documented for a long time, not yet exercised against
+// a real build.
 
 (function () {
   "use strict";
@@ -22,6 +23,11 @@
   }
 
   const platform = window.Capacitor.getPlatform ? window.Capacitor.getPlatform() : "unknown"; // "ios" | "android"
+  // Like every other Capacitor plugin (App, PushNotifications below), the
+  // RevenueCat plugin registers itself as Capacitor.Plugins.Purchases — there's
+  // no bundler here to resolve the @revenuecat/purchases-capacitor JS import,
+  // so the native bridge's auto-registered global is the only way to reach it.
+  const Purchases = window.Capacitor.Plugins && window.Capacitor.Plugins.Purchases;
 
   // ── IAP (RevenueCat) ─────────────────────────────────────────────────────
   // Apple/Google both require Pro/Business upgrades to go through native IAP
@@ -29,19 +35,58 @@
   // are not permitted here. This intercepts the same buttons the web build
   // uses (so no HTML changes needed per-edition) and routes them through
   // RevenueCat instead.
+
+  // Must configure() before any other Purchases.* call. TODO: this is the
+  // RevenueCat "Test Store" sandbox key (only one exists yet) — replace with
+  // the real per-platform key once GR/EN each have their own iOS + Android
+  // "App" set up in RevenueCat (Project settings → API keys), since ios and
+  // android keys will differ and this Test Store key is shared by both for
+  // now, purely so sandbox purchases can be exercised before real store
+  // products exist.
+  const REVENUECAT_API_KEY = "test_VQrtGTPbcDneqyOmqSGrGJwIeQe";
+  if (Purchases) {
+    try {
+      Purchases.configure({ apiKey: REVENUECAT_API_KEY });
+    } catch (err) {
+      console.error("[native-bridge] Purchases.configure failed", err);
+    }
+  } else {
+    console.error("[native-bridge] Capacitor.Plugins.Purchases unavailable — RevenueCat plugin not registered");
+  }
+
+  // Keeps RevenueCat's app_user_id equal to the Supabase user id, so
+  // revenuecat-webhook (event.app_user_id) maps purchase events straight to
+  // app_metadata.plan with no email-matching fallback needed.
+  async function syncRevenueCatUser() {
+    if (!Purchases) return;
+    try {
+      const { data } = await window.__sb.auth.getSession();
+      const uid = data?.session?.user?.id;
+      if (uid) await Purchases.logIn({ appUserID: uid });
+      else await Purchases.logOut();
+    } catch (err) {
+      console.error("[native-bridge] RevenueCat logIn/logOut failed", err);
+    }
+  }
+  if (window.__sb) {
+    syncRevenueCatUser();
+    window.__sb.auth.onAuthStateChange(() => syncRevenueCatUser());
+  }
+
   const ENTITLEMENT_BY_BTN = {
     upgradeBtnPro: "pro", billingBtnPro: "pro",
     upgradeBtnBiz: "business", billingBtnBiz: "business",
   };
 
   async function purchaseEntitlement(entitlementId) {
+    if (!Purchases) { alert("Οι αγορές δεν είναι διαθέσιμες αυτή τη στιγμή."); return; }
     try {
-      const offerings = await window.Purchases.getOfferings();
+      const offerings = await Purchases.getOfferings();
       const pkg = offerings?.current?.availablePackages?.find(
         (p) => p.identifier === entitlementId || p.packageType?.toLowerCase() === entitlementId
       ) || offerings?.current?.availablePackages?.[0];
       if (!pkg) { alert("Δεν βρέθηκε διαθέσιμο πλάνο. Δοκίμασε ξανά αργότερα."); return; }
-      const { customerInfo } = await window.Purchases.purchasePackage({ aPackage: pkg });
+      const { customerInfo } = await Purchases.purchasePackage({ aPackage: pkg });
       if (customerInfo?.entitlements?.active?.[entitlementId]) {
         // RevenueCat's webhook (supabase/functions/revenuecat-webhook) updates
         // app_metadata.plan server-side — refresh the session so the client
@@ -58,8 +103,9 @@
   }
 
   window.__nativeRestorePurchases = async function () {
+    if (!Purchases) { alert("Οι αγορές δεν είναι διαθέσιμες αυτή τη στιγμή."); return; }
     try {
-      const { customerInfo } = await window.Purchases.restorePurchases();
+      const { customerInfo } = await Purchases.restorePurchases();
       const active = customerInfo?.entitlements?.active || {};
       if (active.business || active.pro) {
         if (typeof window.refreshMyPlan === "function") window.refreshMyPlan();
