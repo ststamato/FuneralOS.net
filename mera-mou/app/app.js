@@ -818,6 +818,8 @@
     var notConfigured = document.getElementById('account-not-configured');
     var signedOut = document.getElementById('account-signed-out');
     var signedIn = document.getElementById('account-signed-in');
+    currentUser = null;
+    renderNotifyUI();
     if (!S || !S.isConfigured()) {
       notConfigured.hidden = false;
       signedOut.hidden = true;
@@ -834,6 +836,8 @@
     document.getElementById('account-signed-out').hidden = true;
     document.getElementById('account-signed-in').hidden = false;
     document.getElementById('account-email-display').textContent = I.t('account.signedInAs') + ' ' + session.user.email;
+    currentUser = session.user;
+    renderNotifyUI();
     setSyncStatus('syncing');
     S.pullData().then(function (remote) {
       var localUpdated = (store.meta && store.meta.updatedAt) || 0;
@@ -886,6 +890,121 @@
   } else {
     renderAccount();
   }
+
+  // ---------- notifications ----------
+
+  var currentUser = null;
+  var pushSupported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+
+  function urlBase64ToUint8Array(base64String) {
+    var padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    var rawData = atob(base64);
+    var outputArray = new Uint8Array(rawData.length);
+    for (var i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i);
+    return outputArray;
+  }
+
+  function populateNotifyHourSelect() {
+    var select = document.getElementById('notify-hour');
+    if (select.options.length) return;
+    for (var h = 0; h < 24; h++) {
+      var opt = document.createElement('option');
+      opt.value = String(h);
+      opt.textContent = (h < 10 ? '0' + h : h) + ':00';
+      select.appendChild(opt);
+    }
+    select.value = '8';
+  }
+
+  function setNotifyStatus(key, params) {
+    var el = document.getElementById('notify-status');
+    el.textContent = key ? I.t(key, params) : '';
+  }
+
+  function renderNotifyUI() {
+    var needsAccount = document.getElementById('notify-needs-account');
+    var toggleWrap = document.getElementById('notify-toggle-wrap');
+    var timeRow = document.getElementById('notify-time-row');
+    var toggle = document.getElementById('notify-toggle');
+
+    if (!pushSupported) {
+      needsAccount.hidden = false;
+      needsAccount.textContent = I.t('notify.unsupported');
+      toggleWrap.hidden = true;
+      timeRow.hidden = true;
+      return;
+    }
+    if (!S || !S.isConfigured() || !currentUser) {
+      needsAccount.hidden = false;
+      needsAccount.textContent = I.t('notify.needsAccount');
+      toggleWrap.hidden = true;
+      timeRow.hidden = true;
+      return;
+    }
+    needsAccount.hidden = true;
+    toggleWrap.hidden = false;
+    populateNotifyHourSelect();
+
+    navigator.serviceWorker.ready.then(function (reg) {
+      return reg.pushManager.getSubscription();
+    }).then(function (sub) {
+      toggle.checked = !!sub;
+      timeRow.hidden = !sub;
+      setNotifyStatus(sub ? 'notify.statusEnabled' : 'notify.statusDisabled', { hour: document.getElementById('notify-hour').value });
+    }).catch(function () {});
+  }
+
+  document.getElementById('notify-toggle').addEventListener('change', function (e) {
+    if (!e.target.checked) {
+      navigator.serviceWorker.ready.then(function (reg) { return reg.pushManager.getSubscription(); })
+        .then(function (sub) {
+          if (!sub) return;
+          var endpoint = sub.endpoint;
+          return sub.unsubscribe().then(function () { return S.deletePushSubscription(endpoint); });
+        }).then(function () {
+          document.getElementById('notify-time-row').hidden = true;
+          setNotifyStatus('notify.statusDisabled');
+        });
+      return;
+    }
+
+    Notification.requestPermission().then(function (permission) {
+      if (permission !== 'granted') {
+        e.target.checked = false;
+        setNotifyStatus('notify.permissionDenied');
+        return;
+      }
+      return navigator.serviceWorker.ready.then(function (reg) {
+        return reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(S.getVapidPublicKey())
+        });
+      }).then(function (sub) {
+        var tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Athens';
+        var hour = parseInt(document.getElementById('notify-hour').value, 10);
+        return S.savePushSubscription(sub, tz, hour);
+      }).then(function () {
+        document.getElementById('notify-time-row').hidden = false;
+        setNotifyStatus('notify.statusEnabled', { hour: document.getElementById('notify-hour').value });
+      }).catch(function () {
+        e.target.checked = false;
+        setNotifyStatus('notify.error');
+      });
+    });
+  });
+
+  document.getElementById('notify-hour').addEventListener('change', function () {
+    navigator.serviceWorker.ready.then(function (reg) { return reg.pushManager.getSubscription(); })
+      .then(function (sub) {
+        if (!sub) return;
+        var tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Athens';
+        var hour = parseInt(document.getElementById('notify-hour').value, 10);
+        return S.savePushSubscription(sub, tz, hour).then(function () {
+          setNotifyStatus('notify.statusEnabled', { hour: document.getElementById('notify-hour').value });
+        });
+      });
+  });
 
   // ---------- init ----------
 

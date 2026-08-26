@@ -64,6 +64,32 @@
     });
   }
 
+  function savePushSubscription(subscription, timezone, notifyHour) {
+    if (!client) return Promise.reject(new Error('not configured'));
+    return client.auth.getUser().then(function (r) {
+      var user = r.data.user;
+      if (!user) return Promise.reject(new Error('not signed in'));
+      var json = subscription.toJSON();
+      return client.from('push_subscriptions').upsert({
+        user_id: user.id,
+        endpoint: json.endpoint,
+        p256dh: json.keys.p256dh,
+        auth: json.keys.auth,
+        timezone: timezone,
+        notify_hour: notifyHour
+      }, { onConflict: 'endpoint' });
+    });
+  }
+
+  function deletePushSubscription(endpoint) {
+    if (!client) return Promise.resolve();
+    return client.from('push_subscriptions').delete().eq('endpoint', endpoint);
+  }
+
+  function getVapidPublicKey() {
+    return cfg && cfg.vapidPublicKey;
+  }
+
   global.MeraMouSync = {
     isConfigured: isConfigured,
     onAuthStateChange: onAuthStateChange,
@@ -71,6 +97,9 @@
     sendMagicLink: sendMagicLink,
     signOut: signOut,
     pushData: pushData,
-    pullData: pullData
+    pullData: pullData,
+    savePushSubscription: savePushSubscription,
+    deletePushSubscription: deletePushSubscription,
+    getVapidPublicKey: getVapidPublicKey
   };
 })(window);

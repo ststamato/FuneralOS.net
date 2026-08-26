@@ -1,4 +1,4 @@
-const CACHE = 'mera-mou-v6';
+const CACHE = 'mera-mou-v7';
 const ASSETS = [
   './index.html',
   './styles.css',
@@ -55,5 +55,32 @@ self.addEventListener('fetch', (event) => {
   }
   event.respondWith(
     caches.match(event.request).then((cached) => cached || fetch(event.request))
+  );
+});
+
+self.addEventListener('push', (event) => {
+  var payload = { title: 'Η Μέρα Μου', body: '' };
+  try {
+    if (event.data) payload = Object.assign(payload, event.data.json());
+  } catch (e) {}
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      icon: './icons/icon.svg',
+      badge: './icons/icon.svg',
+      tag: 'mera-mou-daily-digest'
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      for (var i = 0; i < clients.length; i++) {
+        if ('focus' in clients[i]) return clients[i].focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow('./index.html');
+    })
   );
 });

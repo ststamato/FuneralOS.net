@@ -127,9 +127,24 @@
         <label class="field-label" for="settings-language" data-i18n="settings.language">Γλώσσα</label>
         <select class="text-input" id="settings-language"></select>
         <ul class="list">
-          <li class="list-item" data-i18n="settings.notifications">Ειδοποιήσεις — Ενεργές</li>
           <li class="list-item" data-i18n="settings.theme">Θέμα — Σύστημα</li>
         </ul>
+      </div>
+
+      <div class="card" id="notify-card">
+        <h2 class="card-title" data-i18n="notify.title">Καθημερινή Ειδοποίηση</h2>
+        <p class="card-subtext" data-i18n="notify.subtitle">Ένα μήνυμα το πρωί με το πιο σημαντικό της ημέρας — τίποτα παραπάνω.</p>
+        <p class="empty-state" id="notify-needs-account" data-i18n="notify.needsAccount" hidden>Χρειάζεται σύνδεση λογαριασμού πρώτα (δες Backup).</p>
+        <ul class="list" id="notify-toggle-wrap" hidden>
+          <li class="list-item checkable">
+            <label><input type="checkbox" id="notify-toggle"><span data-i18n="notify.enable">Ενεργοποίηση ειδοποίησης</span></label>
+          </li>
+        </ul>
+        <div id="notify-time-row" hidden>
+          <label class="field-label" for="notify-hour" data-i18n="notify.hourLabel">Ώρα ειδοποίησης</label>
+          <select class="text-input" id="notify-hour"></select>
+        </div>
+        <p class="empty-state" id="notify-status"></p>
       </div>
     </section>
 
