@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "95162168475",
+    "project_id": "funeralos",
+    "storage_bucket": "funeralos.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:95162168475:android:e256ee59b6eb59a74dc23e",
+        "android_client_info": {
+          "package_name": "net.funeralos.en"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBh4e-eaa_7n9PK2D6aFERhp5tX9qjDtNE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:95162168475:android:919d6c248ff865114dc23e",
+        "android_client_info": {
+          "package_name": "net.funeralos.gr"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBh4e-eaa_7n9PK2D6aFERhp5tX9qjDtNE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
