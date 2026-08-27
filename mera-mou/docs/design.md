@@ -230,22 +230,27 @@ Timeline | Ρυθμίσεις | Backup | Premium
     `mera-mou/supabase/functions/daily-digest/index.ts` (Edge Function
     που τρέχει ωριαία μέσω pg_cron, υπολογίζει το πιο επείγον ανά χρήστη
     στη γλώσσα του, και στέλνει το push μέσω VAPID/web-push).
-  - **Εκκρεμεί deploy** (χρειάζεται ενεργή σύνδεση Supabase MCP): apply το
-    `notifications.sql`, ενεργοποίηση extensions `pg_cron` + `pg_net`,
-    deploy το `daily-digest` function με secrets `VAPID_PUBLIC_KEY` /
-    `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT`, και schedule το ωριαίο cron
-    (η εντολή είναι έτοιμη, σχολιασμένη, στο τέλος του `notifications.sql`).
-    Το VAPID public key είναι ήδη στο `config.js` (ασφαλές, δημόσιο εκ
-    σχεδιασμού) — το private key **δεν** μπαίνει ποτέ στο repo.
+  - **Deployed και ενεργό** στο project `csbbnngpiogbvhnaenjo`: πίνακας
+    `push_subscriptions` (RLS on, 0 security lints), function
+    `daily-digest` (verify_jwt: false — αυθεντικοποιείται με δικό της
+    shared secret αντί για Supabase JWT, αφού μόνο το pg_cron την καλεί),
+    `pg_cron` + `pg_net` ενεργά, ωριαίο job `mera-mou-daily-digest`. Τα
+    VAPID κλειδιά + το cron secret ζουν στο Supabase Vault (κρυπτογραφημένα
+    στη βάση, προσβάσιμα μόνο μέσω μιας service-role-only SQL function) —
+    ποτέ ως plain env var, ποτέ σε αυτό το repo. Το VAPID public key είναι
+    ήδη στο `config.js` (ασφαλές, δημόσιο εκ σχεδιασμού).
+  - Επιβεβαιωμένο και server-side: χειροκίνητη κλήση του function με λάθος
+    cron-secret → 401, με το σωστό → 200 `{"sent":0,"skipped":0,"removed":0}`
+    (σωστό, μηδέν εγγεγραμμένες συσκευές ακόμα).
   - Επιβεβαιωμένο client-side με Playwright (mocked Supabase + πραγματικό
     Notification/Push API permission flow): σωστή εμφάνιση/απόκρυψη ανά
     κατάσταση (χωρίς λογαριασμό / συνδεδεμένος / αποσυνδεδεμένος), σωστό
-    populate ώρας (24 επιλογές, προεπιλογή 08:00), και ΚΥΡΙΩΣ graceful
-    αποτυχία όταν η πραγματική υπηρεσία push δεν είναι διαθέσιμη (π.χ. σε
-    αυτό το dev sandbox) — καμία κατάρρευση, revert του toggle, μήνυμα
-    σφάλματος. Η πραγματική παράδοση push end-to-end (πραγματικός
-    browser/συσκευή + deployed function) δεν έχει επιβεβαιωθεί ακόμα,
-    γιατί χρειάζεται το deploy παραπάνω.
+    populate ώρας (24 επιλογές, προεπιλογή 08:00), και graceful αποτυχία
+    όταν η πραγματική υπηρεσία push δεν είναι διαθέσιμη (π.χ. σε αυτό το
+    dev sandbox, όπου το headless Chromium μπλοκάρει σκόπιμα το Push API).
+  - **Μένει μόνο**: πραγματικό subscribe από πραγματικό κινητό/browser,
+    ώστε να υπάρξει έστω μία εγγραφή στο `push_subscriptions` και να δούμε
+    ένα πραγματικό push notification να φτάνει.
 
 Επιβεβαιωμένο με αυτοματοποιημένα end-to-end τεστ (Playwright): προσθήκη/
 επεξεργασία/διαγραφή σε κάθε ενότητα, persistence μετά από reload, export

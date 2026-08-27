@@ -7,9 +7,12 @@
 // vehicle item) and sends ONE push notification. Sends nothing if
 // there's nothing worth surfacing — silence is a feature here, not a bug.
 //
-// Required secrets (set once, outside of SUPABASE_URL/SERVICE_ROLE_KEY
-// which every Edge Function gets automatically):
-//   supabase secrets set VAPID_PUBLIC_KEY=... VAPID_PRIVATE_KEY=... VAPID_SUBJECT=mailto:you@example.com
+// Deployed with verify_jwt=false: this function isn't user-facing, only
+// pg_cron calls it, so it authenticates via a shared secret (checked
+// against the x-cron-secret header) instead of a Supabase JWT. Both that
+// secret and the VAPID keys live in Supabase Vault, readable only through
+// the service-role-gated public.get_daily_digest_secrets() RPC — never as
+// plain Edge Function env vars, and never in this repo.
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3';
@@ -98,14 +101,17 @@ function pickMessage(lang: string, store: any, nowInTz: Date): string | null {
   return `${soonest.title} — ${dueLabel(lang, soonest.days)}`;
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req: Request) => {
   const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
-  webpush.setVapidDetails(
-    Deno.env.get('VAPID_SUBJECT')!,
-    Deno.env.get('VAPID_PUBLIC_KEY')!,
-    Deno.env.get('VAPID_PRIVATE_KEY')!
-  );
+  const { data: secrets, error: secretsError } = await supabase.rpc('get_daily_digest_secrets');
+  if (secretsError || !secrets) return new Response(JSON.stringify({ error: 'secrets unavailable' }), { status: 500 });
+
+  if (req.headers.get('x-cron-secret') !== secrets.daily_digest_cron_secret) {
+    return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401 });
+  }
+
+  webpush.setVapidDetails(secrets.vapid_subject, secrets.vapid_public_key, secrets.vapid_private_key);
 
   const { data: subs, error: subsError } = await supabase.from('push_subscriptions').select('*');
   if (subsError) return new Response(JSON.stringify({ error: subsError.message }), { status: 500 });
