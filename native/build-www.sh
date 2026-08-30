@@ -64,11 +64,14 @@ build_en() {
   # EN's HTML normally sits one directory below the shared files (saas/en/
   # referencing saas/styles.css etc. via "../") — now that everything is
   # flattened into one www/ directory, those "../" prefixes must be stripped.
-  sed -i \
-    -e 's|href="\.\./styles\.css"|href="styles.css"|' \
-    -e 's|src="\.\./config\.js"|src="config.js"|' \
-    -e 's|src="\.\./app\.js|src="app.js|' \
-    -e 's|src="\.\./usa\.js|src="usa.js|' \
+  # perl -pi (not sed -i) — sed's -i takes a mandatory backup-suffix argument
+  # on macOS/BSD but not on Linux/GNU, so a single `sed -i -e ...` invocation
+  # can't be written portably across both; perl -pi works the same either way.
+  perl -pi \
+    -e 's{href="\.\./styles\.css"}{href="styles.css"};' \
+    -e 's{src="\.\./config\.js"}{src="config.js"};' \
+    -e 's{src="\.\./app\.js}{src="app.js};' \
+    -e 's{src="\.\./usa\.js}{src="usa.js};' \
     "$dest/index.html"
 
   perl -0pi -e 's{</body>}{  <script src="native-bridge.js"></script>\n</body>}' "$dest/index.html"
