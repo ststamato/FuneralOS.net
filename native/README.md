@@ -71,23 +71,26 @@ IAP/push/OTA vendors need real accounts with real credentials.
    account key JSON, one line).
 4. **Capgo** account + channels (`production`/`beta`) per app, `npx
    @capgo/cli login`, then `publish-ota.sh` works as documented.
-5. ~~**App icon**~~ — done (Phase 5). A tricolor "FoS" lettermark on the
-   ink background (`#0f1523`) with a soft warm glow behind it: F in green
-   (`#3f8f5f`), o in gold (`#c8a96e`), S in oxblood red (`#a8433f`) — bold
-   Liberation Serif, dialed-back radial glow so it stays behind the
-   letters instead of washing into them (the gold "o" is the one that
-   loses contrast fastest against a bright glow). Iterated through several
-   concepts (flame, laurel branch, teardrop, plain "FOS" monogram) before
-   landing here; picked by the user after comparing all of them side by
-   side at real icon sizes down to 40px. 1024×1024 master committed to
+5. ~~**App icon**~~ — done (Phase 5, revised). A folded-ribbon "F" mark on
+   a dark navy card (`#202433`): white ribbon on top, brand-purple
+   (`#8b7cf6`-family) ribbon below, with a soft fold shadow at the seam.
+   Replaced the earlier tricolor "FoS" lettermark design. Source artwork
+   came from the user as a finished render with pre-baked rounded corners
+   (AI-generated mockup) — the four corners outside the rounded-rect were
+   near-white, not transparent or edge-to-edge navy, which would have left
+   visible white slivers once iOS/Android applied their own icon mask on
+   top; fixed by flood-filling those corner regions with the card's navy
+   so the master is a true full-bleed 1024×1024 square before handing it
+   to capacitor-assets. 1024×1024 master committed to
    `native/{gr,en}-app/resources/icon.png`; `npx capacitor-assets generate`
    ran in both projects — every iOS AppIcon/splash size and Android
    adaptive-icon/splash density is already in place under each project's
    `ios/`/`android/` folders. Same brand for both apps. To change it
-   later: replace `resources/icon.png` (1024×1024, no transparency) and
-   re-run `npx capacitor-assets generate --iconBackgroundColor '#0f1523'
-   --iconBackgroundColorDark '#0f1523' --splashBackgroundColor '#0f1523'
-   --splashBackgroundColorDark '#0f1523'` in each project.
+   later: replace `resources/icon.png` (1024×1024, no transparency, no
+   pre-baked rounded corners — full-bleed square, OS applies its own mask)
+   and re-run `npx capacitor-assets generate --iconBackgroundColor
+   '#202433' --iconBackgroundColorDark '#202433' --splashBackgroundColor
+   '#202433' --splashBackgroundColorDark '#202433'` in each project.
 6. **First compiled build** — needs the user's own Mac + Xcode, or a cloud
    CI service (Codemagic / EAS Build) configured with the Apple/Google
    credentials from step 1.
