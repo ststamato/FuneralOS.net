@@ -23,6 +23,21 @@
   }
 
   const platform = window.Capacitor.getPlatform ? window.Capacitor.getPlatform() : "unknown"; // "ios" | "android"
+
+  // ── Capgo OTA updater handshake ─────────────────────────────────────────
+  // @capgo/capacitor-updater holds the native splash screen and blocks the
+  // WebView from becoming visible until the JS side calls notifyAppReady()
+  // (default 10s timeout, then it errors and retries forever) — this is
+  // required as soon as the plugin is installed, independent of whether a
+  // Capgo account/channel exists yet (mobile-plan Phase 8, still pending).
+  // Without this call the app hangs on the splash screen indefinitely.
+  try {
+    const CapacitorUpdater = window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorUpdater;
+    if (CapacitorUpdater) CapacitorUpdater.notifyAppReady();
+  } catch (err) {
+    console.error("[native-bridge] CapacitorUpdater.notifyAppReady failed", err);
+  }
+
   // Like every other Capacitor plugin (App, PushNotifications below), the
   // RevenueCat plugin registers itself as Capacitor.Plugins.Purchases — there's
   // no bundler here to resolve the @revenuecat/purchases-capacitor JS import,
