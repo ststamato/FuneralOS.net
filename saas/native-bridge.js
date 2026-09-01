@@ -7,14 +7,9 @@
 // bundle assembly.
 //
 // Plugin globals referenced here all come from window.Capacitor.Plugins.* —
-// Purchases (@revenuecat/purchases-capacitor), PushNotifications
-// (@capacitor/push-notifications), App (@capacitor/app) — installed in the
-// native/*-app/ Capacitor projects (mobile-plan Phase 4), not present at all
-// in the web deploy. Exact call shapes should be re-verified against each
-// plugin's current docs when the native projects are actually wired up
-// (mobile-plan Phase 6/7) — this is written to the well-established public
-// API each plugin has documented for a long time, not yet exercised against
-// a real build.
+// Purchases (@revenuecat/purchases-capacitor), FirebaseMessaging
+// (@capacitor-firebase/messaging), CapacitorUpdater (@capgo/capacitor-updater),
+// App (@capacitor/app) — installed in the native/*-app/ Capacitor projects.
 
 (function () {
   "use strict";
@@ -155,29 +150,43 @@
   // Overrides the web implementation the "🔔 Push" button calls — see
   // registerServiceWorker()/subscribePush()/setupPushOptB() in app.js, none
   // of which apply inside a Capacitor WebView (no Service Worker push there).
+  //
+  // Uses @capacitor-firebase/messaging, not @capacitor/push-notifications —
+  // push_sender (supabase/functions/push_sender) sends through FCM's v1 API
+  // uniformly for both platforms, which requires an actual FCM registration
+  // token. Android's push transport IS FCM, so @capacitor/push-notifications
+  // already returned a usable token there, but on iOS it only ever returns
+  // the raw APNs device token — FCM's messages:send rejects that outright.
+  // @capacitor-firebase/messaging does the APNs→FCM token exchange
+  // internally (via GoogleService-Info.plist), giving one code path that
+  // actually works on both platforms.
+  async function upsertPushToken(token) {
+    if (!token) return;
+    const session = typeof getCloudSession === "function" ? await getCloudSession() : null;
+    if (!session || !window.__sb) return;
+    await window.__sb.from("native_push_tokens").upsert(
+      {
+        office_id: session.rowId,
+        platform,
+        token,
+        device_label: (typeof getDeviceLabel === "function" ? getDeviceLabel() : platform),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "office_id,token" }
+    );
+  }
+
   window.setupPushOptB = async function () {
     try {
-      const { PushNotifications } = window.Capacitor.Plugins;
-      const perm = await PushNotifications.requestPermissions();
+      const { FirebaseMessaging } = window.Capacitor.Plugins;
+      if (!FirebaseMessaging) { console.error("[native-bridge] FirebaseMessaging plugin unavailable"); return; }
+      const perm = await FirebaseMessaging.requestPermissions();
       if (perm.receive !== "granted") return;
-      await PushNotifications.register();
-      PushNotifications.addListener("registration", async (token) => {
-        const session = typeof getCloudSession === "function" ? await getCloudSession() : null;
-        if (!session || !window.__sb) return;
-        await window.__sb.from("native_push_tokens").upsert(
-          {
-            office_id: session.rowId,
-            platform,
-            token: token.value,
-            device_label: (typeof getDeviceLabel === "function" ? getDeviceLabel() : platform),
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "office_id,token" }
-        );
-      });
-      PushNotifications.addListener("registrationError", (err) => {
-        console.error("[native-bridge] push registration failed", err);
-      });
+      const { token } = await FirebaseMessaging.getToken();
+      await upsertPushToken(token);
+      // FCM tokens can rotate (app reinstall, OS-level refresh) — keep the
+      // stored token current rather than registering once and going stale.
+      FirebaseMessaging.addListener("tokenReceived", (event) => upsertPushToken(event?.token));
     } catch (err) {
       console.error("[native-bridge] push setup failed", err);
     }
