@@ -41,4 +41,8 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Required on Android 13+ (API 33) for notifications to display at
+         all — without this, @capacitor/push-notifications' requestPermissions()
+         runtime prompt has nothing to grant and push silently never shows. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>
