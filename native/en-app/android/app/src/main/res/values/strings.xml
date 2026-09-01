@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">FuneralOS</string>
-    <string name="title_activity_main">FuneralOS</string>
+    <string name="app_name">FuneralOS USA</string>
+    <string name="title_activity_main">FuneralOS USA</string>
     <string name="package_name">net.funeralos.en</string>
     <string name="custom_url_scheme">net.funeralos.en</string>
 </resources>
