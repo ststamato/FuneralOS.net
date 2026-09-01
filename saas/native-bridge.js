@@ -33,7 +33,7 @@
     console.error("[native-bridge] CapacitorUpdater.notifyAppReady failed", err);
   }
 
-  // Like every other Capacitor plugin (App, PushNotifications below), the
+  // Like every other Capacitor plugin (App, FirebaseMessaging below), the
   // RevenueCat plugin registers itself as Capacitor.Plugins.Purchases — there's
   // no bundler here to resolve the @revenuecat/purchases-capacitor JS import,
   // so the native bridge's auto-registered global is the only way to reach it.
