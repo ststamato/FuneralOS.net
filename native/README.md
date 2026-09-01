@@ -37,8 +37,11 @@ or the IAP flow needs a full rebuild + store resubmission instead (Phases
 - Both Capacitor projects scaffolded: `package.json`, `capacitor.config.ts`,
   `ios/` + `android/` platforms, plugins installed (`@capacitor/app`,
   `@capacitor/browser`, `@capacitor/clipboard`, `@capacitor/share`,
-  `@capacitor/push-notifications`, `@revenuecat/purchases-capacitor`,
-  `@capgo/capacitor-updater`).
+  `@capacitor-firebase/messaging`, `@revenuecat/purchases-capacitor`,
+  `@capgo/capacitor-updater`). Push uses `@capacitor-firebase/messaging`,
+  not `@capacitor/push-notifications` — the latter only returns a raw APNs
+  token on iOS, which `push_sender`'s FCM v1 API can't send to; see the
+  comment above `setupPushOptB()` in `saas/native-bridge.js`.
 - Custom URL scheme registered in both platforms (`net.funeralos.gr://`,
   `net.funeralos.en://`) for the auth-callback deep link — `Info.plist`
   `CFBundleURLTypes` (iOS), `AndroidManifest.xml` intent-filter (Android).
