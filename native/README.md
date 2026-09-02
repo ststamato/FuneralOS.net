@@ -75,16 +75,21 @@ IAP/push/OTA vendors need real accounts with real credentials.
 4. **Capgo** account + channels (`production`/`beta`) per app, `npx
    @capgo/cli login`, then `publish-ota.sh` works as documented.
 5. ~~**App icon**~~ — done (Phase 5, revised). A folded-ribbon "F" mark on
-   a dark navy card (`#202433`): white ribbon on top, brand-purple
-   (`#8b7cf6`-family) ribbon below, with a soft fold shadow at the seam.
-   Replaced the earlier tricolor "FoS" lettermark design. Source artwork
-   came from the user as a finished render with pre-baked rounded corners
-   (AI-generated mockup) — the four corners outside the rounded-rect were
-   near-white, not transparent or edge-to-edge navy, which would have left
-   visible white slivers once iOS/Android applied their own icon mask on
-   top; fixed by flood-filling those corner regions with the card's navy
-   so the master is a true full-bleed 1024×1024 square before handing it
-   to capacitor-assets. 1024×1024 master committed to
+   a dark navy card (`#202433`): white ribbon on top, brand-gold
+   (`#c8a96e`, matching the "OS" in the FuneralOS wordmark) ribbon below,
+   with a soft fold shadow at the seam. Replaced the earlier tricolor
+   "FoS" lettermark design. Source artwork came from the user as a
+   finished render with pre-baked rounded corners (AI-generated mockup,
+   originally purple/white) — two fixes applied before it became the
+   master icon: (1) the four corners outside the rounded-rect were
+   near-white, not transparent or edge-to-edge navy, which would have
+   left visible white slivers once iOS/Android applied their own icon
+   mask on top — fixed by flood-filling those corner regions with the
+   card's navy so the master is a true full-bleed 1024×1024 square; (2)
+   the lower ribbon's purple was hue-shifted to brand gold in HSV space,
+   keeping each pixel's original Value (lightness) so the fold
+   shading/highlight gradient carried over exactly, only the hue changed.
+   1024×1024 master committed to
    `native/{gr,en}-app/resources/icon.png`; `npx capacitor-assets generate`
    ran in both projects — every iOS AppIcon/splash size and Android
    adaptive-icon/splash density is already in place under each project's
