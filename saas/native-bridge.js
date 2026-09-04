@@ -33,6 +33,28 @@
     console.error("[native-bridge] CapacitorUpdater.notifyAppReady failed", err);
   }
 
+  // ── window.open() → system browser ──────────────────────────────────────
+  // A stock Capacitor WKWebView has no default handler for target="_blank"/
+  // window.open() — it silently does nothing, since there's no native
+  // webView(_:createWebViewWith:) delegate wired up to actually open a new
+  // window. Every http(s) window.open() call across the shared JS (WhatsApp
+  // share, signed-URL document links, etc.) would otherwise be a dead
+  // button here. Overriding window.open globally, once, fixes every call
+  // site without touching app.js/gr-documents.js/usa.js at all.
+  try {
+    const Browser = window.Capacitor.Plugins && window.Capacitor.Plugins.Browser;
+    if (Browser) {
+      window.open = function (url) {
+        if (url && /^https?:\/\//i.test(url)) {
+          Browser.open({ url }).catch((err) => console.error("[native-bridge] Browser.open failed", err));
+        }
+        return null;
+      };
+    }
+  } catch (err) {
+    console.error("[native-bridge] window.open override failed", err);
+  }
+
   // Like every other Capacitor plugin (App, FirebaseMessaging below), the
   // RevenueCat plugin registers itself as Capacitor.Plugins.Purchases — there's
   // no bundler here to resolve the @revenuecat/purchases-capacitor JS import,
