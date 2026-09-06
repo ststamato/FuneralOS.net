@@ -17,6 +17,30 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SAAS="$REPO_ROOT/saas"
 NATIVE="$REPO_ROOT/native"
 
+# Both editions load supabase-js from jsDelivr on the web. That's fine there
+# (always online, and the CDN copy is cached across the whole site), but
+# inside a native WebView it makes the app's boot a hard dependency on the
+# network: every consumer destructures the global at the top level
+# (`const { createClient } = window.supabase` — saas/freemium.js,
+# saas/en/freemium.js, login.html, ...), so if the CDN request fails, is
+# blocked, or just hasn't finished, that line throws a TypeError and takes
+# the whole auth guard down with it. The loading overlay is then never
+# removed and the app sits on a blank screen with no visible error.
+#
+# Vendoring the identical UMD bundle into the binary (saas/vendor/supabase.js)
+# makes the native boot work with no network at all, and removes a real
+# store-review risk — a reviewer on a throttled or restricted network would
+# otherwise open a dead app. Only the URL is rewritten; the global the bundle
+# defines (`supabase`) is the same either way, so no other code changes.
+# The web deploy is untouched and keeps using the CDN.
+vendor_supabase() {
+  local dest="$1"
+  cp "$SAAS/vendor/supabase.js" "$dest/supabase.js"
+  perl -pi \
+    -e 's{https://cdn\.jsdelivr\.net/npm/\@supabase/supabase-js\@2}{supabase.js}g;' \
+    "$dest"/*.html
+}
+
 build_gr() {
   local dest="$NATIVE/gr-app/www"
   echo "Building GR www/ -> $dest"
@@ -40,6 +64,8 @@ build_gr() {
   # — just append the native-bridge.js script tag right before </body>, after
   # every other script (so it can safely override things like setupPushOptB).
   perl -0pi -e 's{</body>}{  <script src="native-bridge.js"></script>\n</body>}' "$dest/index.html"
+
+  vendor_supabase "$dest"
 }
 
 build_en() {
@@ -75,6 +101,8 @@ build_en() {
     "$dest/index.html"
 
   perl -0pi -e 's{</body>}{  <script src="native-bridge.js"></script>\n</body>}' "$dest/index.html"
+
+  vendor_supabase "$dest"
 }
 
 build_gr

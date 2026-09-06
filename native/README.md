@@ -15,10 +15,35 @@ session — the phase numbers below match it.
 Nothing in `native/*/www/` is hand-edited. `build-www.sh` copies the
 relevant subset of `saas/` into each project's `www/`, rewrites EN's `../`
 relative paths (its HTML normally lives one directory below the shared
-files), and injects a `<script src="native-bridge.js">` tag. Excludes
-`sw.js` and `manifest.webmanifest` — Service Worker / PWA-install concepts
-don't apply inside a Capacitor WebView; Capgo (Phase 8) covers the "get
-updates without a store review" role instead.
+files), injects a `<script src="native-bridge.js">` tag, and swaps the
+jsDelivr supabase-js CDN URL for a vendored local copy (see below).
+Excludes `sw.js` and `manifest.webmanifest` — Service Worker / PWA-install
+concepts don't apply inside a Capacitor WebView; Capgo (Phase 8) covers the
+"get updates without a store review" role instead.
+
+### Why supabase-js is vendored into the native bundles
+
+`saas/vendor/supabase.js` is the `@supabase/supabase-js@2` UMD build,
+committed to the repo and copied into each `www/` by `build-www.sh`, which
+also rewrites the CDN `<script src=...>` in every copied HTML file to point
+at it. **The web deploy is untouched and still uses the CDN.**
+
+On the web, loading supabase-js from jsDelivr is fine. In a native WebView
+it made the app's boot a hard dependency on the network, because every
+consumer destructures the global at the top level — `const { createClient }
+= window.supabase` in `saas/freemium.js`, `saas/en/freemium.js`,
+`login.html`, and others. If that CDN request fails, is blocked, or simply
+hasn't finished, the line throws a `TypeError` and takes the whole auth
+guard down with it: the loading overlay is never removed and the app sits
+on a blank screen with no visible error (it surfaces in the Xcode console
+only as a generic "JS Eval error A JavaScript exception occurred").
+
+Vendoring makes the native boot work with no network at all, and removes a
+store-review risk — a reviewer on a throttled or restricted network would
+otherwise open a dead app. To update the bundled version: `npm install
+@supabase/supabase-js@2` in a scratch directory and copy
+`node_modules/@supabase/supabase-js/dist/umd/supabase.js` over
+`saas/vendor/supabase.js`.
 
 ```bash
 ./native/build-www.sh          # regenerate both www/ folders from saas/
