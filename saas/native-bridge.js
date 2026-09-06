@@ -8,8 +8,14 @@
 //
 // Plugin globals referenced here all come from window.Capacitor.Plugins.* —
 // Purchases (@revenuecat/purchases-capacitor), FirebaseMessaging
-// (@capacitor-firebase/messaging), CapacitorUpdater (@capgo/capacitor-updater),
-// App (@capacitor/app) — installed in the native/*-app/ Capacitor projects.
+// (@capacitor-firebase/messaging), App (@capacitor/app) — installed in the
+// native/*-app/ Capacitor projects.
+//
+// @capgo/capacitor-updater (OTA updates, mobile-plan Phase 8) was removed
+// (temporarily) — no Capgo account/channel exists yet, and its default
+// update-check phoned home on every launch and failed ("getLatest failed
+// with error: on_premise_app"), blocking the splash screen from clearing.
+// Re-add it properly once a real Capgo account exists.
 
 (function () {
   "use strict";
@@ -18,20 +24,6 @@
   }
 
   const platform = window.Capacitor.getPlatform ? window.Capacitor.getPlatform() : "unknown"; // "ios" | "android"
-
-  // ── Capgo OTA updater handshake ─────────────────────────────────────────
-  // @capgo/capacitor-updater holds the native splash screen and blocks the
-  // WebView from becoming visible until the JS side calls notifyAppReady()
-  // (default 10s timeout, then it errors and retries forever) — this is
-  // required as soon as the plugin is installed, independent of whether a
-  // Capgo account/channel exists yet (mobile-plan Phase 8, still pending).
-  // Without this call the app hangs on the splash screen indefinitely.
-  try {
-    const CapacitorUpdater = window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorUpdater;
-    if (CapacitorUpdater) CapacitorUpdater.notifyAppReady();
-  } catch (err) {
-    console.error("[native-bridge] CapacitorUpdater.notifyAppReady failed", err);
-  }
 
   // ── window.open() → system browser ──────────────────────────────────────
   // A stock Capacitor WKWebView has no default handler for target="_blank"/

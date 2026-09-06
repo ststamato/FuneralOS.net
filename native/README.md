@@ -37,11 +37,21 @@ or the IAP flow needs a full rebuild + store resubmission instead (Phases
 - Both Capacitor projects scaffolded: `package.json`, `capacitor.config.ts`,
   `ios/` + `android/` platforms, plugins installed (`@capacitor/app`,
   `@capacitor/browser`, `@capacitor/clipboard`, `@capacitor/share`,
-  `@capacitor-firebase/messaging`, `@revenuecat/purchases-capacitor`,
-  `@capgo/capacitor-updater`). Push uses `@capacitor-firebase/messaging`,
-  not `@capacitor/push-notifications` — the latter only returns a raw APNs
+  `@capacitor-firebase/messaging`, `@revenuecat/purchases-capacitor`).
+  Push uses `@capacitor-firebase/messaging`, not
+  `@capacitor/push-notifications` — the latter only returns a raw APNs
   token on iOS, which `push_sender`'s FCM v1 API can't send to; see the
   comment above `setupPushOptB()` in `saas/native-bridge.js`.
+- `@capgo/capacitor-updater` was installed for OTA updates (Phase 8) but has
+  been **temporarily removed** from both projects — no real Capgo
+  account/channel exists yet, and with no account its default update-check
+  phoned home on every launch and failed ("getLatest failed with error:
+  on_premise_app"), which was blocking the splash screen from ever
+  clearing and was also implicated in a persistent "Semaphore wait timed
+  out" hang seen across multiple builds. Re-add it (`npm install
+  @capgo/capacitor-updater`, `npx cap sync`, restore the
+  `notifyAppReady()` handshake in `saas/native-bridge.js`) once a real
+  Capgo account/channel exists — see item 4 below.
 - Custom URL scheme registered in both platforms (`net.funeralos.gr://`,
   `net.funeralos.en://`) for the auth-callback deep link — `Info.plist`
   `CFBundleURLTypes` (iOS), `AndroidManifest.xml` intent-filter (Android).
@@ -73,12 +83,14 @@ IAP/push/OTA vendors need real accounts with real credentials.
    `FCM_SERVICE_ACCOUNT_JSON` via `supabase secrets set` (Firebase service
    account key JSON, one line).
 4. **Capgo** account + channels (`production`/`beta`) per app, `npx
-   @capgo/cli login`, then `publish-ota.sh` works as documented.
-   `capacitor.config.ts` currently sets `CapacitorUpdater.autoUpdate:
-   false` in both projects — without a real account, the plugin's
-   default update-check fails on every launch ("getLatest failed with
-   error: on_premise_app") and blocks the splash screen from clearing.
-   Switch this to a real `autoUpdate` mode once Capgo is actually set up.
+   @capgo/cli login`. `@capgo/capacitor-updater` has been **uninstalled**
+   from both projects for now (see "What's done" above) — without a real
+   account, its default update-check failed on every launch ("getLatest
+   failed with error: on_premise_app") and was blocking the splash screen
+   from clearing. Once a real account/channel exists: `npm install
+   @capgo/capacitor-updater` in both `native/*-app/`, `npx cap sync`,
+   restore the `notifyAppReady()` handshake in `saas/native-bridge.js`,
+   then `publish-ota.sh` works as documented.
 5. ~~**App icon**~~ — done (Phase 5, revised). A folded-ribbon "F" mark on
    a dark navy card (`#202433`): white ribbon on top, brand-gold
    (`#c8a96e`, matching the "OS" in the FuneralOS wordmark) ribbon below,

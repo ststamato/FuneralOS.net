@@ -14,7 +14,6 @@ dependencies {
     implementation project(':capacitor-browser')
     implementation project(':capacitor-clipboard')
     implementation project(':capacitor-share')
-    implementation project(':capgo-capacitor-updater')
     implementation project(':revenuecat-purchases-capacitor')
 
 }
