@@ -14,12 +14,48 @@
 (function () {
   "use strict";
 
+  var VERSION = "v2";
+  var t0 = Date.now();
   var shown = false;
+
+  window.__FOS_BOOT_DEBUG = VERSION;
 
   function esc(s) {
     return String(s).replace(/[<>&]/g, function (c) {
       return c === "<" ? "&lt;" : c === ">" ? "&gt;" : "&amp;";
     });
+  }
+
+  // An always-visible badge, up before anything else can fail. Its presence is
+  // the unambiguous answer to "is the device actually running the build I just
+  // made?" — a question that has repeatedly cost a debug round here. It also
+  // ticks, so a frozen number distinguishes a dead JS context from a slow one,
+  // and tapping it dumps full state on demand instead of waiting for a stall.
+  var badge;
+  function mountBadge() {
+    if (badge || !document.body) return;
+    badge = document.createElement("div");
+    badge.style.cssText =
+      "position:fixed;top:0;left:0;right:0;z-index:2147483646;background:#c8a96e;" +
+      "color:#0f1523;font:11px/1.4 ui-monospace,Menlo,monospace;font-weight:700;" +
+      "padding:3px 8px;text-align:center;";
+    badge.textContent = "diag " + VERSION;
+    badge.addEventListener("click", function () {
+      shown = false;
+      dumpState("State (tapped)");
+    });
+    document.body.appendChild(badge);
+    setInterval(function () {
+      if (!shown) {
+        badge.textContent =
+          "diag " + VERSION + " · " + ((Date.now() - t0) / 1000).toFixed(0) + "s";
+      }
+    }, 500);
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", mountBadge);
+  } else {
+    mountBadge();
   }
 
   function panel(title, body) {
@@ -72,10 +108,7 @@
   // Nothing threw, but the app never got past its loading overlay. That's a
   // hang on an await (network, a stuck supabase auth lock, ...) rather than an
   // exception, so report the state that distinguishes those instead.
-  setTimeout(function () {
-    var ov = document.getElementById("authOverlay");
-    if (!ov || ov.style.display === "none") return;
-
+  function dumpState(title) {
     var plugins = [];
     try {
       plugins = Object.keys((window.Capacitor && window.Capacitor.Plugins) || {});
@@ -108,10 +141,10 @@
 
     // Whether the WebView can reach Supabase at all is the single most useful
     // fact here: every path out of the loading overlay goes through it.
-    var t0 = Date.now();
+    var probeStart = Date.now();
     var settle = function (net) {
       lines.push("supabase reach : " + net);
-      panel("Boot stalled (10s)", esc(lines.join("\n")));
+      panel(title, esc(lines.join("\n")));
     };
     var timer = setTimeout(function () {
       settle("TIMEOUT (no response in 6s)");
@@ -120,11 +153,17 @@
     fetch("https://rqklpnrgpiprttzsploe.supabase.co/auth/v1/health")
       .then(function (r) {
         clearTimeout(timer);
-        settle("HTTP " + r.status + " in " + (Date.now() - t0) + "ms");
+        settle("HTTP " + r.status + " in " + (Date.now() - probeStart) + "ms");
       })
       .catch(function (e) {
         clearTimeout(timer);
         settle("FAILED: " + e.message);
       });
-  }, 10000);
+  }
+
+  setTimeout(function () {
+    var ov = document.getElementById("authOverlay");
+    var stillLoading = ov && ov.style.display !== "none";
+    if (stillLoading || !window.__authUser) dumpState("Boot stalled (6s)");
+  }, 6000);
 })();
