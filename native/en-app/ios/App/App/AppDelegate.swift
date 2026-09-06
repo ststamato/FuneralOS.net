@@ -1,5 +1,6 @@
 import UIKit
 import Capacitor
+import FirebaseCore
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -7,6 +8,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // Some Firebase components (GoogleAppMeasurement etc.) touch
+        // FirebaseApp.app() at launch before @capacitor-firebase/messaging's
+        // own lazy configure() ever runs (it only initializes once JS calls
+        // into the plugin) — configuring here, early, matches Firebase's own
+        // documented setup and avoids the "default Firebase app has not yet
+        // been configured" crash/error seen on a real device build.
+        if FirebaseApp.app() == nil {
+            FirebaseApp.configure()
+        }
         // Override point for customization after application launch.
         return true
     }
