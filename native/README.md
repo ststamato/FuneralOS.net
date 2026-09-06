@@ -21,6 +21,21 @@ Excludes `sw.js` and `manifest.webmanifest` — Service Worker / PWA-install
 concepts don't apply inside a Capacitor WebView; Capgo (Phase 8) covers the
 "get updates without a store review" role instead.
 
+### Boot diagnostics (`saas/native-boot-debug.js`)
+
+Injected by `build-www.sh` as the **first** script of each native
+`index.html`, before `freemium.js`/`app.js` can throw. A Capacitor WebView
+has no visible error surface — a fatal boot error just leaves the app on its
+loading overlay, and the Xcode console reports only a generic "JS Eval error
+A JavaScript exception occurred" with no message, file, or line. This paints
+the real error on screen, and if boot stalls without anything throwing
+(a hang on an `await` rather than an exception) it dumps what did and didn't
+initialize plus a reachability probe against Supabase.
+
+Not part of the web deploy. Revisit before store submission — the 10-second
+stall panel is developer-facing; the `error`/`unhandledrejection` handlers
+are worth keeping, since a legible error beats a blank screen for users too.
+
 ### Why supabase-js is vendored into the native bundles
 
 `saas/vendor/supabase.js` is the `@supabase/supabase-js@2` UMD build,

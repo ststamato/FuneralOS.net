@@ -41,6 +41,19 @@ vendor_supabase() {
     "$dest"/*.html
 }
 
+# native-boot-debug.js goes in as the very first script of the entry HTML, so
+# it is installed before freemium.js/app.js can throw. Without it a fatal boot
+# error is invisible: the app just sits on its loading overlay and the Xcode
+# console says only "JS Eval error A JavaScript exception occurred", with no
+# message, file, or line. See the header comment in saas/native-boot-debug.js.
+inject_boot_debug() {
+  local dest="$1"
+  cp "$SAAS/native-boot-debug.js" "$dest/"
+  perl -0pi \
+    -e 's{<head>}{<head>\n  <script src="native-boot-debug.js"></script>};' \
+    "$dest/index.html"
+}
+
 build_gr() {
   local dest="$NATIVE/gr-app/www"
   echo "Building GR www/ -> $dest"
@@ -66,6 +79,7 @@ build_gr() {
   perl -0pi -e 's{</body>}{  <script src="native-bridge.js"></script>\n</body>}' "$dest/index.html"
 
   vendor_supabase "$dest"
+  inject_boot_debug "$dest"
 }
 
 build_en() {
@@ -103,6 +117,7 @@ build_en() {
   perl -0pi -e 's{</body>}{  <script src="native-bridge.js"></script>\n</body>}' "$dest/index.html"
 
   vendor_supabase "$dest"
+  inject_boot_debug "$dest"
 }
 
 build_gr
