@@ -74,6 +74,11 @@ IAP/push/OTA vendors need real accounts with real credentials.
    account key JSON, one line).
 4. **Capgo** account + channels (`production`/`beta`) per app, `npx
    @capgo/cli login`, then `publish-ota.sh` works as documented.
+   `capacitor.config.ts` currently sets `CapacitorUpdater.autoUpdate:
+   false` in both projects — without a real account, the plugin's
+   default update-check fails on every launch ("getLatest failed with
+   error: on_premise_app") and blocks the splash screen from clearing.
+   Switch this to a real `autoUpdate` mode once Capgo is actually set up.
 5. ~~**App icon**~~ — done (Phase 5, revised). A folded-ribbon "F" mark on
    a dark navy card (`#202433`): white ribbon on top, brand-gold
    (`#c8a96e`, matching the "OS" in the FuneralOS wordmark) ribbon below,
