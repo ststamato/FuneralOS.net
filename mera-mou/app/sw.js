@@ -1,4 +1,4 @@
-const CACHE = 'mera-mou-v7';
+const CACHE = 'mera-mou-v8';
 const ASSETS = [
   './index.html',
   './styles.css',
@@ -8,7 +8,11 @@ const ASSETS = [
   './sync.js',
   './app.js',
   './manifest.webmanifest',
-  './icons/icon.svg'
+  './icons/icon.svg',
+  './icons/icon-180.png',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/icon-maskable-512.png'
 ];
 
 self.addEventListener('install', (event) => {
