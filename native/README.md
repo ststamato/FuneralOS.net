@@ -103,6 +103,31 @@ or the IAP flow needs a full rebuild + store resubmission instead (Phases
   CORS allow-list on the 5 app-facing edge functions, `push_sender`'s FCM
   branch, `revenuecat-webhook` function — all deployed live already.
 
+## First working build — what was actually blocking it
+
+The app booted to a stuck splash screen for a long stretch of Phase 9. Two
+independent bugs were happening at once, which is why fixing either one alone
+changed nothing visible:
+
+1. **Capgo held the splash screen and never released it.**
+   `@capgo/capacitor-updater` blocks the WebView until JS calls
+   `notifyAppReady()`, and with no Capgo account its update check failed on
+   every launch. Removed entirely (see above); re-add in Phase 8.
+2. **supabase-js was fetched from a CDN at boot.** Every consumer
+   destructures the global at the top level, so a slow or failed CDN request
+   threw a `TypeError` and killed the auth guard before it could clear the
+   loading overlay. Now vendored into the bundle (see above).
+
+A third, non-code factor cost more debug rounds than either bug: **stale
+builds**. Syncing one edition while Xcode had the other open, or running
+`build-www.sh` from the wrong directory, produces a build that succeeds and
+silently contains the old code — indistinguishable on the device from "the
+fix didn't work". `native/rebuild.sh` exists to make that failure mode
+impossible; use it rather than running the steps by hand.
+
+Verified working on the iOS Simulator (iPhone 17 Pro, iOS 26.5): app boots,
+login succeeds, Supabase cloud sync live, owner/BUSINESS plan resolved.
+
 ## What's still pending (needs vendor accounts / a Mac or cloud CI)
 
 None of this can happen inside this session — no Xcode/macOS here, and the
