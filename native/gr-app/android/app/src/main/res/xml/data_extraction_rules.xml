@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Case records hold the deceased's and their family's personal data. None of
+  it should be copied into the device owner's Google Drive backup or handed to
+  a new phone during device transfer — it belongs to the funeral office, not
+  to whoever holds the handset, and declaring it as backed-up would also widen
+  the Play Data Safety disclosure for no benefit.
+
+  Nothing is lost by excluding it: the app's own storage is only a local cache
+  of what already lives in Supabase, and it re-syncs on the next sign-in.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+        <exclude domain="file" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+        <exclude domain="file" />
+    </device-transfer>
+</data-extraction-rules>

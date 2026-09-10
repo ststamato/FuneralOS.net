@@ -13,6 +13,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NATIVE="$REPO_ROOT/native"
+SAAS="$REPO_ROOT/saas"
 
 echo ""
 echo "=================================================="
@@ -60,6 +61,32 @@ for app in gr-app en-app; do
   check "Capgo plugin gone" "0" \
     "$(grep -ci capgo "$NATIVE/$app/ios/App/CapApp-SPM/Package.swift" 2>/dev/null || true)"
 done
+
+# Things that are fine while testing but must not reach a store submission.
+# Warnings, not failures — every one of them is the expected state right now.
+echo ""
+echo "--- release readiness (warnings only) ---"
+warn=0
+if grep -q 'gr: { ios: "", android: "" }' "$SAAS/native-bridge.js" 2>/dev/null \
+   || grep -q 'en: { ios: "", android: "" }' "$SAAS/native-bridge.js" 2>/dev/null; then
+  echo "  WARN  RevenueCat still falls back to the Test Store key for at least one"
+  echo "        edition/platform. Sandbox purchases work; real ones cannot complete."
+  echo "        Fill REVENUECAT_KEYS in saas/native-bridge.js before submitting."
+  warn=1
+fi
+for app in gr-app en-app; do
+  if [ ! -f "$NATIVE/$app/android/keystore.properties" ]; then
+    echo "  WARN  $app has no Android release keystore — Play rejects debug-signed"
+    echo "        builds. Run: ./native/android-keystore.sh ${app%%-app}"
+    warn=1
+  fi
+done
+if [ "${FOS_DEBUG:-0}" = "1" ]; then
+  echo "  WARN  Built with FOS_DEBUG=1 — the on-screen diagnostics badge is in this"
+  echo "        bundle. Rebuild without it before archiving for a store."
+  warn=1
+fi
+[ "$warn" -eq 0 ] && echo "  none — nothing blocking a store submission from this side"
 
 echo ""
 echo "=================================================="

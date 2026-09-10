@@ -60,17 +60,40 @@
   // uses (so no HTML changes needed per-edition) and routes them through
   // RevenueCat instead.
 
-  // Must configure() before any other Purchases.* call. TODO: this is the
-  // RevenueCat "Test Store" sandbox key (only one exists yet) — replace with
-  // the real per-platform key once GR/EN each have their own iOS + Android
-  // "App" set up in RevenueCat (Project settings → API keys), since ios and
-  // android keys will differ and this Test Store key is shared by both for
-  // now, purely so sandbox purchases can be exercised before real store
-  // products exist.
-  const REVENUECAT_API_KEY = "test_VQrtGTPbcDneqyOmqSGrGJwIeQe";
+  // Must configure() before any other Purchases.* call.
+  //
+  // RevenueCat issues a separate public API key per app per platform, so four
+  // are needed here: two editions × iOS/Android. One key cannot serve them
+  // all. Fill each in from RevenueCat → Project settings → API keys once that
+  // platform's "App" exists there (which in turn needs the real subscription
+  // products created in App Store Connect / Play Console first — see
+  // native/launch/README.md).
+  //
+  // Until then every slot falls back to the shared Test Store key. That key
+  // exercises the sandbox purchase flow end to end, which is what makes the
+  // buttons testable now, but it cannot complete a real transaction — so
+  // shipping a build that still falls back is a launch blocker, not a
+  // cosmetic TODO. The warning below is how you catch that in the console.
+  const REVENUECAT_TEST_STORE_KEY = "test_VQrtGTPbcDneqyOmqSGrGJwIeQe";
+  const REVENUECAT_KEYS = {
+    gr: { ios: "", android: "" },
+    en: { ios: "", android: "" },
+  };
+
+  function revenueCatApiKey() {
+    const edition = window.__appLang === "en" ? "en" : "gr";
+    const key = (REVENUECAT_KEYS[edition] || {})[platform];
+    if (key) return key;
+    console.warn(
+      "[native-bridge] No real RevenueCat key for " + edition + "/" + platform +
+      " — falling back to the Test Store key. Sandbox purchases work; real purchases do not."
+    );
+    return REVENUECAT_TEST_STORE_KEY;
+  }
+
   if (Purchases) {
     try {
-      Purchases.configure({ apiKey: REVENUECAT_API_KEY });
+      Purchases.configure({ apiKey: revenueCatApiKey() });
     } catch (err) {
       console.error("[native-bridge] Purchases.configure failed", err);
     }

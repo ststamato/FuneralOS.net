@@ -5,7 +5,7 @@
   <key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>en</string>
+	<string>el</string>
 	<key>CFBundleDisplayName</key>
         <string>FuneralOS</string>
 	<key>CFBundleExecutable</key>
@@ -22,6 +22,12 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Η FuneralOS χρησιμοποιεί την κάμερα για να φωτογραφίζετε έγγραφα — πιστοποιητικά θανάτου, άδειες ταφής, συμβόλαια — και να τα επισυνάπτετε στον φάκελο μιας τελετής.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Η FuneralOS χρειάζεται πρόσβαση στις φωτογραφίες για να επισυνάπτετε έγγραφα ή εικόνες που έχετε ήδη στη συσκευή σας στον φάκελο μιας τελετής.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>CFBundleURLTypes</key>
@@ -60,7 +66,7 @@
 	<string>Main</string>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
-		<string>armv7</string>
+		<string>arm64</string>
 	</array>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
