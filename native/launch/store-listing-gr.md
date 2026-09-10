@@ -22,8 +22,13 @@ FuneralOS — Γραφείο Τελετών
 ```
 
 **Keywords** (100 max, comma-separated, no spaces after commas)
+
+> The `AI` here must stay **Latin A + I**. It was previously written with
+> Greek Άλφα + Ιώτα, which is visually identical and matches nothing — a
+> search for "AI" would never have returned the app.
+
 ```
-γραφείο κηδειών,τελετές,κηδεία,αποθήκη φερέτρων,διαχείριση γραφείου,ΑΙ βοηθός,προμηθευτές
+γραφείο κηδειών,τελετές,κηδεία,αποθήκη φερέτρων,διαχείριση γραφείου,AI βοηθός,hermes,προμηθευτές
 ```
 
 **Description** (4000 max)
@@ -58,7 +63,7 @@ CLOUD SYNC
 
 **What's new in this version** (4000 max — first release copy)
 ```
-Πρώτη κυκλοφορία του FuneralOS για iPhone & iPad. Διαχείριση τελετών, αποθήκης και προμηθευτών, με πλήρη υποστήριξη offline και συγχρονισμό στο cloud.
+Πρώτη κυκλοφορία του FuneralOS. Διαχείριση τελετών, αποθήκης και προμηθευτών, με συγχρονισμό στο cloud σε όλες τις συσκευές σου.
 ```
 
 ## Google Play Console (play.google.com/console → this app → Store presence → Main store listing)

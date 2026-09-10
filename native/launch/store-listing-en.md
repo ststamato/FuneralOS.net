@@ -55,7 +55,7 @@ SMART OPS DIRECTOR
 A live ops score, smart alerts and a daily briefing generated from your active cases.
 
 CLOUD SYNC + OFFLINE
-Your data syncs instantly across devices. A smart offline queue retries automatically when signal returns.
+Your data syncs across devices automatically. Lose signal mid-edit and your work is held locally, then synced the moment you are back online.
 
 TEAM COLLABORATION
 Invite directors, assistants and staff. Role-based access (Admin / Editor) keeps everyone in sync. Up to 5 members on Pro, unlimited on Business.
@@ -70,7 +70,7 @@ Cancel anytime. Upgrade or downgrade whenever you need to.
 
 **What's new in this version** (4000 max — first release copy)
 ```
-First release of FuneralOS for iPhone & iPad — case management, document tracking, staff and fleet, with full offline support and cloud sync.
+First release of FuneralOS — case management, document tracking, staff and fleet, with cloud sync across all your devices.
 ```
 
 ## Google Play Console
