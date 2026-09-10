@@ -46,9 +46,22 @@ vendor_supabase() {
 # error is invisible: the app just sits on its loading overlay and the Xcode
 # console says only "JS Eval error A JavaScript exception occurred", with no
 # message, file, or line. See the header comment in saas/native-boot-debug.js.
+#
+# The error/rejection handlers always ship — a legible error beats a blank
+# app for a real user too. The developer-facing badge and stall dump only
+# turn on with FOS_DEBUG=1, so a store build never carries them:
+#
+#   ./native/build-www.sh              # production
+#   FOS_DEBUG=1 ./native/build-www.sh  # + on-screen badge and stall dump
 inject_boot_debug() {
   local dest="$1"
   cp "$SAAS/native-boot-debug.js" "$dest/"
+  if [ "${FOS_DEBUG:-0}" = "1" ]; then
+    perl -pi -e 's{^  var VERBOSE = false;$}{  var VERBOSE = true;};' \
+      "$dest/native-boot-debug.js"
+    grep -q 'var VERBOSE = true;' "$dest/native-boot-debug.js" \
+      || { echo "FOS_DEBUG=1 but VERBOSE flag not found — check native-boot-debug.js" >&2; exit 1; }
+  fi
   perl -0pi \
     -e 's{<head>}{<head>\n  <script src="native-boot-debug.js"></script>};' \
     "$dest/index.html"

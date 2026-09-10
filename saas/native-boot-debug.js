@@ -18,6 +18,12 @@
   var t0 = Date.now();
   var shown = false;
 
+  // Flipped to true by native/build-www.sh when built with FOS_DEBUG=1.
+  // Off (the default, and what ships to the stores) keeps the error and
+  // rejection handlers — a legible error on screen beats a blank app for a
+  // real user too — but drops the developer-facing badge and stall dump.
+  var VERBOSE = false;
+
   window.__FOS_BOOT_DEBUG = VERSION;
 
   function esc(s) {
@@ -33,7 +39,7 @@
   // and tapping it dumps full state on demand instead of waiting for a stall.
   var badge;
   function mountBadge() {
-    if (badge || !document.body) return;
+    if (!VERBOSE || badge || !document.body) return;
     badge = document.createElement("div");
     badge.style.cssText =
       "position:fixed;top:0;left:0;right:0;z-index:2147483646;background:#c8a96e;" +
@@ -162,6 +168,7 @@
   }
 
   setTimeout(function () {
+    if (!VERBOSE) return;
     var ov = document.getElementById("authOverlay");
     var stillLoading = ov && ov.style.display !== "none";
     if (stillLoading || !window.__authUser) dumpState("Boot stalled (6s)");
